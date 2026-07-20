@@ -806,25 +806,40 @@ select:focus {
   pointer-events: none;
 }
 
+.timeline-drawer.is-collapsed {
+  width: 28px;
+}
+
 .timeline-drawer > * {
   pointer-events: auto;
 }
 
 .timeline-drawer-rail {
-  width: 36px;
+  width: 28px;
   height: 100%;
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   border: none;
   border-left: 1px solid var(--border);
+  border-radius: 8px 0 0 8px;
   background: var(--bg-panel);
   color: var(--text-secondary);
   box-shadow: -4px 0 18px rgba(31, 42, 55, 0.08);
   cursor: pointer;
+}
+
+.timeline-drawer.is-collapsed .timeline-drawer-rail {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 47;
+  border-left-color: var(--border);
+  box-shadow: -2px 0 12px rgba(31, 42, 55, 0.1);
 }
 
 .timeline-drawer.is-open .timeline-drawer-rail {
@@ -851,7 +866,7 @@ select:focus {
 
 .timeline-drawer-panel {
   position: relative;
-  width: min(920px, calc(100vw - 36px));
+  width: min(920px, calc(100vw - 28px));
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -859,6 +874,10 @@ select:focus {
   border-left: 1px solid var(--border);
   box-shadow: -12px 0 40px rgba(31, 42, 55, 0.16);
   min-width: 0;
+}
+
+html[data-timeline="collapsed"] .app-body {
+  padding-right: 32px;
 }
 
 .timeline-dock-head {
@@ -1865,7 +1884,7 @@ select:focus {
   }
 
   .timeline-drawer-panel {
-    width: calc(100vw - 36px);
+    width: calc(100vw - 28px);
   }
 
   .timeline-quick-add {

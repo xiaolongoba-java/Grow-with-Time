@@ -123,7 +123,7 @@ export function TodayTimeline() {
 
     const raf = requestAnimationFrame(() => {
       const left = minToX(target.startMin);
-      const pad = 32;
+      const pad = 12;
       el.scrollLeft = Math.max(0, left - pad);
     });
     return () => cancelAnimationFrame(raf);
