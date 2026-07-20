@@ -1,0 +1,3 @@
+# Copy to config.toml and set linker to your MSVC link.exe (local dev only; not used in CI).
+[target.x86_64-pc-windows-msvc]
+linker = "C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\link.exe"

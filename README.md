@@ -13,6 +13,24 @@
 
 不做：云同步、在线协作。
 
+## 下载
+
+最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
+
+### v1.0.0
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow with Time_1.0.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.0.0/Grow%20with%20Time_1.0.0_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow with Time_1.0.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.0.0/Grow%20with%20Time_1.0.0_x64-setup.exe) |
+
+若 Release 尚未发布或链接不可用，可在 [GitHub Actions](https://github.com/xiaolongoba-java/Grow-with-Time/actions) 打开对应平台的最新成功构建，在页面底部 **Artifacts** 下载：
+
+- macOS：`grow-with-time-macos-aarch64`
+- Windows：`grow-with-time-windows-x64`
+
+> macOS 安装包未签名，首次打开若被拦截，请在「系统设置 → 隐私与安全性」中允许。
+
 ## 开发
 
 需已安装 Visual Studio Build Tools（MSVC）与 Rust。
@@ -22,7 +40,7 @@ npm install
 npm run tauri dev
 ```
 
-若链接器冲突（Git 的 `link.exe`），确保 `src-tauri/.cargo/config.toml` 指向本机 MSVC `link.exe`。
+若链接器冲突（Git 的 `link.exe`），复制 `src-tauri/.cargo/config.toml.example` 为 `config.toml`，并指向本机 MSVC 的 `link.exe`（该文件已加入 `.gitignore`，不会影响 CI）。
 
 ## 构建
 
