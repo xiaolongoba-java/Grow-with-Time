@@ -28,12 +28,8 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
-      - name: Build Tauri
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: --bundles nsis
+      - name: Build Tauri (NSIS)
+        run: npm run tauri build -- --bundles nsis
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
