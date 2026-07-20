@@ -1,0 +1,548 @@
+import { useEffect, useRef, useState } from "react";
+import { useAppStore } from "@/store/app";
+import { getSubtasks, subtaskProgress } from "@/lib/tasks";
+import { parseRepeatRule, stringifyRepeatRule } from "@/lib/repeat";
+import type { Attachment, RepeatRule, TaskPriority } from "@/types";
+import { open } from "@tauri-apps/plugin-dialog";
+import { TimeRangeFields, defaultTimeRange } from "@/components/TimePicker";
+import { PomodoroPanel } from "@/components/PomodoroPanel";
+import {
+  ensureEndAfterStart,
+  formatTimeRange,
+  nowTimeString,
+} from "@/lib/dates";
+
+type Mode = "view" | "edit";
+
+const PRIORITY_LABEL: Record<number, string> = {
+  1: "P1 紧急",
+  2: "P2 高",
+  3: "P3 普通",
+  4: "P4 低",
+};
+
+function repeatLabel(rule: string | null): string {
+  const r = parseRepeatRule(rule);
+  if (!r) return "不重复";
+  if (r.frequency === "daily") return "每天";
+  if (r.frequency === "weekly") return "每周";
+  if (r.frequency === "monthly") return "每月";
+  if (r.frequency === "custom") return "每月最后周五";
+  return "不重复";
+}
+
+export function DetailDrawer() {
+  const tasks = useAppStore((s) => s.tasks);
+  const tags = useAppStore((s) => s.tags);
+  const tagMap = useAppStore((s) => s.tagMap);
+  const selectedTaskId = useAppStore((s) => s.selectedTaskId);
+  const selectTask = useAppStore((s) => s.selectTask);
+  const saveTask = useAppStore((s) => s.saveTask);
+  const deleteTask = useAppStore((s) => s.deleteTask);
+  const addTask = useAppStore((s) => s.addTask);
+  const setTaskTags = useAppStore((s) => s.setTaskTags);
+  const setToast = useAppStore((s) => s.setToast);
+  const attachments = useAppStore((s) => s.attachments);
+  const loadAttachments = useAppStore((s) => s.loadAttachments);
+  const addAttachment = useAppStore((s) => s.addAttachment);
+  const removeAttachment = useAppStore((s) => s.removeAttachment);
+  const toggleComplete = useAppStore((s) => s.toggleComplete);
+  const setFocusTask = useAppStore((s) => s.setFocusTask);
+  const focusTaskId = useAppStore((s) => s.focusTaskId);
+
+  const task = tasks.find((t) => t.id === selectedTaskId) ?? null;
+
+  const [mode, setMode] = useState<Mode>("view");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [notes, setNotes] = useState("");
+  const [priority, setPriority] = useState<TaskPriority>(3);
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [remind, setRemind] = useState("");
+  const [repeat, setRepeat] = useState<RepeatRule | null>(null);
+  const [subTitle, setSubTitle] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const loadedId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!task) {
+      loadedId.current = null;
+      setMode("view");
+      return;
+    }
+    if (loadedId.current === task.id) return;
+    loadedId.current = task.id;
+    setMode("view");
+    hydrateFromTask();
+    void loadAttachments(task.id);
+    if (focusTaskId !== task.id) setFocusTask(task.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.id]);
+
+  const hydrateFromTask = () => {
+    if (!task) return;
+    setTitle(task.title);
+    setDescription(task.description);
+    setNotes(task.notes);
+    setPriority(task.priority);
+    const range = defaultTimeRange();
+    setDueDate(task.due_date ?? "");
+    setDueTime(task.due_time ?? range.start);
+    setEndTime(
+      task.end_time ??
+        ensureEndAfterStart(task.due_time ?? range.start, null),
+    );
+    setRemind(task.remind_minutes != null ? String(task.remind_minutes) : "");
+    setRepeat(parseRepeatRule(task.repeat_rule));
+  };
+
+  const enterEdit = () => {
+    hydrateFromTask();
+    setMode("edit");
+  };
+
+  const cancelEdit = () => {
+    hydrateFromTask();
+    setMode("view");
+  };
+
+  const persist = async () => {
+    if (!task || saving) return false;
+    const nextTitle = title.trim() || "新任务";
+    const start = dueTime || nowTimeString();
+    const end = ensureEndAfterStart(start, endTime);
+    setSaving(true);
+    try {
+      await saveTask(task.id, {
+        title: nextTitle,
+        description,
+        notes,
+        priority,
+        due_date: dueDate || null,
+        due_time: start,
+        end_time: end,
+        remind_minutes: remind ? Number(remind) : null,
+        repeat_rule: stringifyRepeatRule(repeat),
+      });
+      setToast("已保存");
+      setMode("view");
+      return true;
+    } catch {
+      setToast("保存失败");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!task) return null;
+
+  const subs = getSubtasks(tasks, task.id);
+  const progress = subtaskProgress(tasks, task.id);
+  const selectedTags = tagMap[task.id] ?? [];
+  const taskTags = tags.filter((t) => selectedTags.includes(t.id));
+  const timeText = formatTimeRange(task.due_time, task.end_time);
+
+  const pickFile = async () => {
+    const selected = await open({ multiple: false });
+    if (!selected || Array.isArray(selected)) return;
+    const name = selected.split(/[/\\]/).pop() ?? selected;
+    await addAttachment(task.id, { kind: "file", name, path: selected });
+  };
+
+  return (
+    <aside className="detail-panel">
+      <div className="panel-head">
+        <h3>{mode === "view" ? "任务详情" : "编辑任务"}</h3>
+        <div className="detail-head-actions">
+          {mode === "view" ? (
+            <button type="button" className="btn-ghost" onClick={enterEdit}>
+              编辑
+            </button>
+          ) : (
+            <button type="button" className="btn-ghost" onClick={cancelEdit}>
+              取消
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => selectTask(null)}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {mode === "view" ? (
+        <div className="detail-body detail-view">
+          <div className="detail-view-hero">
+            <button
+              type="button"
+              className={`task-check ${task.status === "completed" ? "is-done" : ""}`}
+              title={task.status === "completed" ? "标为未完成" : "标为完成"}
+              onClick={() => void toggleComplete(task.id)}
+            >
+              {task.status === "completed" ? "✓" : ""}
+            </button>
+            <h2 className="detail-view-title">{task.title}</h2>
+          </div>
+
+          {task.description ? (
+            <p className="detail-view-desc">{task.description}</p>
+          ) : null}
+
+          <div className="detail-meta-grid">
+            <div className="detail-meta">
+              <span className="field-label">日期</span>
+              <strong>{task.due_date ?? "未设置"}</strong>
+            </div>
+            <div className="detail-meta">
+              <span className="field-label">时间</span>
+              <strong>{timeText || "未设置"}</strong>
+            </div>
+            <div className="detail-meta">
+              <span className="field-label">优先级</span>
+              <strong className={`prio p${task.priority}`}>
+                {PRIORITY_LABEL[task.priority] ?? `P${task.priority}`}
+              </strong>
+            </div>
+            <div className="detail-meta">
+              <span className="field-label">提醒</span>
+              <strong>
+                {task.remind_minutes != null
+                  ? `提前 ${task.remind_minutes} 分钟`
+                  : "无"}
+              </strong>
+            </div>
+            <div className="detail-meta">
+              <span className="field-label">重复</span>
+              <strong>{repeatLabel(task.repeat_rule)}</strong>
+            </div>
+          </div>
+
+          {taskTags.length > 0 ? (
+            <div>
+              <span className="field-label">标签</span>
+              <div className="tag-pills">
+                {taskTags.map((tag) => (
+                  <span key={tag.id} className="tag-pill on">
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {task.notes ? (
+            <div>
+              <span className="field-label">备注</span>
+              <p className="detail-view-notes">{task.notes}</p>
+            </div>
+          ) : null}
+
+          <PomodoroPanel compact boundTaskId={task.id} />
+
+          {subs.length > 0 ? (
+            <div>
+              <span className="field-label">
+                子任务 · {Math.round(progress * 100)}%
+              </span>
+              <div className="progress-bar" style={{ marginBottom: 8 }}>
+                <span style={{ width: `${Math.round(progress * 100)}%` }} />
+              </div>
+              <div className="subtask-list">
+                {subs.map((sub) => (
+                  <div key={sub.id} className="subtask-item">
+                    <button
+                      type="button"
+                      className="task-check"
+                      onClick={() => void toggleComplete(sub.id)}
+                    >
+                      {sub.status === "completed" ? "✓" : ""}
+                    </button>
+                    <span
+                      style={{
+                        flex: 1,
+                        textDecoration:
+                          sub.status === "completed" ? "line-through" : "none",
+                      }}
+                    >
+                      {sub.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {attachments.length > 0 ? (
+            <div>
+              <span className="field-label">附件</span>
+              {attachments.map((a: Attachment) => (
+                <div key={a.id} className="subtask-item">
+                  <span style={{ flex: 1, fontSize: 12 }}>
+                    {a.kind}: {a.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={enterEdit}
+          >
+            编辑任务
+          </button>
+        </div>
+      ) : (
+        <div className="detail-body">
+          <div>
+            <label className="field-label">标题</label>
+            <input
+              className="field"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="field-label">描述</label>
+            <textarea
+              className="field"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="field-label">截止日期</label>
+            <input
+              className="field"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+          <TimeRangeFields
+            start={dueTime}
+            end={endTime}
+            onStartChange={setDueTime}
+            onEndChange={setEndTime}
+          />
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
+          >
+            <div>
+              <label className="field-label">优先级</label>
+              <select
+                className="field"
+                value={priority}
+                onChange={(e) =>
+                  setPriority(Number(e.target.value) as TaskPriority)
+                }
+              >
+                <option value={1}>P1</option>
+                <option value={2}>P2</option>
+                <option value={3}>P3</option>
+                <option value={4}>P4</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label">提前提醒(分钟)</label>
+              <input
+                className="field"
+                type="number"
+                min={0}
+                value={remind}
+                onChange={(e) => setRemind(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="field-label">重复</label>
+            <select
+              className="field"
+              value={repeat?.frequency ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) setRepeat(null);
+                else if (v === "custom")
+                  setRepeat({
+                    frequency: "custom",
+                    interval: 1,
+                    nthWeekday: { n: -1, weekday: 5 },
+                  });
+                else
+                  setRepeat({
+                    frequency: v as RepeatRule["frequency"],
+                    interval: 1,
+                  });
+              }}
+            >
+              <option value="">不重复</option>
+              <option value="daily">每天</option>
+              <option value="weekly">每周</option>
+              <option value="monthly">每月</option>
+              <option value="custom">每月最后周五</option>
+            </select>
+          </div>
+          <div>
+            <label className="field-label">备注</label>
+            <textarea
+              className="field"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="field-label">标签</label>
+            <div className="tag-pills">
+              {tags.map((tag) => {
+                const on = selectedTags.includes(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    className={`tag-pill ${on ? "on" : ""}`}
+                    onClick={() => {
+                      const next = on
+                        ? selectedTags.filter((id) => id !== tag.id)
+                        : [...selectedTags, tag.id];
+                      void setTaskTags(task.id, next);
+                    }}
+                  >
+                    {tag.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="field-label">
+              子任务 {subs.length ? `· ${Math.round(progress * 100)}%` : ""}
+            </label>
+            {subs.length > 0 && (
+              <div className="progress-bar" style={{ marginBottom: 8 }}>
+                <span style={{ width: `${Math.round(progress * 100)}%` }} />
+              </div>
+            )}
+            <div className="subtask-list">
+              {subs.map((sub) => (
+                <div key={sub.id} className="subtask-item">
+                  <button
+                    type="button"
+                    className="task-check"
+                    onClick={() => void toggleComplete(sub.id)}
+                  >
+                    {sub.status === "completed" ? "✓" : ""}
+                  </button>
+                  <span style={{ flex: 1 }}>{sub.title}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  className="field"
+                  placeholder="添加子任务"
+                  value={subTitle}
+                  onChange={(e) => setSubTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && subTitle.trim()) {
+                      void addTask({
+                        title: subTitle.trim(),
+                        parent_id: task.id,
+                        due_date: null,
+                        due_time: null,
+                      });
+                      setSubTitle("");
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="field-label">附件</label>
+            <div
+              className={`drop-zone ${dragOver ? "active" : ""}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const file = e.dataTransfer.files?.[0];
+                const uri = e.dataTransfer.getData("text/uri-list");
+                if (uri?.startsWith("http")) {
+                  void addAttachment(task.id, {
+                    kind: "url",
+                    name: uri,
+                    path: uri,
+                  });
+                  return;
+                }
+                if (file) {
+                  void addAttachment(task.id, {
+                    kind: "file",
+                    name: file.name,
+                    path: (file as File & { path?: string }).path || file.name,
+                  });
+                }
+              }}
+            >
+              拖拽文件/链接到此处，或
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => void pickFile()}
+              >
+                选择文件
+              </button>
+            </div>
+            {attachments.map((a: Attachment) => (
+              <div key={a.id} className="subtask-item">
+                <span style={{ flex: 1, fontSize: 12 }}>
+                  {a.kind}: {a.name}
+                </span>
+                <button
+                  type="button"
+                  className="btn-ghost danger"
+                  onClick={() => void removeAttachment(a.id)}
+                >
+                  删除
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={saving}
+            onClick={() => void persist()}
+          >
+            {saving ? "保存中…" : "保存"}
+          </button>
+
+          <button
+            type="button"
+            className="btn-ghost danger"
+            onClick={() => void deleteTask(task.id)}
+          >
+            删除到回收站
+          </button>
+        </div>
+      )}
+    </aside>
+  );
+}
