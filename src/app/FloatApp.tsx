@@ -11,6 +11,7 @@ import {
   deleteMemo,
   fetchMemos,
   fetchTasks,
+  rolloverOverdueTasks,
   toggleTaskComplete,
   updateMemo,
 } from "@/lib/db";
@@ -30,6 +31,7 @@ export function FloatApp() {
 
   const refresh = async () => {
     try {
+      await rolloverOverdueTasks();
       const [allMemos, tasks] = await Promise.all([fetchMemos(), fetchTasks()]);
       setMemos(allMemos);
       const today = todayDateString();

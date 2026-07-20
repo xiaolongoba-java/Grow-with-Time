@@ -545,6 +545,27 @@ export async function saveAiSettings(ai: AiSettings): Promise<void> {
   await setSetting("ai_model", ai.model);
 }
 
+/** Move pending dated tasks from before today to today (once per calendar day). */
+export async function rolloverOverdueTasks(): Promise<number> {
+  const db = await getDb();
+  const today = todayDateString();
+  const last = await getSetting("last_rollover_date");
+  if (last === today) return 0;
+
+  const timestamp = nowIso();
+  const result = await db.execute(
+    `UPDATE tasks SET due_date = $1, updated_at = $2
+     WHERE status = 'pending'
+       AND deleted_at IS NULL
+       AND due_date IS NOT NULL
+       AND due_date < $1
+       AND (repeat_rule IS NULL OR repeat_rule = '')`,
+    [today, timestamp],
+  );
+  await setSetting("last_rollover_date", today);
+  return result.rowsAffected ?? 0;
+}
+
 export async function bumpGamification(): Promise<{
   karma: number;
   streak: number;

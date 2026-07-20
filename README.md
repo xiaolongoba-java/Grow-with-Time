@@ -17,6 +17,13 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
+### v1.0.1
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.0.1_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.0.1/Grow.with.Time_1.0.1_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.0.1_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.0.1/Grow.with.Time_1.0.1_x64-setup.exe) |
+
 ### v1.0.0
 
 | 平台 | 文件 | 下载 |
@@ -56,7 +63,8 @@ npm run tauri build
 
 ```bash
 npm install
-npm run tauri build -- --target aarch64-apple-darwin
+python scripts/generate-dmg-assets.py   # DMG 背景图 724×464，需与 windowSize 660×400 配套
+npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
 ```
 
 产物一般在：

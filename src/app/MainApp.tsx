@@ -20,6 +20,7 @@ const NAV_COLLAPSE_KEY = "minimal.navCollapsed";
 
 export function MainApp() {
   const bootstrap = useAppStore((s) => s.bootstrap);
+  const maybeRollover = useAppStore((s) => s.maybeRollover);
   const ready = useAppStore((s) => s.ready);
   const error = useAppStore((s) => s.error);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
@@ -47,6 +48,16 @@ export function MainApp() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void maybeRollover();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [maybeRollover]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;

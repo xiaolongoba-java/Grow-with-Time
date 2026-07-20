@@ -54,6 +54,7 @@ interface AppStore {
   toast: string | null;
 
   bootstrap: () => Promise<void>;
+  maybeRollover: () => Promise<void>;
   refreshAll: () => Promise<void>;
   setNav: (nav: NavId) => void;
   setViewMode: (mode: ViewMode) => void;
@@ -141,14 +142,33 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   bootstrap: async () => {
     try {
+      const rolled = await db.rolloverOverdueTasks();
       await get().refreshAll();
       applyTheme(get().settings.theme);
-      set({ ready: true, error: null });
+      set({
+        ready: true,
+        error: null,
+        ...(rolled > 0
+          ? { toast: `已将 ${rolled} 项未完成任务顺延至今日` }
+          : {}),
+      });
     } catch (e) {
       set({
         ready: true,
         error: e instanceof Error ? e.message : "初始化失败",
       });
+    }
+  },
+
+  maybeRollover: async () => {
+    try {
+      const rolled = await db.rolloverOverdueTasks();
+      if (rolled > 0) {
+        await get().refreshAll();
+        set({ toast: `已将 ${rolled} 项未完成任务顺延至今日` });
+      }
+    } catch {
+      /* ignore rollover errors */
     }
   },
 
