@@ -36,6 +36,7 @@ export function MainApp() {
   const activeTagId = useAppStore((s) => s.activeTagId);
   const filter = useAppStore((s) => s.filter);
   const settings = useAppStore((s) => s.settings);
+  const settleTimers = useAppStore((s) => s.settleTimers);
 
   const [navCollapsed, setNavCollapsed] = useState(() => {
     try {
@@ -186,6 +187,39 @@ export function MainApp() {
     }, 60_000);
     return () => window.clearInterval(timer);
   }, [tasks, settings.notifyAhead]);
+
+  useEffect(() => {
+    const tick = window.setInterval(async () => {
+      try {
+        const fired = await settleTimers();
+        if (!fired.length) return;
+
+        let granted = await isPermissionGranted();
+        if (!granted) {
+          const perm = await requestPermission();
+          granted = perm === "granted";
+        }
+
+        for (const item of fired) {
+          const body = item.looped
+            ? `「${item.timer.title}」到点了，已开始下一轮`
+            : `「${item.timer.title}」倒计时结束`;
+          if (granted) {
+            sendNotification({ title: "定时提醒", body });
+          }
+          setToast(body);
+        }
+        try {
+          await invoke("start_timer_ui");
+        } catch {
+          /* ignore */
+        }
+      } catch {
+        /* ignore */
+      }
+    }, 1000);
+    return () => window.clearInterval(tick);
+  }, [settleTimers, setToast]);
 
   if (!ready) {
     return <div className="empty-state">加载中…</div>;

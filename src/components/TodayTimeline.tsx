@@ -86,7 +86,8 @@ export function TodayTimeline() {
         (t) =>
           !t.parent_id &&
           t.status === "pending" &&
-          t.due_date === today,
+          t.due_date !== null &&
+          t.due_date <= today,
       ),
     [tasks, today],
   );

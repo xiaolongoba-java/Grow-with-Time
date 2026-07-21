@@ -8,6 +8,7 @@
 - 子任务进度、重复任务、附件、回收站
 - 托盘常驻、开机自启、系统提醒、全局快捷键 `Ctrl/Cmd+Shift+N`
 - 专注番茄钟、习惯追踪、生产力复盘、Karma/连击
+- 循环提醒与事项倒计时（桌面浮窗、系统通知）
 - JSON / CSV 导入导出备份
 - AI 拆解与智能排期（设置中配置 OpenAI 兼容 API Key；未配置则禁用）
 
@@ -16,6 +17,13 @@
 ## 下载
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
+
+### v1.0.2
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.0.2_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.0.2/Grow.with.Time_1.0.2_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.0.2_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.0.2/Grow.with.Time_1.0.2_x64-setup.exe) |
 
 ### v1.0.1
 
@@ -62,7 +70,7 @@ npm run tauri build
 **A. 在 M 系列 Mac 本机打包**
 
 ```bash
-npm install
+npm install 
 python scripts/generate-dmg-assets.py   # DMG 背景图 724×464，需与 windowSize 660×400 配套
 npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
 ```

@@ -116,6 +116,8 @@ export function getEmptyMessage(view: string): string {
       return "还没有完成的任务。";
     case "habits":
       return "创建第一个习惯开始追踪。";
+    case "reminders":
+      return "还没有提醒，创建一个循环倒计时吧。";
     case "trash":
       return "回收站是空的。";
     default:
@@ -133,6 +135,7 @@ export function getViewTitle(view: string): string {
     calendar: "日历",
     tags: "标签",
     habits: "习惯",
+    reminders: "提醒",
     memos: "备忘录",
     review: "复盘",
     trash: "回收站",

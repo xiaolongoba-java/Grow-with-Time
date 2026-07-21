@@ -11,29 +11,41 @@ import {
   deleteMemo,
   fetchMemos,
   fetchTasks,
+  fetchTimers,
+  pauseTimer,
+  resetTimer,
   rolloverOverdueTasks,
+  startTimer,
   toggleTaskComplete,
   updateMemo,
 } from "@/lib/db";
 import { formatDueDate, isOverdue, todayDateString } from "@/lib/dates";
 import { parseNaturalInput } from "@/lib/nlp";
-import type { Memo, Task } from "@/types";
+import { formatCountdown, liveRemaining } from "@/lib/timers";
+import type { Memo, Task, Timer } from "@/types";
 
 export function FloatApp() {
-  const [tab, setTab] = useState<"todo" | "memo">("todo");
+  const [tab, setTab] = useState<"todo" | "memo" | "timer">("todo");
   const [memoText, setMemoText] = useState("");
   const [taskText, setTaskText] = useState("");
   const [memos, setMemos] = useState<Memo[]>([]);
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
+  const [timers, setTimers] = useState<Timer[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [, setTick] = useState(0);
 
   const refresh = async () => {
     try {
       await rolloverOverdueTasks();
-      const [allMemos, tasks] = await Promise.all([fetchMemos(), fetchTasks()]);
+      const [allMemos, tasks, allTimers] = await Promise.all([
+        fetchMemos(),
+        fetchTasks(),
+        fetchTimers(),
+      ]);
       setMemos(allMemos);
+      setTimers(allTimers);
       const today = todayDateString();
       setTodayTasks(
         tasks.filter(
@@ -53,19 +65,29 @@ export function FloatApp() {
   useEffect(() => {
     document.documentElement.dataset.theme ||= "system";
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 15_000);
-    let unlisten: (() => void) | undefined;
+    const poll = window.setInterval(() => void refresh(), 5_000);
+    const tick = window.setInterval(() => setTick((n) => n + 1), 1000);
+    let unlistenFocus: (() => void) | undefined;
+    let unlistenTimer: (() => void) | undefined;
     void listen("float:focus", () => {
       const input = document.querySelector<HTMLInputElement>(
         tab === "memo" ? ".float-input" : ".float-task-input",
       );
       input?.focus();
     }).then((fn) => {
-      unlisten = fn;
+      unlistenFocus = fn;
+    });
+    void listen("float:timer", () => {
+      setTab("timer");
+      void refresh();
+    }).then((fn) => {
+      unlistenTimer = fn;
     });
     return () => {
-      window.clearInterval(timer);
-      unlisten?.();
+      window.clearInterval(poll);
+      window.clearInterval(tick);
+      unlistenFocus?.();
+      unlistenTimer?.();
     };
   }, [tab]);
 
@@ -77,6 +99,17 @@ export function FloatApp() {
 
   const pinned = useMemo(() => memos.filter((m) => m.pinned), [memos]);
   const others = useMemo(() => memos.filter((m) => !m.pinned), [memos]);
+
+  const activeTimers = useMemo(() => {
+    return [...timers]
+      .filter((t) => t.enabled)
+      .sort((a, b) => {
+        if (a.running !== b.running) return b.running - a.running;
+        return liveRemaining(a) - liveRemaining(b);
+      });
+  }, [timers]);
+
+  const primaryTimer = activeTimers.find((t) => t.running) ?? activeTimers[0] ?? null;
 
   const hideFloat = () => {
     void invoke("hide_float").catch(() => {
@@ -127,7 +160,11 @@ export function FloatApp() {
     <div className="float-shell">
       <header className="float-titlebar" data-tauri-drag-region>
         <strong data-tauri-drag-region>
-          {tab === "todo" ? `今日待办 · ${sortedToday.length}` : "备忘录"}
+          {tab === "todo"
+            ? `今日待办 · ${sortedToday.length}`
+            : tab === "timer"
+              ? "倒计时"
+              : "备忘录"}
         </strong>
         <div className="float-actions">
           <button
@@ -166,6 +203,13 @@ export function FloatApp() {
         </button>
         <button
           type="button"
+          className={tab === "timer" ? "active" : ""}
+          onClick={() => setTab("timer")}
+        >
+          倒计时
+        </button>
+        <button
+          type="button"
           className={tab === "memo" ? "active" : ""}
           onClick={() => setTab("memo")}
         >
@@ -181,6 +225,80 @@ export function FloatApp() {
           <button type="button" className="btn-primary" onClick={() => void refresh()}>
             重试
           </button>
+        </div>
+      ) : tab === "timer" ? (
+        <div className="float-body float-timer-body">
+          {primaryTimer ? (
+            <>
+              <p className="float-timer-kicker">
+                {primaryTimer.kind === "interval" ? "循环提醒" : "事项倒计时"}
+                {primaryTimer.running ? " · 进行中" : " · 已暂停"}
+              </p>
+              <div
+                className="float-timer-ring"
+                style={{
+                  ["--p" as string]: String(
+                    Math.min(
+                      1,
+                      Math.max(
+                        0,
+                        1 -
+                          liveRemaining(primaryTimer) /
+                            Math.max(1, primaryTimer.interval_sec),
+                      ),
+                    ),
+                  ),
+                }}
+              >
+                <p className="float-timer-clock">
+                  {formatCountdown(liveRemaining(primaryTimer))}
+                </p>
+              </div>
+              <p className="float-timer-title">{primaryTimer.title}</p>
+              <div className="float-timer-actions">
+                {primaryTimer.running ? (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => void pauseTimer(primaryTimer.id).then(refresh)}
+                  >
+                    暂停
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => void startTimer(primaryTimer.id).then(refresh)}
+                  >
+                    继续
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => void resetTimer(primaryTimer.id).then(refresh)}
+                >
+                  重置
+                </button>
+              </div>
+              {activeTimers.length > 1 ? (
+                <div className="float-timer-list">
+                  {activeTimers
+                    .filter((t) => t.id !== primaryTimer.id)
+                    .map((t) => (
+                      <div key={t.id} className="float-timer-item">
+                        <span>{t.title}</span>
+                        <strong>{formatCountdown(liveRemaining(t))}</strong>
+                      </div>
+                    ))}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="empty-state" style={{ padding: 16 }}>
+              暂无进行中的提醒
+            </div>
+          )}
         </div>
       ) : tab === "todo" ? (
         <div className="float-body">

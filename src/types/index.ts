@@ -13,6 +13,7 @@ export type NavId =
   | "calendar"
   | "tags"
   | "habits"
+  | "reminders"
   | "review"
   | "memos"
   | "trash"
@@ -107,6 +108,32 @@ export interface Memo {
   pinned: number;
   created_at: string;
   updated_at: string;
+}
+
+export type TimerKind = "interval" | "task";
+
+export interface Timer {
+  id: string;
+  kind: TimerKind;
+  title: string;
+  interval_sec: number;
+  remaining_sec: number;
+  running: number;
+  enabled: number;
+  task_id: string | null;
+  ends_at: string | null;
+  last_fired_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimerDraft {
+  kind: TimerKind;
+  title: string;
+  interval_sec: number;
+  task_id?: string | null;
+  /** If true, start running immediately. */
+  start?: boolean;
 }
 
 export interface TaskDraft {

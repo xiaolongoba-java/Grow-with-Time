@@ -13,12 +13,15 @@ import type {
   TaskDraft,
   TaskUpdate,
   ThemeMode,
+  Timer,
+  TimerDraft,
   ViewMode,
   DateScope,
 } from "@/types";
 import * as db from "@/lib/db";
 import { bumpGamification } from "@/lib/db";
 import { todayDateString } from "@/lib/dates";
+import { invoke } from "@tauri-apps/api/core";
 
 const emptyFilter = (): FilterState => ({
   keyword: "",
@@ -38,6 +41,7 @@ interface AppStore {
   smartLists: SmartList[];
   habits: Habit[];
   habitChecks: HabitCheck[];
+  timers: Timer[];
   attachments: Attachment[];
   settings: AppSettings;
   nav: NavId;
@@ -45,6 +49,7 @@ interface AppStore {
   dateScope: DateScope;
   calendarCursor: string;
   selectedTaskId: string | null;
+  detailPreferEdit: boolean;
   activeTagId: string | null;
   activeSmartListId: string | null;
   filter: FilterState;
@@ -60,7 +65,7 @@ interface AppStore {
   setViewMode: (mode: ViewMode) => void;
   setDateScope: (scope: DateScope) => void;
   setCalendarCursor: (date: string) => void;
-  selectTask: (id: string | null) => void;
+  selectTask: (id: string | null, opts?: { edit?: boolean }) => void;
   setActiveTag: (id: string | null) => void;
   setFilter: (patch: Partial<FilterState>) => void;
   setToast: (msg: string | null) => void;
@@ -92,6 +97,14 @@ interface AppStore {
   removeHabit: (id: string) => Promise<void>;
   toggleHabitDay: (habitId: string, date: string) => Promise<void>;
 
+  addTimer: (draft: TimerDraft) => Promise<Timer | null>;
+  startTimer: (id: string) => Promise<void>;
+  pauseTimer: (id: string) => Promise<void>;
+  resetTimer: (id: string) => Promise<void>;
+  removeTimer: (id: string) => Promise<void>;
+  refreshTimers: () => Promise<void>;
+  settleTimers: () => Promise<db.FiredTimer[]>;
+
   setTheme: (theme: ThemeMode) => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   saveAi: (ai: AiSettings) => Promise<void>;
@@ -116,6 +129,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   smartLists: [],
   habits: [],
   habitChecks: [],
+  timers: [],
   attachments: [],
   settings: {
     theme: "system",
@@ -132,6 +146,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   dateScope: "day",
   calendarCursor: todayDateString(),
   selectedTaskId: null,
+  detailPreferEdit: false,
   activeTagId: null,
   activeSmartListId: null,
   filter: emptyFilter(),
@@ -142,12 +157,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   bootstrap: async () => {
     try {
+      const today = todayDateString();
       const rolled = await db.rolloverOverdueTasks();
       await get().refreshAll();
       applyTheme(get().settings.theme);
       set({
         ready: true,
         error: null,
+        calendarCursor: today,
         ...(rolled > 0
           ? { toast: `已将 ${rolled} 项未完成任务顺延至今日` }
           : {}),
@@ -162,10 +179,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   maybeRollover: async () => {
     try {
+      const today = todayDateString();
       const rolled = await db.rolloverOverdueTasks();
-      if (rolled > 0) {
-        await get().refreshAll();
-        set({ toast: `已将 ${rolled} 项未完成任务顺延至今日` });
+      const onTodayNav = get().nav === "today";
+      const cursorStale = get().calendarCursor !== today;
+      if (rolled > 0 || (onTodayNav && cursorStale)) {
+        if (rolled > 0) await get().refreshAll();
+        set({
+          ...(onTodayNav || rolled > 0 ? { calendarCursor: today } : {}),
+          ...(rolled > 0
+            ? { toast: `已将 ${rolled} 项未完成任务顺延至今日` }
+            : {}),
+        });
       }
     } catch {
       /* ignore rollover errors */
@@ -181,6 +206,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       smartLists,
       habits,
       habitChecks,
+      timers,
       settings,
     ] = await Promise.all([
       db.fetchTasks(),
@@ -190,6 +216,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       db.fetchSmartLists(),
       db.fetchHabits(),
       db.fetchHabitChecks(),
+      db.fetchTimers(),
       db.loadAppSettings(),
     ]);
     set({
@@ -200,6 +227,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       smartLists,
       habits,
       habitChecks,
+      timers,
       settings,
     });
   },
@@ -226,7 +254,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setViewMode: (viewMode) => set({ viewMode }),
   setDateScope: (dateScope) => set({ dateScope }),
   setCalendarCursor: (calendarCursor) => set({ calendarCursor }),
-  selectTask: (selectedTaskId) => set({ selectedTaskId }),
+  selectTask: (selectedTaskId, opts) =>
+    set({
+      selectedTaskId,
+      detailPreferEdit: Boolean(opts?.edit),
+    }),
   setActiveTag: (activeTagId) => set({ activeTagId, nav: "tags" }),
   setFilter: (patch) => set({ filter: { ...get().filter, ...patch } }),
   setToast: (toast) => set({ toast }),
@@ -353,6 +385,67 @@ export const useAppStore = create<AppStore>((set, get) => ({
   toggleHabitDay: async (habitId, date) => {
     await db.toggleHabitCheck(habitId, date);
     await get().refreshAll();
+  },
+
+  addTimer: async (draft) => {
+    try {
+      const timer = await db.createTimer(draft);
+      await get().refreshTimers();
+      if (draft.start) {
+        try {
+          await invoke("start_timer_ui");
+        } catch {
+          /* ignore if not in tauri */
+        }
+        set({ toast: `「${timer.title}」已开始，主窗口已最小化` });
+      } else {
+        set({ toast: "已创建提醒" });
+      }
+      return timer;
+    } catch (e) {
+      set({ toast: e instanceof Error ? e.message : "创建提醒失败" });
+      return null;
+    }
+  },
+
+  startTimer: async (id) => {
+    await db.startTimer(id);
+    await get().refreshTimers();
+    try {
+      await invoke("start_timer_ui");
+    } catch {
+      /* ignore */
+    }
+    const t = get().timers.find((x) => x.id === id);
+    set({ toast: t ? `「${t.title}」已开始，主窗口已最小化` : "提醒已开始" });
+  },
+
+  pauseTimer: async (id) => {
+    await db.pauseTimer(id);
+    await get().refreshTimers();
+  },
+
+  resetTimer: async (id) => {
+    await db.resetTimer(id);
+    await get().refreshTimers();
+  },
+
+  removeTimer: async (id) => {
+    await db.deleteTimer(id);
+    await get().refreshTimers();
+  },
+
+  refreshTimers: async () => {
+    const timers = await db.fetchTimers();
+    set({ timers });
+  },
+
+  settleTimers: async () => {
+    const fired = await db.settleExpiredTimers();
+    if (fired.length) {
+      await get().refreshTimers();
+    }
+    return fired;
   },
 
   setTheme: async (theme) => {

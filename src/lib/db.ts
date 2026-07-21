@@ -13,9 +13,11 @@ import type {
   TaskDraft,
   TaskUpdate,
   ThemeMode,
+  Timer,
+  TimerDraft,
 } from "@/types";
 import { createId, DB_URL, nowIso, nowTimeString, addMinutesToTime, ensureEndAfterStart, todayDateString } from "@/lib/dates";
-import { nextOccurrence } from "@/lib/repeat";
+import { nextOccurrence, parseRepeatRule } from "@/lib/repeat";
 
 let dbPromise: Promise<Database> | null = null;
 
@@ -34,6 +36,24 @@ export async function getDb(): Promise<Database> {
         );
       } catch {
         /* already exists */
+      }
+      try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS timers (
+          id TEXT PRIMARY KEY,
+          kind TEXT NOT NULL,
+          title TEXT NOT NULL,
+          interval_sec INTEGER NOT NULL,
+          remaining_sec INTEGER NOT NULL,
+          running INTEGER NOT NULL DEFAULT 0,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          task_id TEXT,
+          ends_at TEXT,
+          last_fired_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`);
+      } catch {
+        /* ignore */
       }
       return db;
     });
@@ -545,25 +565,36 @@ export async function saveAiSettings(ai: AiSettings): Promise<void> {
   await setSetting("ai_model", ai.model);
 }
 
-/** Move pending dated tasks from before today to today (once per calendar day). */
+/** Move pending dated tasks from before today to today. Idempotent; safe to call often. */
 export async function rolloverOverdueTasks(): Promise<number> {
   const db = await getDb();
   const today = todayDateString();
-  const last = await getSetting("last_rollover_date");
-  if (last === today) return 0;
 
-  const timestamp = nowIso();
-  const result = await db.execute(
-    `UPDATE tasks SET due_date = $1, updated_at = $2
+  const rows = await db.select<{ id: string; repeat_rule: string | null }[]>(
+    `SELECT id, repeat_rule FROM tasks
      WHERE status = 'pending'
        AND deleted_at IS NULL
        AND due_date IS NOT NULL
-       AND due_date < $1
-       AND (repeat_rule IS NULL OR repeat_rule = '')`,
-    [today, timestamp],
+       AND due_date < $1`,
+    [today],
   );
+
+  const ids = rows
+    .filter((row) => !parseRepeatRule(row.repeat_rule))
+    .map((row) => row.id);
+
+  if (ids.length === 0) return 0;
+
+  const timestamp = nowIso();
+  for (const id of ids) {
+    await db.execute(
+      "UPDATE tasks SET due_date = $1, updated_at = $2 WHERE id = $3",
+      [today, timestamp, id],
+    );
+  }
+
   await setSetting("last_rollover_date", today);
-  return result.rowsAffected ?? 0;
+  return ids.length;
 }
 
 export async function bumpGamification(): Promise<{
@@ -671,6 +702,210 @@ export async function updateMemo(
 export async function deleteMemo(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM memos WHERE id=$1", [id]);
+}
+
+/* Timers / 定时提醒 */
+function mapTimer(row: Timer): Timer {
+  return {
+    ...row,
+    kind: row.kind === "task" ? "task" : "interval",
+    task_id: row.task_id ?? null,
+    ends_at: row.ends_at ?? null,
+    last_fired_at: row.last_fired_at ?? null,
+    running: Number(row.running) ? 1 : 0,
+    enabled: Number(row.enabled) ? 1 : 0,
+  };
+}
+
+export async function fetchTimers(): Promise<Timer[]> {
+  const db = await getDb();
+  const rows = await db.select<Timer[]>(
+    "SELECT * FROM timers ORDER BY running DESC, updated_at DESC",
+  );
+  return rows.map(mapTimer);
+}
+
+export async function createTimer(draft: TimerDraft): Promise<Timer> {
+  const db = await getDb();
+  const now = nowIso();
+  const start = Boolean(draft.start);
+  const endsAt = start
+    ? new Date(Date.now() + draft.interval_sec * 1000).toISOString()
+    : null;
+  const timer: Timer = {
+    id: createId(),
+    kind: draft.kind,
+    title: draft.title.trim() || "提醒",
+    interval_sec: Math.max(5, Math.floor(draft.interval_sec)),
+    remaining_sec: Math.max(5, Math.floor(draft.interval_sec)),
+    running: start ? 1 : 0,
+    enabled: 1,
+    task_id: draft.task_id ?? null,
+    ends_at: endsAt,
+    last_fired_at: null,
+    created_at: now,
+    updated_at: now,
+  };
+  await db.execute(
+    `INSERT INTO timers (
+      id, kind, title, interval_sec, remaining_sec, running, enabled,
+      task_id, ends_at, last_fired_at, created_at, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+    [
+      timer.id,
+      timer.kind,
+      timer.title,
+      timer.interval_sec,
+      timer.remaining_sec,
+      timer.running,
+      timer.enabled,
+      timer.task_id,
+      timer.ends_at,
+      timer.last_fired_at,
+      timer.created_at,
+      timer.updated_at,
+    ],
+  );
+  return timer;
+}
+
+export async function updateTimer(
+  id: string,
+  patch: Partial<
+    Pick<
+      Timer,
+      | "title"
+      | "interval_sec"
+      | "remaining_sec"
+      | "running"
+      | "enabled"
+      | "ends_at"
+      | "last_fired_at"
+      | "task_id"
+    >
+  >,
+): Promise<Timer | null> {
+  const db = await getDb();
+  const rows = await db.select<Timer[]>("SELECT * FROM timers WHERE id=$1", [id]);
+  if (!rows[0]) return null;
+  const current = mapTimer(rows[0]);
+  const next: Timer = {
+    ...current,
+    ...patch,
+    updated_at: nowIso(),
+  };
+  if (patch.interval_sec != null) {
+    next.interval_sec = Math.max(5, Math.floor(patch.interval_sec));
+  }
+  await db.execute(
+    `UPDATE timers SET
+      title=$1, interval_sec=$2, remaining_sec=$3, running=$4, enabled=$5,
+      task_id=$6, ends_at=$7, last_fired_at=$8, updated_at=$9
+    WHERE id=$10`,
+    [
+      next.title,
+      next.interval_sec,
+      next.remaining_sec,
+      next.running,
+      next.enabled,
+      next.task_id,
+      next.ends_at,
+      next.last_fired_at,
+      next.updated_at,
+      id,
+    ],
+  );
+  return next;
+}
+
+export async function deleteTimer(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM timers WHERE id=$1", [id]);
+}
+
+export async function startTimer(id: string): Promise<Timer | null> {
+  const db = await getDb();
+  const rows = await db.select<Timer[]>("SELECT * FROM timers WHERE id=$1", [id]);
+  if (!rows[0]) return null;
+  const current = mapTimer(rows[0]);
+  const remaining = Math.max(5, current.remaining_sec || current.interval_sec);
+  return updateTimer(id, {
+    running: 1,
+    enabled: 1,
+    remaining_sec: remaining,
+    ends_at: new Date(Date.now() + remaining * 1000).toISOString(),
+  });
+}
+
+export async function pauseTimer(id: string): Promise<Timer | null> {
+  const db = await getDb();
+  const rows = await db.select<Timer[]>("SELECT * FROM timers WHERE id=$1", [id]);
+  if (!rows[0]) return null;
+  const current = mapTimer(rows[0]);
+  let remaining = current.remaining_sec;
+  if (current.running && current.ends_at) {
+    const end = Date.parse(current.ends_at);
+    if (!Number.isNaN(end)) {
+      remaining = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+    }
+  }
+  return updateTimer(id, {
+    running: 0,
+    remaining_sec: remaining,
+    ends_at: null,
+  });
+}
+
+export async function resetTimer(id: string): Promise<Timer | null> {
+  const db = await getDb();
+  const rows = await db.select<Timer[]>("SELECT * FROM timers WHERE id=$1", [id]);
+  if (!rows[0]) return null;
+  const current = mapTimer(rows[0]);
+  return updateTimer(id, {
+    running: 0,
+    remaining_sec: current.interval_sec,
+    ends_at: null,
+  });
+}
+
+export type FiredTimer = {
+  timer: Timer;
+  /** True when an interval timer was auto-restarted for the next cycle. */
+  looped: boolean;
+};
+
+/** Settle expired running timers. Interval timers restart; task timers stop. */
+export async function settleExpiredTimers(): Promise<FiredTimer[]> {
+  const timers = await fetchTimers();
+  const now = Date.now();
+  const fired: FiredTimer[] = [];
+
+  for (const timer of timers) {
+    if (!timer.running || !timer.enabled || !timer.ends_at) continue;
+    const end = Date.parse(timer.ends_at);
+    if (Number.isNaN(end) || end > now) continue;
+
+    const stamp = nowIso();
+    if (timer.kind === "interval") {
+      const next = await updateTimer(timer.id, {
+        running: 1,
+        remaining_sec: timer.interval_sec,
+        ends_at: new Date(now + timer.interval_sec * 1000).toISOString(),
+        last_fired_at: stamp,
+      });
+      if (next) fired.push({ timer: next, looped: true });
+    } else {
+      const next = await updateTimer(timer.id, {
+        running: 0,
+        remaining_sec: 0,
+        ends_at: null,
+        last_fired_at: stamp,
+      });
+      if (next) fired.push({ timer: next, looped: false });
+    }
+  }
+
+  return fired;
 }
 
 /* Backup */

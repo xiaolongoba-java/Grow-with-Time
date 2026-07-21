@@ -4,6 +4,7 @@ import { useAppStore } from "@/store/app";
 /** 仅保留侧栏没有的入口，避免与「视图」列表重复 */
 const RAIL: { id: NavId; label: string; icon: string }[] = [
   { id: "memos", label: "备忘录", icon: "✎" },
+  { id: "reminders", label: "提醒", icon: "⏱" },
   { id: "habits", label: "习惯", icon: "♡" },
   { id: "review", label: "复盘", icon: "◔" },
 ];

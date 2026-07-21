@@ -21,6 +21,7 @@ import { formatDueDate, formatTimeRange, priorityLabel, todayDateString, addDays
 import type { Task } from "@/types";
 import { SettingsView } from "@/components/SettingsView";
 import { HabitsView } from "@/components/HabitsView";
+import { RemindersView } from "@/components/RemindersView";
 import { ReviewView } from "@/components/ReviewView";
 import { MemosView } from "@/components/MemosView";
 import { ExpandableTaskItem } from "@/components/ExpandableTaskItem";
@@ -83,11 +84,19 @@ function DayBoard() {
 
   const dayTasks = useMemo(() => {
     return allTasks
-      .filter(
-        (t) => !t.parent_id && !t.deleted_at && t.due_date === cursor,
-      )
+      .filter((t) => {
+        if (t.parent_id || t.deleted_at) return false;
+        if (t.due_date === cursor) return true;
+        // Viewing today: also show unfinished overdue tasks (rollover fallback).
+        return (
+          cursor === today &&
+          t.status === "pending" &&
+          t.due_date !== null &&
+          t.due_date < today
+        );
+      })
       .sort((a, b) => (a.due_time ?? "").localeCompare(b.due_time ?? ""));
-  }, [allTasks, cursor]);
+  }, [allTasks, cursor, today]);
   const pending = dayTasks.filter((t) => t.status === "pending").length;
   const done = dayTasks.filter((t) => t.status === "completed").length;
 
@@ -553,6 +562,16 @@ export function MainWorkspace() {
 
   if (nav === "settings") return <SettingsView />;
   if (nav === "habits") return <HabitsView />;
+  if (nav === "reminders") {
+    return (
+      <main className="main-workspace">
+        <div className="workspace-top">
+          <h2>{getViewTitle("reminders")}</h2>
+        </div>
+        <RemindersView />
+      </main>
+    );
+  }
   if (nav === "review") return <ReviewView />;
   if (nav === "memos") return <MemosView />;
   if (nav === "trash") {

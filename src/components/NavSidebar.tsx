@@ -63,7 +63,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
     });
     setDraft("");
     setHints([]);
-    if (task) selectTask(task.id);
+    if (task) selectTask(task.id, { edit: true });
   };
 
   const createBlank = async () => {
@@ -71,7 +71,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       title: "新任务",
       due_date: nav === "today" ? todayDateString() : null,
     });
-    if (task) selectTask(task.id);
+    if (task) selectTask(task.id, { edit: true });
     else draftRef.current?.focus();
   };
 

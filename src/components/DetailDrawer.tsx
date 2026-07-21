@@ -36,6 +36,7 @@ export function DetailDrawer() {
   const tags = useAppStore((s) => s.tags);
   const tagMap = useAppStore((s) => s.tagMap);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
+  const detailPreferEdit = useAppStore((s) => s.detailPreferEdit);
   const selectTask = useAppStore((s) => s.selectTask);
   const saveTask = useAppStore((s) => s.saveTask);
   const deleteTask = useAppStore((s) => s.deleteTask);
@@ -49,6 +50,8 @@ export function DetailDrawer() {
   const toggleComplete = useAppStore((s) => s.toggleComplete);
   const setFocusTask = useAppStore((s) => s.setFocusTask);
   const focusTaskId = useAppStore((s) => s.focusTaskId);
+  const addTimer = useAppStore((s) => s.addTimer);
+  const timers = useAppStore((s) => s.timers);
 
   const task = tasks.find((t) => t.id === selectedTaskId) ?? null;
 
@@ -75,12 +78,12 @@ export function DetailDrawer() {
     }
     if (loadedId.current === task.id) return;
     loadedId.current = task.id;
-    setMode("view");
+    setMode(detailPreferEdit ? "edit" : "view");
     hydrateFromTask();
     void loadAttachments(task.id);
     if (focusTaskId !== task.id) setFocusTask(task.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task?.id]);
+  }, [task?.id, detailPreferEdit]);
 
   const hydrateFromTask = () => {
     if (!task) return;
@@ -163,9 +166,19 @@ export function DetailDrawer() {
               编辑
             </button>
           ) : (
-            <button type="button" className="btn-ghost" onClick={cancelEdit}>
-              取消
-            </button>
+            <>
+              <button
+                type="button"
+                className="primary-btn"
+                disabled={saving}
+                onClick={() => void persist()}
+              >
+                {saving ? "保存中…" : "保存"}
+              </button>
+              <button type="button" className="btn-ghost" onClick={cancelEdit}>
+                取消
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -246,6 +259,33 @@ export function DetailDrawer() {
 
           <PomodoroPanel compact boundTaskId={task.id} />
 
+          <div className="task-countdown-box">
+            <span className="field-label">事项倒计时</span>
+            <div className="task-countdown-actions">
+              {[5, 15, 25].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() =>
+                    void addTimer({
+                      kind: "task",
+                      title: task.title,
+                      interval_sec: m * 60,
+                      task_id: task.id,
+                      start: true,
+                    })
+                  }
+                >
+                  {m} 分钟
+                </button>
+              ))}
+            </div>
+            {timers.some((t) => t.task_id === task.id && t.running) ? (
+              <p className="timer-meta">已有进行中的倒计时（主窗口已最小化，见浮窗）</p>
+            ) : null}
+          </div>
+
           {subs.length > 0 ? (
             <div>
               <span className="field-label">
@@ -307,6 +347,10 @@ export function DetailDrawer() {
             <input
               className="field"
               value={title}
+              autoFocus={mode === "edit"}
+              onFocus={(e) => {
+                if (title === "新任务") e.currentTarget.select();
+              }}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
@@ -524,7 +568,11 @@ export function DetailDrawer() {
               </div>
             ))}
           </div>
+        </div>
+      )}
 
+      {mode === "edit" ? (
+        <div className="detail-footer">
           <button
             type="button"
             className="btn-primary"
@@ -533,16 +581,15 @@ export function DetailDrawer() {
           >
             {saving ? "保存中…" : "保存"}
           </button>
-
           <button
             type="button"
             className="btn-ghost danger"
             onClick={() => void deleteTask(task.id)}
           >
-            删除到回收站
+            删除
           </button>
         </div>
-      )}
+      ) : null}
     </aside>
   );
 }

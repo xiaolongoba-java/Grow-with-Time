@@ -132,6 +132,27 @@ ALTER TABLE memos ADD COLUMN title TEXT NOT NULL DEFAULT '';
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "timers_reminders",
+            sql: r#"
+CREATE TABLE IF NOT EXISTS timers (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  interval_sec INTEGER NOT NULL,
+  remaining_sec INTEGER NOT NULL,
+  running INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  task_id TEXT,
+  ends_at TEXT,
+  last_fired_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -154,6 +175,22 @@ fn show_float(app: AppHandle) -> Result<(), String> {
         window.set_focus().map_err(|e| e.to_string())?;
         window
             .emit("float:focus", ())
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Minimize main window and open the float timer tab (used when a reminder starts).
+#[tauri::command]
+fn start_timer_ui(app: AppHandle) -> Result<(), String> {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.minimize();
+    }
+    if let Some(window) = app.get_webview_window("float") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        window
+            .emit("float:timer", ())
             .map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -243,6 +280,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             show_quick_add,
             show_float,
+            start_timer_ui,
             hide_float,
             today_pending_count
         ])
