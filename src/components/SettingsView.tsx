@@ -62,6 +62,15 @@ export function SettingsView() {
     if (!path || Array.isArray(path)) return;
     const text = await readTextFile(path);
     const payload = JSON.parse(text) as BackupPayload;
+    const summary = [
+      `备份时间：${new Date(payload.exportedAt).toLocaleString()}`,
+      `任务：${payload.tasks.length} 项`,
+      `标签：${payload.tags.length} 个`,
+      `习惯：${payload.habits.length} 个`,
+      "",
+      "恢复会用备份内容覆盖当前数据，是否继续？",
+    ].join("\n");
+    if (!window.confirm(summary)) return;
     await importBackup(payload);
     await useAppStore.getState().refreshAll();
     setToast("已从备份恢复");
@@ -158,6 +167,18 @@ export function SettingsView() {
 
       <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>数据备份</h3>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() =>
+            void updateSettings({ autoBackup: !settings.autoBackup })
+          }
+        >
+          自动备份：{settings.autoBackup ? "已开启" : "已关闭"}
+        </button>
+        <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          开启后每 6 小时保存一份备份，自动保留最近 10 个版本。
+        </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="btn-primary" style={{ width: "auto" }} onClick={() => void exportJson()}>
             导出 JSON

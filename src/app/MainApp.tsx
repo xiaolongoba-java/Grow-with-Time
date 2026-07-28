@@ -12,6 +12,15 @@ import { NavSidebar } from "@/components/NavSidebar";
 import { MainWorkspace } from "@/components/MainWorkspace";
 import { TodayTimeline } from "@/components/TodayTimeline";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import { CommandPalette } from "@/components/CommandPalette";
+import { NotificationCenter } from "@/components/NotificationCenter";
+import { OnboardingGuide } from "@/components/OnboardingGuide";
+import {
+  createNotificationRecord,
+  ensureMissedNotification,
+  fetchDueNotifications,
+  setNotificationStatus,
+} from "@/lib/db";
 import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
 import { todayDateString } from "@/lib/dates";
@@ -28,6 +37,8 @@ export function MainApp() {
   const deleteTask = useAppStore((s) => s.deleteTask);
   const toast = useAppStore((s) => s.toast);
   const setToast = useAppStore((s) => s.setToast);
+  const canUndo = useAppStore((s) => s.canUndo);
+  const undo = useAppStore((s) => s.undo);
   const theme = useAppStore((s) => s.settings.theme);
   const setNav = useAppStore((s) => s.setNav);
   const tasks = useAppStore((s) => s.tasks);
@@ -76,9 +87,9 @@ export function MainApp() {
 
   useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 2200);
+    const t = window.setTimeout(() => setToast(null), canUndo ? 6000 : 2200);
     return () => window.clearTimeout(t);
-  }, [toast, setToast]);
+  }, [toast, canUndo, setToast]);
 
   useEffect(() => {
     const shortcut = "CommandOrControl+Shift+N";
@@ -151,7 +162,7 @@ export function MainApp() {
   ]);
 
   useEffect(() => {
-    const timer = window.setInterval(async () => {
+    const schedule = async () => {
       try {
         let granted = await isPermissionGranted();
         if (!granted) {
@@ -160,33 +171,82 @@ export function MainApp() {
         }
         if (!granted) return;
 
-        const now = Date.now();
         const ahead = settings.notifyAhead;
         for (const task of tasks) {
-          if (task.status !== "pending" || !task.due_date || task.parent_id) {
+          if (
+            !["pending", "in_progress", "waiting"].includes(task.status) ||
+            !task.due_date ||
+            task.parent_id
+          ) {
             continue;
           }
-          const remind = task.remind_minutes ?? ahead;
           const due = new Date(
             `${task.due_date}T${task.due_time ?? "23:59"}:00`,
           ).getTime();
-          const diff = due - now;
-          if (diff > 0 && diff <= remind * 60 * 1000) {
-            const key = `notified:${task.id}:${task.due_date}`;
-            if (sessionStorage.getItem(key)) continue;
-            sendNotification({
+          const reminders = task.reminder_minutes.length
+            ? task.reminder_minutes
+            : [task.remind_minutes ?? ahead];
+          for (const remind of reminders) {
+            const fireAt = due - remind * 60 * 1000;
+            if (fireAt <= Date.now()) continue;
+            await invoke("schedule_native_notification", {
+              reminderId: `${task.id}:${task.due_date}:${remind}`,
+              taskId: task.id,
               title: "任务提醒",
               body: `${task.title} 将在 ${remind} 分钟内到期`,
+              fireAtMs: fireAt,
             });
-            sessionStorage.setItem(key, "1");
           }
         }
       } catch {
         /* ignore */
       }
-    }, 60_000);
-    return () => window.clearInterval(timer);
+    };
+    void schedule();
   }, [tasks, settings.notifyAhead]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<{
+      id: string;
+      taskId: string;
+      title: string;
+      body: string;
+      firedAt: number;
+    }>("native-reminder-fired", (event) => {
+      const item = event.payload;
+      void createNotificationRecord({
+        taskId: item.taskId,
+        title: item.title,
+        body: item.body,
+        scheduledAt: new Date(item.firedAt).toISOString(),
+      }).then(() =>
+        window.dispatchEvent(new Event("notifications:changed")),
+      );
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  useEffect(() => {
+    const settleSnoozed = async () => {
+      try {
+        const due = await fetchDueNotifications();
+        for (const item of due) {
+          sendNotification({ title: item.title, body: item.body });
+          await setNotificationStatus(item.id, "delivered");
+        }
+        if (due.length) {
+          window.dispatchEvent(new Event("notifications:changed"));
+        }
+      } catch {
+        /* ignore notification-center polling errors */
+      }
+    };
+    const timer = window.setInterval(() => void settleSnoozed(), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const tick = window.setInterval(async () => {
@@ -221,6 +281,65 @@ export function MainApp() {
     return () => window.clearInterval(tick);
   }, [settleTimers, setToast]);
 
+  useEffect(() => {
+    if (!settings.autoBackup) return;
+    const backup = async () => {
+      try {
+        const [
+          { exportBackup },
+          { appDataDir, join },
+          { mkdir, writeTextFile, readDir, remove },
+        ] =
+          await Promise.all([
+            import("@/lib/db"),
+            import("@tauri-apps/api/path"),
+            import("@tauri-apps/plugin-fs"),
+          ]);
+        const root = await appDataDir();
+        const dir = await join(root, "backups");
+        await mkdir(dir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const path = await join(dir, `auto-backup-${stamp}.json`);
+        const payload = await exportBackup();
+        await writeTextFile(path, JSON.stringify(payload, null, 2));
+        const backups = (await readDir(dir))
+          .filter(
+            (entry) =>
+              entry.isFile && entry.name?.startsWith("auto-backup-"),
+          )
+          .sort((a, b) => (b.name ?? "").localeCompare(a.name ?? ""));
+        for (const old of backups.slice(10)) {
+          if (!old.name) continue;
+          await remove(await join(dir, old.name));
+        }
+      } catch {
+        /* automatic backup is best-effort */
+      }
+    };
+    void backup();
+    const timer = window.setInterval(() => void backup(), 6 * 60 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [settings.autoBackup]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const now = Date.now();
+    const missed = tasks.filter((task) => {
+      if (task.status !== "pending" || !task.due_date || task.parent_id) {
+        return false;
+      }
+      const due = new Date(
+        `${task.due_date}T${task.due_time ?? "23:59"}:00`,
+      ).getTime();
+      return due < now;
+    });
+    void Promise.all(missed.map(ensureMissedNotification)).then(() => {
+      if (missed.length) {
+        window.dispatchEvent(new Event("notifications:changed"));
+      }
+    });
+  }, [ready, tasks]);
+
   if (!ready) {
     return <div className="empty-state">加载中…</div>;
   }
@@ -250,7 +369,19 @@ export function MainApp() {
         ) : null}
       </div>
       <TodayTimeline />
-      {toast ? <div className="toast">{toast}</div> : null}
+      <CommandPalette />
+      <NotificationCenter />
+      <OnboardingGuide />
+      {toast ? (
+        <div className="toast">
+          <span>{toast}</span>
+          {canUndo ? (
+            <button type="button" className="toast-undo" onClick={() => void undo()}>
+              撤销
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {error ? (
         <div className="toast" style={{ background: "var(--text-overdue)" }}>
           {error}

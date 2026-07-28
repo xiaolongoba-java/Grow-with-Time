@@ -4,5 +4,6 @@ dist-ssr
 *.local
 .DS_Store
 src-tauri/target
+.cargo-check-target
 src-tauri/.cargo/config.toml
 scripts/vs_BuildTools.exe

@@ -1,17 +1,24 @@
 import Database from "@tauri-apps/plugin-sql";
 import type {
   AiSettings,
+  AppNotification,
+  DaySnapshot,
   AppSettings,
   Attachment,
   BackupPayload,
   Habit,
   HabitCheck,
+  FocusSession,
   Memo,
+  Milestone,
+  Project,
   SmartList,
   Tag,
   Task,
+  TaskEvent,
   TaskDraft,
   TaskUpdate,
+  TaskTemplate,
   ThemeMode,
   Timer,
   TimerDraft,
@@ -27,6 +34,16 @@ export async function getDb(): Promise<Database> {
       // 防御：旧库漏跑迁移时补齐列
       try {
         await db.execute("ALTER TABLE tasks ADD COLUMN end_time TEXT");
+      } catch {
+        /* already exists */
+      }
+      try {
+        await db.execute("ALTER TABLE tasks ADD COLUMN reminder_minutes_json TEXT");
+      } catch {
+        /* already exists */
+      }
+      try {
+        await db.execute("ALTER TABLE tasks ADD COLUMN estimated_minutes INTEGER");
       } catch {
         /* already exists */
       }
@@ -62,12 +79,32 @@ export async function getDb(): Promise<Database> {
 }
 
 function mapTask(row: Task): Task {
+  const raw = (row as Task & { reminder_minutes_json?: string | null })
+    .reminder_minutes_json;
+  let reminders: number[] = [];
+  try {
+    reminders = raw ? JSON.parse(raw) : [];
+  } catch {
+    reminders = [];
+  }
+  if (!reminders.length && row.remind_minutes != null) {
+    reminders = [row.remind_minutes];
+  }
   return {
     ...row,
     parent_id: row.parent_id ?? null,
     repeat_rule: row.repeat_rule ?? null,
     remind_minutes: row.remind_minutes ?? null,
     end_time: row.end_time ?? null,
+    reminder_minutes: reminders,
+    estimated_minutes: row.estimated_minutes ?? null,
+    project_id: row.project_id ?? null,
+    my_day_date: row.my_day_date ?? null,
+    blocked_by_id: row.blocked_by_id ?? null,
+    completion_criteria: row.completion_criteria ?? "",
+    energy_level: row.energy_level ?? "medium",
+    flexible: row.flexible ?? 1,
+    actual_minutes: row.actual_minutes ?? 0,
   };
 }
 
@@ -126,14 +163,27 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
     parent_id: draft.parent_id ?? null,
     repeat_rule: draft.repeat_rule ?? null,
     remind_minutes: draft.remind_minutes ?? null,
+    reminder_minutes:
+      draft.reminder_minutes ??
+      (draft.remind_minutes != null ? [draft.remind_minutes] : []),
+    estimated_minutes: draft.estimated_minutes ?? null,
+    project_id: draft.project_id ?? null,
+    my_day_date: draft.my_day_date ?? null,
+    blocked_by_id: draft.blocked_by_id ?? null,
+    completion_criteria: draft.completion_criteria ?? "",
+    energy_level: draft.energy_level ?? "medium",
+    flexible: draft.flexible ?? 1,
+    actual_minutes: 0,
   };
 
   await db.execute(
     `INSERT INTO tasks (
       id, title, description, notes, priority, status,
       due_date, due_time, end_time, sort_order, created_at, updated_at,
-      completed_at, deleted_at, parent_id, repeat_rule, remind_minutes
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
+      reminder_minutes_json, estimated_minutes, project_id, my_day_date,
+      blocked_by_id, completion_criteria, energy_level, flexible, actual_minutes
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
     [
       task.id,
       task.title,
@@ -152,8 +202,18 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
       task.parent_id,
       task.repeat_rule,
       task.remind_minutes,
+      JSON.stringify(task.reminder_minutes),
+      task.estimated_minutes,
+      task.project_id,
+      task.my_day_date,
+      task.blocked_by_id,
+      task.completion_criteria,
+      task.energy_level,
+      task.flexible,
+      task.actual_minutes,
     ],
   );
+  await recordTaskEvent(task.id, "created", null, task);
 
   if (draft.tagIds?.length) {
     for (const tagId of draft.tagIds) {
@@ -181,6 +241,10 @@ export async function updateTask(
     ...updates,
     updated_at: nowIso(),
   };
+  if (updates.remind_minutes !== undefined && updates.reminder_minutes === undefined) {
+    next.reminder_minutes =
+      updates.remind_minutes == null ? [] : [updates.remind_minutes];
+  }
 
   if (updates.status === "completed" && current.status !== "completed") {
     next.completed_at = nowIso();
@@ -193,8 +257,12 @@ export async function updateTask(
     `UPDATE tasks SET
       title=$1, description=$2, notes=$3, priority=$4, status=$5,
       due_date=$6, due_time=$7, end_time=$8, updated_at=$9, completed_at=$10,
-      parent_id=$11, repeat_rule=$12, remind_minutes=$13, sort_order=$14
-    WHERE id=$15`,
+      parent_id=$11, repeat_rule=$12, remind_minutes=$13, sort_order=$14,
+      reminder_minutes_json=$15, estimated_minutes=$16,
+      project_id=$17, my_day_date=$18, blocked_by_id=$19,
+      completion_criteria=$20, energy_level=$21, flexible=$22,
+      actual_minutes=$23
+    WHERE id=$24`,
     [
       next.title,
       next.description,
@@ -210,11 +278,225 @@ export async function updateTask(
       next.repeat_rule,
       next.remind_minutes,
       next.sort_order,
+      JSON.stringify(next.reminder_minutes),
+      next.estimated_minutes,
+      next.project_id,
+      next.my_day_date,
+      next.blocked_by_id,
+      next.completion_criteria,
+      next.energy_level,
+      next.flexible,
+      next.actual_minutes,
       id,
     ],
   );
+  await recordTaskEvent(id, "updated", current, next);
 
   return next;
+}
+
+export async function recordTaskEvent(
+  taskId: string,
+  eventType: string,
+  before: unknown,
+  after: unknown,
+  note = "",
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO task_events
+      (id, task_id, event_type, before_json, after_json, note, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [
+      createId(),
+      taskId,
+      eventType,
+      before == null ? null : JSON.stringify(before),
+      after == null ? null : JSON.stringify(after),
+      note,
+      nowIso(),
+    ],
+  );
+}
+
+export async function fetchTaskEvents(taskId: string): Promise<TaskEvent[]> {
+  const db = await getDb();
+  return db.select<TaskEvent[]>(
+    `SELECT * FROM task_events
+     WHERE task_id = $1 ORDER BY created_at DESC LIMIT 100`,
+    [taskId],
+  );
+}
+
+export async function startFocusSession(
+  taskId: string | null,
+): Promise<FocusSession> {
+  const db = await getDb();
+  const stamp = nowIso();
+  const session: FocusSession = {
+    id: createId(),
+    task_id: taskId,
+    started_at: stamp,
+    ended_at: null,
+    duration_sec: 0,
+    interruption_reason: null,
+    created_at: stamp,
+  };
+  await db.execute(
+    `INSERT INTO focus_sessions
+      (id, task_id, started_at, ended_at, duration_sec, interruption_reason, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [
+      session.id,
+      session.task_id,
+      session.started_at,
+      session.ended_at,
+      session.duration_sec,
+      session.interruption_reason,
+      session.created_at,
+    ],
+  );
+  return session;
+}
+
+export async function finishFocusSession(
+  id: string,
+  interruptionReason?: string | null,
+): Promise<void> {
+  const db = await getDb();
+  const rows = await db.select<FocusSession[]>(
+    "SELECT * FROM focus_sessions WHERE id = $1 LIMIT 1",
+    [id],
+  );
+  if (!rows.length) return;
+  const session = rows[0];
+  const ended = nowIso();
+  const durationSec = Math.max(
+    0,
+    Math.round(
+      (new Date(ended).getTime() - new Date(session.started_at).getTime()) /
+        1000,
+    ),
+  );
+  await db.execute(
+    `UPDATE focus_sessions
+     SET ended_at = $1, duration_sec = $2, interruption_reason = $3
+     WHERE id = $4`,
+    [ended, durationSec, interruptionReason ?? null, id],
+  );
+  if (session.task_id && durationSec > 0) {
+    const minutes = Math.max(1, Math.round(durationSec / 60));
+    await db.execute(
+      `UPDATE tasks
+       SET actual_minutes = COALESCE(actual_minutes, 0) + $1,
+           updated_at = $2
+       WHERE id = $3`,
+      [minutes, ended, session.task_id],
+    );
+    await recordTaskEvent(
+      session.task_id,
+      "time_logged",
+      null,
+      { minutes, interruptionReason: interruptionReason ?? null },
+    );
+  }
+}
+
+export async function fetchFocusSessions(
+  taskId?: string,
+): Promise<FocusSession[]> {
+  const db = await getDb();
+  return taskId
+    ? db.select<FocusSession[]>(
+        "SELECT * FROM focus_sessions WHERE task_id = $1 ORDER BY started_at DESC",
+        [taskId],
+      )
+    : db.select<FocusSession[]>(
+        "SELECT * FROM focus_sessions ORDER BY started_at DESC LIMIT 500",
+      );
+}
+
+export async function saveDaySnapshot(
+  planDate: string,
+  tasks: Task[],
+  phase: "morning" | "evening",
+  reflection = "",
+): Promise<DaySnapshot> {
+  const db = await getDb();
+  const existing = await db.select<DaySnapshot[]>(
+    "SELECT * FROM day_snapshots WHERE plan_date = $1 LIMIT 1",
+    [planDate],
+  );
+  const stamp = nowIso();
+  const plannedMinutes = tasks.reduce(
+    (sum, task) => sum + (task.estimated_minutes ?? 0),
+    0,
+  );
+  const completedMinutes = tasks
+    .filter((task) => task.status === "completed")
+    .reduce(
+      (sum, task) =>
+        sum + (task.actual_minutes || task.estimated_minutes || 0),
+      0,
+    );
+  const serialized = JSON.stringify(
+    tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      estimated_minutes: task.estimated_minutes,
+      actual_minutes: task.actual_minutes,
+    })),
+  );
+  if (existing.length) {
+    await db.execute(
+      `UPDATE day_snapshots SET
+       evening_json = CASE WHEN $1 = 'evening' THEN $2 ELSE evening_json END,
+       morning_json = CASE WHEN $1 = 'morning' THEN $2 ELSE morning_json END,
+       planned_minutes = $3, completed_minutes = $4, reflection = $5,
+       updated_at = $6 WHERE plan_date = $7`,
+      [
+        phase,
+        serialized,
+        plannedMinutes,
+        completedMinutes,
+        reflection,
+        stamp,
+        planDate,
+      ],
+    );
+  } else {
+    await db.execute(
+      `INSERT INTO day_snapshots
+       (id, plan_date, morning_json, evening_json, planned_minutes,
+        completed_minutes, reflection, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        createId(),
+        planDate,
+        phase === "morning" ? serialized : "[]",
+        phase === "evening" ? serialized : null,
+        plannedMinutes,
+        completedMinutes,
+        reflection,
+        stamp,
+        stamp,
+      ],
+    );
+  }
+  return (
+    await db.select<DaySnapshot[]>(
+      "SELECT * FROM day_snapshots WHERE plan_date = $1 LIMIT 1",
+      [planDate],
+    )
+  )[0];
+}
+
+export async function fetchDaySnapshots(): Promise<DaySnapshot[]> {
+  const db = await getDb();
+  return db.select<DaySnapshot[]>(
+    "SELECT * FROM day_snapshots ORDER BY plan_date DESC LIMIT 90",
+  );
 }
 
 export async function reorderTasks(
@@ -228,6 +510,73 @@ export async function reorderTasks(
       nowIso(),
       orderedIds[i],
     ]);
+  }
+}
+
+export async function batchSetTaskStatus(
+  ids: string[],
+  status: Task["status"],
+): Promise<void> {
+  if (!ids.length) return;
+  const db = await getDb();
+  const stamp = nowIso();
+  await db.execute("BEGIN IMMEDIATE");
+  try {
+    for (const id of ids) {
+      await db.execute(
+        `UPDATE tasks SET status=$1, updated_at=$2,
+         completed_at=CASE WHEN $1='completed' THEN $2 ELSE NULL END
+         WHERE id=$3`,
+        [status, stamp, id],
+      );
+    }
+    await db.execute("COMMIT");
+  } catch (error) {
+    await db.execute("ROLLBACK");
+    throw error;
+  }
+  for (const id of ids) {
+    await recordTaskEvent(id, "batch_status", null, { status });
+  }
+}
+
+export async function batchSoftDeleteTasks(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const db = await getDb();
+  const stamp = nowIso();
+  await db.execute("BEGIN IMMEDIATE");
+  try {
+    for (const id of ids) {
+      await db.execute(
+        "UPDATE tasks SET deleted_at=$1, updated_at=$1 WHERE id=$2",
+        [stamp, id],
+      );
+    }
+    await db.execute("COMMIT");
+  } catch (error) {
+    await db.execute("ROLLBACK");
+    throw error;
+  }
+  for (const id of ids) {
+    await recordTaskEvent(id, "deleted", null, null);
+  }
+}
+
+export async function batchRestoreTasks(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const db = await getDb();
+  await db.execute("BEGIN IMMEDIATE");
+  try {
+    for (const id of ids) {
+      await db.execute(
+        "UPDATE tasks SET deleted_at=NULL, updated_at=$1 WHERE id=$2",
+        [nowIso(), id],
+      );
+    }
+    await db.execute("COMMIT");
+  } catch (error) {
+    await db.execute("ROLLBACK");
+    throw error;
   }
 }
 
@@ -548,6 +897,7 @@ export async function loadAppSettings(): Promise<AppSettings> {
     notifyAhead: Number(s.notify_ahead ?? 30),
     autostart: s.autostart === "true",
     privacyMode: s.privacy_mode !== "false",
+    autoBackup: s.auto_backup !== "false",
     ai: {
       baseUrl: s.ai_base_url || "https://api.openai.com/v1",
       apiKey: s.ai_api_key || "",
@@ -556,6 +906,7 @@ export async function loadAppSettings(): Promise<AppSettings> {
     karma: Number(s.karma ?? 0),
     streak: Number(s.streak ?? 0),
     lastCompleteDate: s.last_complete_date || null,
+    onboardingComplete: s.onboarding_complete === "true",
   };
 }
 
@@ -921,10 +1272,23 @@ export async function exportBackup(): Promise<BackupPayload> {
   const habits = await fetchHabits();
   const habitChecks = await fetchHabitChecks();
   const memos = await fetchMemos();
+  const projects = await db.select<Project[]>("SELECT * FROM projects");
+  const taskTemplates = await fetchTaskTemplates();
+  const notifications = await db.select<AppNotification[]>(
+    "SELECT * FROM app_notifications",
+  );
+  const taskEvents = await db.select<TaskEvent[]>("SELECT * FROM task_events");
+  const focusSessions = await db.select<FocusSession[]>(
+    "SELECT * FROM focus_sessions",
+  );
+  const daySnapshots = await db.select<DaySnapshot[]>(
+    "SELECT * FROM day_snapshots",
+  );
+  const milestones = await db.select<Milestone[]>("SELECT * FROM milestones");
   const settings = await getAllSettings();
 
   return {
-    version: 2,
+    version: 3,
     exportedAt: nowIso(),
     tasks,
     tags,
@@ -934,12 +1298,23 @@ export async function exportBackup(): Promise<BackupPayload> {
     habits,
     habitChecks,
     memos,
+    projects,
+    taskTemplates,
+    notifications,
+    taskEvents,
+    focusSessions,
+    daySnapshots,
+    milestones,
     settings,
   };
 }
 
 export async function importBackup(payload: BackupPayload): Promise<void> {
   const db = await getDb();
+  await db.execute("DELETE FROM focus_sessions");
+  await db.execute("DELETE FROM task_events");
+  await db.execute("DELETE FROM day_snapshots");
+  await db.execute("DELETE FROM milestones");
   await db.execute("DELETE FROM habit_checks");
   await db.execute("DELETE FROM habits");
   await db.execute("DELETE FROM attachments");
@@ -948,14 +1323,19 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
   await db.execute("DELETE FROM tags");
   await db.execute("DELETE FROM tasks");
   await db.execute("DELETE FROM memos");
+  await db.execute("DELETE FROM app_notifications");
+  await db.execute("DELETE FROM task_templates");
+  await db.execute("DELETE FROM projects");
 
   for (const task of payload.tasks) {
     await db.execute(
       `INSERT INTO tasks (
         id, title, description, notes, priority, status,
         due_date, due_time, end_time, sort_order, created_at, updated_at,
-        completed_at, deleted_at, parent_id, repeat_rule, remind_minutes
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+        completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
+        reminder_minutes_json, estimated_minutes, project_id, my_day_date,
+        blocked_by_id, completion_criteria, energy_level, flexible, actual_minutes
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
       [
         task.id,
         task.title,
@@ -974,6 +1354,15 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         task.parent_id ?? null,
         task.repeat_rule ?? null,
         task.remind_minutes ?? null,
+        JSON.stringify(task.reminder_minutes ?? []),
+        task.estimated_minutes ?? null,
+        task.project_id ?? null,
+        task.my_day_date ?? null,
+        task.blocked_by_id ?? null,
+        task.completion_criteria ?? "",
+        task.energy_level ?? "medium",
+        task.flexible ?? 0,
+        task.actual_minutes ?? 0,
       ],
     );
   }
@@ -1027,7 +1416,372 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
       ],
     );
   }
+  for (const project of payload.projects ?? []) {
+    await db.execute(
+      `INSERT INTO projects
+       (id, name, color, due_date, archived, created_at, updated_at, goal, success_criteria)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        project.id,
+        project.name,
+        project.color,
+        project.due_date,
+        project.archived,
+        project.created_at,
+        project.updated_at,
+        project.goal ?? "",
+        project.success_criteria ?? "",
+      ],
+    );
+  }
+  for (const template of payload.taskTemplates ?? []) {
+    await db.execute(
+      `INSERT INTO task_templates
+       (id, name, task_json, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [
+        template.id,
+        template.name,
+        template.task_json,
+        template.created_at,
+        template.updated_at,
+      ],
+    );
+  }
+  for (const notification of payload.notifications ?? []) {
+    await db.execute(
+      `INSERT INTO app_notifications
+       (id, task_id, kind, title, body, scheduled_at, status, snoozed_until, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        notification.id,
+        notification.task_id,
+        notification.kind,
+        notification.title,
+        notification.body,
+        notification.scheduled_at,
+        notification.status,
+        notification.snoozed_until,
+        notification.created_at,
+      ],
+    );
+  }
+  for (const event of payload.taskEvents ?? []) {
+    await db.execute(
+      `INSERT INTO task_events
+       (id, task_id, event_type, before_json, after_json, note, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        event.id,
+        event.task_id,
+        event.event_type,
+        event.before_json,
+        event.after_json,
+        event.note,
+        event.created_at,
+      ],
+    );
+  }
+  for (const session of payload.focusSessions ?? []) {
+    await db.execute(
+      `INSERT INTO focus_sessions
+       (id, task_id, started_at, ended_at, duration_sec, interruption_reason, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        session.id,
+        session.task_id,
+        session.started_at,
+        session.ended_at,
+        session.duration_sec,
+        session.interruption_reason,
+        session.created_at,
+      ],
+    );
+  }
+  for (const snapshot of payload.daySnapshots ?? []) {
+    await db.execute(
+      `INSERT INTO day_snapshots
+       (id, plan_date, morning_json, evening_json, planned_minutes,
+        completed_minutes, reflection, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        snapshot.id,
+        snapshot.plan_date,
+        snapshot.morning_json,
+        snapshot.evening_json,
+        snapshot.planned_minutes,
+        snapshot.completed_minutes,
+        snapshot.reflection,
+        snapshot.created_at,
+        snapshot.updated_at,
+      ],
+    );
+  }
+  for (const milestone of payload.milestones ?? []) {
+    await db.execute(
+      `INSERT INTO milestones (id, project_id, title, due_date, completed, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [
+        milestone.id,
+        milestone.project_id,
+        milestone.title,
+        milestone.due_date,
+        milestone.completed,
+        milestone.created_at,
+      ],
+    );
+  }
   for (const [key, value] of Object.entries(payload.settings)) {
     await setSetting(key, value);
   }
+}
+
+/* Projects and reusable task templates */
+export async function fetchProjects(): Promise<Project[]> {
+  const db = await getDb();
+  return db.select<Project[]>(
+    "SELECT * FROM projects WHERE archived = 0 ORDER BY created_at DESC",
+  );
+}
+
+export async function createProject(
+  name: string,
+  color = "#7D9BE8",
+): Promise<Project> {
+  const db = await getDb();
+  const timestamp = nowIso();
+  const project: Project = {
+    id: createId(),
+    name: name.trim(),
+    color,
+    due_date: null,
+    archived: 0,
+    created_at: timestamp,
+    updated_at: timestamp,
+    goal: "",
+    success_criteria: "",
+  };
+  await db.execute(
+    `INSERT INTO projects
+      (id, name, color, due_date, archived, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [
+      project.id,
+      project.name,
+      project.color,
+      project.due_date,
+      project.archived,
+      project.created_at,
+      project.updated_at,
+    ],
+  );
+  return project;
+}
+
+export async function archiveProject(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE projects SET archived = 1, updated_at = $1 WHERE id = $2",
+    [nowIso(), id],
+  );
+}
+
+export async function updateProject(
+  id: string,
+  updates: Partial<Pick<Project, "name" | "goal" | "success_criteria" | "due_date">>,
+): Promise<void> {
+  const db = await getDb();
+  const current = (
+    await db.select<Project[]>(
+      "SELECT * FROM projects WHERE id = $1 LIMIT 1",
+      [id],
+    )
+  )[0];
+  if (!current) return;
+  const next = { ...current, ...updates, updated_at: nowIso() };
+  await db.execute(
+    `UPDATE projects SET name=$1, goal=$2, success_criteria=$3,
+     due_date=$4, updated_at=$5 WHERE id=$6`,
+    [
+      next.name,
+      next.goal,
+      next.success_criteria,
+      next.due_date,
+      next.updated_at,
+      id,
+    ],
+  );
+}
+
+export async function fetchMilestones(): Promise<Milestone[]> {
+  const db = await getDb();
+  return db.select<Milestone[]>(
+    "SELECT * FROM milestones ORDER BY due_date ASC, created_at ASC",
+  );
+}
+
+export async function createMilestone(
+  projectId: string,
+  title: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO milestones
+     (id, project_id, title, due_date, completed, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6)`,
+    [createId(), projectId, title.trim(), null, 0, nowIso()],
+  );
+}
+
+export async function toggleMilestone(
+  id: string,
+  completed: boolean,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE milestones SET completed = $1 WHERE id = $2",
+    [completed ? 1 : 0, id],
+  );
+}
+
+export async function fetchTaskTemplates(): Promise<TaskTemplate[]> {
+  const db = await getDb();
+  return db.select<TaskTemplate[]>(
+    "SELECT * FROM task_templates ORDER BY updated_at DESC",
+  );
+}
+
+export async function saveTaskTemplate(
+  name: string,
+  draft: TaskDraft,
+): Promise<TaskTemplate> {
+  const db = await getDb();
+  const timestamp = nowIso();
+  const template: TaskTemplate = {
+    id: createId(),
+    name: name.trim(),
+    task_json: JSON.stringify(draft),
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+  await db.execute(
+    `INSERT INTO task_templates (id, name, task_json, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5)`,
+    [
+      template.id,
+      template.name,
+      template.task_json,
+      template.created_at,
+      template.updated_at,
+    ],
+  );
+  return template;
+}
+
+export async function deleteTaskTemplate(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM task_templates WHERE id = $1", [id]);
+}
+
+export async function fetchNotifications(): Promise<AppNotification[]> {
+  const db = await getDb();
+  return db.select<AppNotification[]>(
+    `SELECT * FROM app_notifications
+     WHERE status != 'dismissed'
+     ORDER BY created_at DESC LIMIT 100`,
+  );
+}
+
+export async function createNotificationRecord(input: {
+  taskId?: string | null;
+  kind?: AppNotification["kind"];
+  title: string;
+  body?: string;
+  scheduledAt?: string | null;
+  status?: AppNotification["status"];
+}): Promise<AppNotification> {
+  const db = await getDb();
+  const notification: AppNotification = {
+    id: createId(),
+    task_id: input.taskId ?? null,
+    kind: input.kind ?? "reminder",
+    title: input.title,
+    body: input.body ?? "",
+    scheduled_at: input.scheduledAt ?? null,
+    status: input.status ?? "delivered",
+    snoozed_until: null,
+    created_at: nowIso(),
+  };
+  await db.execute(
+    `INSERT INTO app_notifications
+      (id, task_id, kind, title, body, scheduled_at, status, snoozed_until, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [
+      notification.id,
+      notification.task_id,
+      notification.kind,
+      notification.title,
+      notification.body,
+      notification.scheduled_at,
+      notification.status,
+      notification.snoozed_until,
+      notification.created_at,
+    ],
+  );
+  return notification;
+}
+
+export async function setNotificationStatus(
+  id: string,
+  status: AppNotification["status"],
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE app_notifications SET status = $1 WHERE id = $2",
+    [status, id],
+  );
+}
+
+export async function snoozeNotification(
+  id: string,
+  minutes: number,
+): Promise<void> {
+  const db = await getDb();
+  const until = new Date(Date.now() + minutes * 60_000).toISOString();
+  await db.execute(
+    `UPDATE app_notifications
+     SET status = 'pending', snoozed_until = $1 WHERE id = $2`,
+    [until, id],
+  );
+}
+
+export async function fetchDueNotifications(): Promise<AppNotification[]> {
+  const db = await getDb();
+  return db.select<AppNotification[]>(
+    `SELECT * FROM app_notifications
+     WHERE status = 'pending'
+       AND snoozed_until IS NOT NULL
+       AND snoozed_until <= $1`,
+    [nowIso()],
+  );
+}
+
+export async function ensureMissedNotification(
+  task: Task,
+): Promise<void> {
+  if (!task.due_date) return;
+  const db = await getDb();
+  const exists = await db.select<{ id: string }[]>(
+    `SELECT id FROM app_notifications
+     WHERE task_id = $1 AND kind = 'missed' LIMIT 1`,
+    [task.id],
+  );
+  if (exists.length) return;
+  await createNotificationRecord({
+    taskId: task.id,
+    kind: "missed",
+    title: "错过的任务",
+    body: task.title,
+    scheduledAt: `${task.due_date}T${task.due_time ?? "23:59"}:00`,
+  });
 }

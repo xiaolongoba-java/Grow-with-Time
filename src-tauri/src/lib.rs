@@ -1,6 +1,12 @@
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
+use tauri_plugin_notification::NotificationExt;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 const DB_URL: &str = "sqlite:app.db";
 
@@ -153,6 +159,110 @@ CREATE TABLE IF NOT EXISTS timers (
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "planning_projects_templates_notifications",
+            sql: r#"
+ALTER TABLE tasks ADD COLUMN project_id TEXT;
+ALTER TABLE tasks ADD COLUMN my_day_date TEXT;
+
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#7D9BE8',
+  due_date TEXT,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS task_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  task_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_notifications (
+  id TEXT PRIMARY KEY,
+  task_id TEXT,
+  kind TEXT NOT NULL DEFAULT 'reminder',
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  scheduled_at TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  snoozed_until TEXT,
+  created_at TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_backup', 'true');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('onboarding_complete', 'false');
+"#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 8,
+            description: "execution_history_and_deep_planning",
+            sql: r#"
+ALTER TABLE tasks ADD COLUMN blocked_by_id TEXT;
+ALTER TABLE tasks ADD COLUMN completion_criteria TEXT NOT NULL DEFAULT '';
+ALTER TABLE tasks ADD COLUMN energy_level TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE tasks ADD COLUMN flexible INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE tasks ADD COLUMN actual_minutes INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE projects ADD COLUMN goal TEXT NOT NULL DEFAULT '';
+ALTER TABLE projects ADD COLUMN success_criteria TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS task_events (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  before_json TEXT,
+  after_json TEXT,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_events_task
+  ON task_events(task_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS focus_sessions (
+  id TEXT PRIMARY KEY,
+  task_id TEXT,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  duration_sec INTEGER NOT NULL DEFAULT 0,
+  interruption_reason TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_focus_sessions_task
+  ON focus_sessions(task_id, started_at DESC);
+
+CREATE TABLE IF NOT EXISTS day_snapshots (
+  id TEXT PRIMARY KEY,
+  plan_date TEXT NOT NULL UNIQUE,
+  morning_json TEXT NOT NULL DEFAULT '[]',
+  evening_json TEXT,
+  planned_minutes INTEGER NOT NULL DEFAULT 0,
+  completed_minutes INTEGER NOT NULL DEFAULT 0,
+  reflection TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS milestones (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  due_date TEXT,
+  completed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -209,6 +319,64 @@ fn today_pending_count(count: i64) -> Result<i64, String> {
     Ok(count)
 }
 
+#[tauri::command]
+fn schedule_native_notification(
+    app: AppHandle,
+    scheduled: tauri::State<'_, Arc<Mutex<HashMap<String, u64>>>>,
+    reminder_id: String,
+    task_id: String,
+    title: String,
+    body: String,
+    fire_at_ms: u64,
+) -> Result<(), String> {
+    {
+        let mut guard = scheduled.lock().map_err(|e| e.to_string())?;
+        if guard.get(&reminder_id) == Some(&fire_at_ms) {
+            return Ok(());
+        }
+        guard.insert(reminder_id.clone(), fire_at_ms);
+    }
+    let scheduled = Arc::clone(scheduled.inner());
+    std::thread::spawn(move || {
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        if fire_at_ms > now_ms {
+            std::thread::sleep(Duration::from_millis(fire_at_ms - now_ms));
+        }
+        let is_current = scheduled
+            .lock()
+            .map(|guard| guard.get(&reminder_id) == Some(&fire_at_ms))
+            .unwrap_or(false);
+        if !is_current {
+            return;
+        }
+        let _ = app
+            .notification()
+            .builder()
+            .title(&title)
+            .body(&body)
+            .show();
+        let _ = app.emit(
+            "native-reminder-fired",
+            serde_json::json!({
+                "id": reminder_id,
+                "taskId": task_id,
+                "title": title,
+                "body": body,
+                "firedAt": fire_at_ms
+            }),
+        );
+        if let Ok(mut guard) = scheduled.lock() {
+            if guard.get(&reminder_id) == Some(&fire_at_ms) {
+                guard.remove(&reminder_id);
+            }
+        }
+    });
+    Ok(())
+}
+
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
     let show = MenuItem::with_id(app, "show", "打开主窗口", true, None::<&str>)?;
@@ -262,6 +430,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(Arc::new(Mutex::new(HashMap::<String, u64>::new())))
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
@@ -282,7 +451,8 @@ pub fn run() {
             show_float,
             start_timer_ui,
             hide_float,
-            today_pending_count
+            today_pending_count,
+            schedule_native_notification
         ])
         .setup(|app| {
             setup_tray(app.handle())?;

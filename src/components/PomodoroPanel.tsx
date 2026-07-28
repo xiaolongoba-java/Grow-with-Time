@@ -66,12 +66,12 @@ export function PomodoroPanel({
           type="button"
           className="btn-primary"
           style={{ width: "auto", padding: "6px 14px" }}
-          onClick={toggleFocus}
+          onClick={() => void toggleFocus()}
           disabled={!task}
         >
           {focusRunning ? "暂停" : "开始"}
         </button>
-        <button type="button" className="btn-ghost" onClick={resetFocus}>
+        <button type="button" className="btn-ghost" onClick={() => void resetFocus()}>
           重置
         </button>
       </div>

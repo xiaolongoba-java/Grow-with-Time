@@ -7,9 +7,15 @@ import type { Task } from "@/types";
 export function ExpandableTaskItem({
   task,
   meta,
+  selection,
 }: {
   task: Task;
   meta?: ReactNode;
+  selection?: {
+    active: boolean;
+    selected: boolean;
+    onToggle: () => void;
+  };
 }) {
   const tasks = useAppStore((s) => s.tasks);
   const selectTask = useAppStore((s) => s.selectTask);
@@ -33,6 +39,19 @@ export function ExpandableTaskItem({
       className={`expand-task ${task.status === "completed" ? "is-done" : ""} ${expanded ? "is-open" : ""}`}
     >
       <div className="expand-task-row" onClick={toggleExpand}>
+        {selection?.active ? (
+          <button
+            type="button"
+            className={`batch-check ${selection.selected ? "is-selected" : ""}`}
+            aria-label={selection.selected ? "取消选择" : "选择任务"}
+            onClick={(e) => {
+              e.stopPropagation();
+              selection.onToggle();
+            }}
+          >
+            {selection.selected ? "✓" : ""}
+          </button>
+        ) : null}
         <button
           type="button"
           className="task-check"
@@ -47,6 +66,14 @@ export function ExpandableTaskItem({
           <p className="task-title">{task.title}</p>
           <div className="task-meta">
             {meta}
+            {task.estimated_minutes ? (
+              <span className="estimate-chip">预计 {task.estimated_minutes} 分钟</span>
+            ) : null}
+            {task.reminder_minutes.length > 1 ? (
+              <span className="reminder-chip">
+                {task.reminder_minutes.length} 个提醒
+              </span>
+            ) : null}
             {subs.length ? (
               <span className="subtask-count">
                 子任务 {doneCount}/{subs.length}

@@ -59,13 +59,12 @@ export function RemindersView() {
           onReset={() => void resetTimer(active.id)}
         />
       ) : (
-        <header className="reminders-hero is-idle">
-          <p className="reminders-kicker">循环 · 事项倒计时</p>
-          <h3 className="reminders-hero-title">到点提醒，浮窗常驻</h3>
-          <p className="reminders-hero-desc">
-            开始后主窗口会最小化，桌面浮窗显示剩余时间；到点系统通知并自动开下一轮。
-          </p>
-        </header>
+        <div className="reminders-context">
+          <span>循环提醒</span>
+          <i aria-hidden />
+          <span>事项倒计时</span>
+          <small>到点后通过系统通知提醒</small>
+        </div>
       )}
 
       <section className="reminders-composer" aria-label="新建循环提醒">

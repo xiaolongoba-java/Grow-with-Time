@@ -1,17 +1,18 @@
 import type { NavId } from "@/types";
 import { useAppStore } from "@/store/app";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
 
 /** 仅保留侧栏没有的入口，避免与「视图」列表重复 */
-const RAIL: { id: NavId; label: string; icon: string }[] = [
-  { id: "memos", label: "备忘录", icon: "✎" },
-  { id: "reminders", label: "提醒", icon: "⏱" },
-  { id: "habits", label: "习惯", icon: "♡" },
-  { id: "review", label: "复盘", icon: "◔" },
+const RAIL: { id: NavId; label: string; icon: AppIconName }[] = [
+  { id: "memos", label: "备忘录", icon: "memo" },
+  { id: "reminders", label: "提醒", icon: "timer" },
+  { id: "habits", label: "习惯", icon: "heart" },
+  { id: "review", label: "复盘", icon: "review" },
 ];
 
-const BOTTOM: { id: NavId; label: string; icon: string }[] = [
-  { id: "trash", label: "回收站", icon: "⌫" },
-  { id: "settings", label: "设置", icon: "⚙" },
+const BOTTOM: { id: NavId; label: string; icon: AppIconName }[] = [
+  { id: "trash", label: "回收站", icon: "trash" },
+  { id: "settings", label: "设置", icon: "settings" },
 ];
 
 export function IconRail() {
@@ -29,7 +30,7 @@ export function IconRail() {
           aria-label={item.label}
           onClick={() => setNav(item.id)}
         >
-          {item.icon}
+          <AppIcon name={item.icon} />
         </button>
       ))}
       <button
@@ -43,7 +44,7 @@ export function IconRail() {
           );
         }}
       >
-        ▤
+        <AppIcon name="panel" />
       </button>
       <div className="rail-spacer" />
       {BOTTOM.map((item) => (
@@ -55,7 +56,7 @@ export function IconRail() {
           aria-label={item.label}
           onClick={() => setNav(item.id)}
         >
-          {item.icon}
+          <AppIcon name={item.icon} />
         </button>
       ))}
     </aside>

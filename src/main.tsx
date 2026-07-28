@@ -5,6 +5,7 @@ import { MainApp } from "@/app/MainApp";
 import { QuickAddApp } from "@/app/QuickAddApp";
 import { FloatApp } from "@/app/FloatApp";
 import "@/styles/global.css";
+import "@/styles/polish.css";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },

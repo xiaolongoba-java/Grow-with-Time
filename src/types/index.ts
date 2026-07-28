@@ -1,4 +1,11 @@
-export type TaskStatus = "pending" | "completed";
+export type TaskStatus =
+  | "draft"
+  | "pending"
+  | "in_progress"
+  | "waiting"
+  | "blocked"
+  | "completed"
+  | "cancelled";
 export type TaskPriority = 1 | 2 | 3 | 4;
 export type ThemeMode = "light" | "dark" | "system";
 export type ViewMode = "list" | "board" | "calendar";
@@ -6,6 +13,7 @@ export type DateScope = "day" | "week" | "month";
 
 export type NavId =
   | "today"
+  | "myday"
   | "inbox"
   | "completed"
   | "all"
@@ -18,6 +26,7 @@ export type NavId =
   | "memos"
   | "trash"
   | "settings"
+  | "projects"
   | "smart";
 
 /** @deprecated use NavId */
@@ -55,6 +64,15 @@ export interface Task {
   parent_id: string | null;
   repeat_rule: string | null;
   remind_minutes: number | null;
+  reminder_minutes: number[];
+  estimated_minutes: number | null;
+  project_id: string | null;
+  my_day_date: string | null;
+  blocked_by_id: string | null;
+  completion_criteria: string;
+  energy_level: "low" | "medium" | "high";
+  flexible: number;
+  actual_minutes: number;
 }
 
 export interface Tag {
@@ -147,6 +165,16 @@ export interface TaskDraft {
   parent_id?: string | null;
   repeat_rule?: string | null;
   remind_minutes?: number | null;
+  reminder_minutes?: number[];
+  estimated_minutes?: number | null;
+  project_id?: string | null;
+  my_day_date?: string | null;
+  relative_due_days?: number;
+  subtasks?: TaskDraft[];
+  blocked_by_id?: string | null;
+  completion_criteria?: string;
+  energy_level?: Task["energy_level"];
+  flexible?: number;
   tagIds?: string[];
 }
 
@@ -162,6 +190,15 @@ export interface TaskUpdate {
   parent_id?: string | null;
   repeat_rule?: string | null;
   remind_minutes?: number | null;
+  reminder_minutes?: number[];
+  estimated_minutes?: number | null;
+  project_id?: string | null;
+  my_day_date?: string | null;
+  blocked_by_id?: string | null;
+  completion_criteria?: string;
+  energy_level?: Task["energy_level"];
+  flexible?: number;
+  actual_minutes?: number;
   sort_order?: number;
 }
 
@@ -176,14 +213,89 @@ export interface AppSettings {
   notifyAhead: number;
   autostart: boolean;
   privacyMode: boolean;
+  autoBackup: boolean;
   ai: AiSettings;
   karma: number;
   streak: number;
   lastCompleteDate: string | null;
+  onboardingComplete: boolean;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  color: string;
+  due_date: string | null;
+  archived: number;
+  created_at: string;
+  updated_at: string;
+  goal: string;
+  success_criteria: string;
+}
+
+export interface TaskEvent {
+  id: string;
+  task_id: string;
+  event_type: string;
+  before_json: string | null;
+  after_json: string | null;
+  note: string;
+  created_at: string;
+}
+
+export interface FocusSession {
+  id: string;
+  task_id: string | null;
+  started_at: string;
+  ended_at: string | null;
+  duration_sec: number;
+  interruption_reason: string | null;
+  created_at: string;
+}
+
+export interface DaySnapshot {
+  id: string;
+  plan_date: string;
+  morning_json: string;
+  evening_json: string | null;
+  planned_minutes: number;
+  completed_minutes: number;
+  reflection: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Milestone {
+  id: string;
+  project_id: string;
+  title: string;
+  due_date: string | null;
+  completed: number;
+  created_at: string;
+}
+
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  task_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppNotification {
+  id: string;
+  task_id: string | null;
+  kind: "reminder" | "missed" | "system";
+  title: string;
+  body: string;
+  scheduled_at: string | null;
+  status: "pending" | "delivered" | "read" | "dismissed";
+  snoozed_until: string | null;
+  created_at: string;
 }
 
 export interface BackupPayload {
-  version: 2;
+  version: 2 | 3;
   exportedAt: string;
   tasks: Task[];
   tags: Tag[];
@@ -193,5 +305,12 @@ export interface BackupPayload {
   habits: Habit[];
   habitChecks: HabitCheck[];
   memos?: Memo[];
+  projects?: Project[];
+  taskTemplates?: TaskTemplate[];
+  notifications?: AppNotification[];
+  taskEvents?: TaskEvent[];
+  focusSessions?: FocusSession[];
+  daySnapshots?: DaySnapshot[];
+  milestones?: Milestone[];
   settings: Record<string, string>;
 }

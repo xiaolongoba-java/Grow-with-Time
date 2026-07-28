@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { parseTimeToMinutes, todayDateString } from "@/lib/dates";
 import type { Task } from "@/types";
+import { AppIcon } from "@/components/AppIcon";
+import { isActiveTask } from "@/lib/tasks";
 
 const HOUR_START = 8;
 const HOUR_END = 23;
 const HOUR_COUNT = HOUR_END - HOUR_START + 1;
-const SLOT_W = 108;
+const SLOT_W = 96;
 const LANE_H = 84;
 const COLLAPSE_KEY = "minimal.timelineCollapsed";
 
@@ -85,7 +87,7 @@ export function TodayTimeline() {
       tasks.filter(
         (t) =>
           !t.parent_id &&
-          t.status === "pending" &&
+          isActiveTask(t) &&
           t.due_date !== null &&
           t.due_date <= today,
       ),
@@ -158,11 +160,9 @@ export function TodayTimeline() {
           aria-expanded={!collapsed}
           onClick={() => setCollapsed((v) => !v)}
         >
+          <AppIcon name="timer" size={17} />
           <span className="timeline-drawer-rail-label">
-            {collapsed ? "时间轴" : "收起"}
-          </span>
-          <span className="timeline-drawer-rail-icon">
-            {collapsed ? "◂" : "▸"}
+            {collapsed ? "今日时间轴" : "收起"}
           </span>
         </button>
 
@@ -232,7 +232,7 @@ export function TodayTimeline() {
 
                     {items.map(({ task, startMin, endMin, lane }) => {
                       const left = minToX(startMin);
-                      const width = Math.max(120, minToX(endMin) - left - 6);
+                      const width = Math.max(54, minToX(endMin) - left - 7);
                       const range = formatRange(task.due_time, task.end_time);
                       const p = task.priority ?? 3;
                       return (

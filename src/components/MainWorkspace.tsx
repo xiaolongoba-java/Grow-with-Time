@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   DndContext,
   type DragEndEvent,
@@ -16,6 +16,7 @@ import {
   filterTasksByView,
   getEmptyMessage,
   getViewTitle,
+  isActiveTask,
 } from "@/lib/tasks";
 import { formatDueDate, formatTimeRange, priorityLabel, todayDateString, addDays, formatLongDate, weekDates, parseDate, startOfWeek, parseTimeToMinutes } from "@/lib/dates";
 import type { Task } from "@/types";
@@ -25,6 +26,13 @@ import { RemindersView } from "@/components/RemindersView";
 import { ReviewView } from "@/components/ReviewView";
 import { MemosView } from "@/components/MemosView";
 import { ExpandableTaskItem } from "@/components/ExpandableTaskItem";
+import { ProjectsView } from "@/components/ProjectsView";
+import {
+  findTimeConflictIds,
+  pendingEstimatedMinutes,
+  suggestDaySchedule,
+} from "@/lib/planning";
+import { saveDaySnapshot } from "@/lib/db";
 
 function BoardView({ tasks }: { tasks: Task[] }) {
   const cols = boardColumns(tasks);
@@ -78,30 +86,80 @@ function BoardView({ tasks }: { tasks: Task[] }) {
 
 function DayBoard() {
   const allTasks = useAppStore((s) => s.tasks);
+  const nav = useAppStore((s) => s.nav);
+  const saveTask = useAppStore((s) => s.saveTask);
   const cursor = useAppStore((s) => s.calendarCursor);
   const setCalendarCursor = useAppStore((s) => s.setCalendarCursor);
   const today = todayDateString();
+  const batchComplete = useAppStore((s) => s.batchComplete);
+  const batchDelete = useAppStore((s) => s.batchDelete);
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const dayTasks = useMemo(() => {
     return allTasks
       .filter((t) => {
         if (t.parent_id || t.deleted_at) return false;
+        if (nav === "myday") {
+          return isActiveTask(t) && t.my_day_date === cursor;
+        }
         if (t.due_date === cursor) return true;
         // Viewing today: also show unfinished overdue tasks (rollover fallback).
         return (
           cursor === today &&
-          t.status === "pending" &&
+          isActiveTask(t) &&
           t.due_date !== null &&
           t.due_date < today
         );
       })
       .sort((a, b) => (a.due_time ?? "").localeCompare(b.due_time ?? ""));
-  }, [allTasks, cursor, today]);
-  const pending = dayTasks.filter((t) => t.status === "pending").length;
+  }, [allTasks, cursor, today, nav]);
+  const myDayCandidates = allTasks
+    .filter(
+      (task) =>
+        !task.parent_id &&
+        !task.deleted_at &&
+        isActiveTask(task) &&
+        task.my_day_date !== cursor,
+    )
+    .slice(0, 6);
+  const pending = dayTasks.filter(isActiveTask).length;
   const done = dayTasks.filter((t) => t.status === "completed").length;
+  const total = pending + done;
+  const completion = total ? Math.round((done / total) * 100) : 0;
+  const estimatedTotal = pendingEstimatedMinutes(dayTasks);
+  const conflictIds = findTimeConflictIds(dayTasks);
 
   return (
     <div className="scope-board">
+      <section className="today-hero">
+        <div className="today-hero-copy">
+          <span className="today-eyebrow">
+            {cursor === today ? "TODAY · 今日成长" : "DAILY PLAN · 当日计划"}
+          </span>
+          <h3>{done ? "做得很好，继续保持节奏。" : "从一件小事开始今天。"}</h3>
+          <p>
+            {total
+              ? `今天安排 ${total} 件事 · 预计 ${Math.floor(estimatedTotal / 60)} 小时 ${estimatedTotal % 60} 分钟${estimatedTotal > 480 ? " · 计划可能过载" : ""}`
+              : "暂时没有安排，给自己留一点生长的空间。"}
+          </p>
+          {conflictIds.size ? (
+            <span className="plan-warning">
+              {conflictIds.size} 项任务存在时间冲突
+            </span>
+          ) : null}
+        </div>
+        <div
+          className="growth-ring"
+          style={{ "--progress": completion } as CSSProperties}
+          aria-label={`完成进度 ${completion}%`}
+        >
+          <div>
+            <strong>{completion}%</strong>
+            <span>已完成</span>
+          </div>
+        </div>
+      </section>
       <div className="scope-nav">
         <button
           type="button"
@@ -125,7 +183,152 @@ function DayBoard() {
         >
           今日
         </button>
+        <button
+          type="button"
+          className={`btn-ghost ${selecting ? "active" : ""}`}
+          onClick={() => {
+            setSelecting((value) => !value);
+            setSelectedIds([]);
+          }}
+        >
+          {selecting ? "退出批量" : "批量管理"}
+        </button>
+        {(nav === "today" || nav === "myday") ? (
+          <button
+            type="button"
+            className="btn-ghost schedule-action"
+            onClick={() => {
+              const suggestions = suggestDaySchedule(dayTasks);
+              if (!suggestions.length) {
+                useAppStore.getState().setToast("没有可排程的灵活任务");
+                return;
+              }
+              const preview = suggestions
+                .map((item) => {
+                  const task = dayTasks.find(
+                    (candidate) => candidate.id === item.taskId,
+                  );
+                  return `${item.start}–${item.end}  ${task?.title ?? ""}`;
+                })
+                .join("\n");
+              if (!window.confirm(`建议日程：\n\n${preview}\n\n应用该排程？`)) {
+                return;
+              }
+              void (async () => {
+                for (const item of suggestions) {
+                  await saveTask(item.taskId, {
+                    due_date: cursor,
+                    due_time: item.start,
+                    end_time: item.end,
+                  });
+                }
+                useAppStore.getState().setToast("智能排程已应用");
+              })();
+            }}
+          >
+            智能排程
+          </button>
+        ) : null}
       </div>
+
+      {selecting ? (
+        <div className="batch-toolbar">
+          <span>已选择 {selectedIds.length} 项</span>
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={!selectedIds.length}
+            onClick={() => {
+              void batchComplete(selectedIds).then(() => setSelectedIds([]));
+            }}
+          >
+            批量完成
+          </button>
+          <button
+            type="button"
+            className="btn-ghost danger"
+            disabled={!selectedIds.length}
+            onClick={() => {
+              void batchDelete(selectedIds).then(() => setSelectedIds([]));
+            }}
+          >
+            批量删除
+          </button>
+        </div>
+      ) : null}
+
+      {nav === "myday" && myDayCandidates.length ? (
+        <section className="myday-picker">
+          <div>
+            <strong>为今天挑选任务</strong>
+            <span>从待办中加入，不会改变原截止日期</span>
+          </div>
+          <div className="myday-candidates">
+            {myDayCandidates.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                onClick={() =>
+                  void saveTask(task.id, { my_day_date: cursor })
+                }
+              >
+                <span>＋</span>
+                {task.title}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {nav === "myday" ? (
+        <div className="day-rituals">
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() =>
+              void saveDaySnapshot(cursor, dayTasks, "morning").then(() =>
+                useAppStore.getState().setToast("晨间计划已保存"),
+              )
+            }
+          >
+            保存晨间计划
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => {
+              const reflection = window.prompt("今天的复盘记录", "") ?? "";
+              const choice = window.prompt(
+                "未完成任务如何处理？请输入：明天 / 待办箱 / 取消任务",
+                "明天",
+              );
+              if (!choice) return;
+              const unfinished = dayTasks.filter(
+                (task) => task.status !== "completed",
+              );
+              const tomorrow = addDays(cursor, 1);
+              void (async () => {
+                await saveDaySnapshot(cursor, dayTasks, "evening", reflection);
+                for (const item of unfinished) {
+                  if (choice.includes("取消")) {
+                    await saveTask(item.id, {
+                      status: "cancelled",
+                      my_day_date: null,
+                    });
+                  } else {
+                    await saveTask(item.id, {
+                      my_day_date: choice.includes("待办") ? null : tomorrow,
+                    });
+                  }
+                }
+                useAppStore.getState().setToast("今日结算已完成");
+              })();
+            }}
+          >
+            晚间结算
+          </button>
+        </div>
+      ) : null}
 
       <div className="scope-summary">
         <div className="scope-card">
@@ -140,7 +343,11 @@ function DayBoard() {
 
       <div className="day-agenda">
         <h3 className="scope-section-title">
-          {cursor === today ? "今日安排" : "当日安排"}
+          {nav === "myday"
+            ? "我的一天"
+            : cursor === today
+              ? "今日安排"
+              : "当日安排"}
         </h3>
         {!dayTasks.length ? (
           <div className="scope-empty">这一天暂无任务</div>
@@ -149,10 +356,23 @@ function DayBoard() {
             <ExpandableTaskItem
               key={task.id}
               task={task}
+              selection={{
+                active: selecting,
+                selected: selectedIds.includes(task.id),
+                onToggle: () =>
+                  setSelectedIds((ids) =>
+                    ids.includes(task.id)
+                      ? ids.filter((id) => id !== task.id)
+                      : [...ids, task.id],
+                  ),
+              }}
               meta={
                 <>
                   <span>{formatTimeRange(task.due_time, task.end_time)}</span>
                   <span>{priorityLabel(task.priority)}</span>
+                  {conflictIds.has(task.id) ? (
+                    <span className="conflict-chip">时间冲突</span>
+                  ) : null}
                 </>
               }
             />
@@ -187,7 +407,7 @@ function WeekBoard() {
     );
   }, [allTasks, weekStart]);
 
-  const pending = weekTasks.filter((t) => t.status === "pending").length;
+  const pending = weekTasks.filter(isActiveTask).length;
   const done = weekTasks.filter((t) => t.status === "completed").length;
 
   const hourStart = 8;
@@ -403,7 +623,7 @@ function MonthBoard() {
       t.due_date >= monthStart &&
       t.due_date <= monthEnd,
   );
-  const pending = monthTasks.filter((t) => t.status === "pending").length;
+  const pending = monthTasks.filter(isActiveTask).length;
   const done = monthTasks.filter((t) => t.status === "completed").length;
 
   const shiftMonth = (delta: number) => {
@@ -574,6 +794,7 @@ export function MainWorkspace() {
   }
   if (nav === "review") return <ReviewView />;
   if (nav === "memos") return <MemosView />;
+  if (nav === "projects") return <ProjectsView />;
   if (nav === "trash") {
     return (
       <main className="main-workspace">
@@ -616,4 +837,3 @@ export function MainWorkspace() {
     </main>
   );
 }
-

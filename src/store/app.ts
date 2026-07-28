@@ -7,11 +7,13 @@ import type {
   Habit,
   HabitCheck,
   NavId,
+  Project,
   SmartList,
   Tag,
   Task,
   TaskDraft,
   TaskUpdate,
+  TaskTemplate,
   ThemeMode,
   Timer,
   TimerDraft,
@@ -20,7 +22,7 @@ import type {
 } from "@/types";
 import * as db from "@/lib/db";
 import { bumpGamification } from "@/lib/db";
-import { todayDateString } from "@/lib/dates";
+import { addDays, todayDateString } from "@/lib/dates";
 import { invoke } from "@tauri-apps/api/core";
 
 const emptyFilter = (): FilterState => ({
@@ -43,6 +45,8 @@ interface AppStore {
   habitChecks: HabitCheck[];
   timers: Timer[];
   attachments: Attachment[];
+  projects: Project[];
+  taskTemplates: TaskTemplate[];
   settings: AppSettings;
   nav: NavId;
   viewMode: ViewMode;
@@ -56,7 +60,10 @@ interface AppStore {
   focusTaskId: string | null;
   focusSeconds: number;
   focusRunning: boolean;
+  focusSessionId: string | null;
   toast: string | null;
+  canUndo: boolean;
+  _undoAction: (() => Promise<void>) | null;
 
   bootstrap: () => Promise<void>;
   maybeRollover: () => Promise<void>;
@@ -69,11 +76,14 @@ interface AppStore {
   setActiveTag: (id: string | null) => void;
   setFilter: (patch: Partial<FilterState>) => void;
   setToast: (msg: string | null) => void;
+  undo: () => Promise<void>;
 
   addTask: (draft: TaskDraft) => Promise<Task | null>;
   saveTask: (id: string, updates: TaskUpdate) => Promise<void>;
   toggleComplete: (id: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  batchComplete: (ids: string[]) => Promise<void>;
+  batchDelete: (ids: string[]) => Promise<void>;
   restoreTask: (id: string) => Promise<void>;
   purgeTrash: () => Promise<void>;
   reorder: (ids: string[]) => Promise<void>;
@@ -81,6 +91,11 @@ interface AppStore {
   addTag: (name: string) => Promise<void>;
   removeTag: (id: string) => Promise<void>;
   setTaskTags: (taskId: string, tagIds: string[]) => Promise<void>;
+  addProject: (name: string) => Promise<void>;
+  archiveProject: (id: string) => Promise<void>;
+  saveTemplate: (name: string, draft: TaskDraft) => Promise<void>;
+  useTemplate: (id: string) => Promise<void>;
+  removeTemplate: (id: string) => Promise<void>;
 
   saveSmartList: (name: string) => Promise<void>;
   removeSmartList: (id: string) => Promise<void>;
@@ -111,8 +126,8 @@ interface AppStore {
 
   setFocusTask: (id: string | null) => void;
   tickFocus: () => void;
-  toggleFocus: () => void;
-  resetFocus: () => void;
+  toggleFocus: () => Promise<void>;
+  resetFocus: () => Promise<void>;
 }
 
 function applyTheme(theme: ThemeMode) {
@@ -131,15 +146,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
   habitChecks: [],
   timers: [],
   attachments: [],
+  projects: [],
+  taskTemplates: [],
   settings: {
     theme: "system",
     notifyAhead: 30,
     autostart: false,
     privacyMode: true,
+    autoBackup: true,
     ai: { baseUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
     karma: 0,
     streak: 0,
     lastCompleteDate: null,
+    onboardingComplete: false,
   },
   nav: "today",
   viewMode: "board",
@@ -153,7 +172,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   focusTaskId: null,
   focusSeconds: 25 * 60,
   focusRunning: false,
+  focusSessionId: null,
   toast: null,
+  canUndo: false,
+  _undoAction: null,
 
   bootstrap: async () => {
     try {
@@ -208,6 +230,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       habitChecks,
       timers,
       settings,
+      projects,
+      taskTemplates,
     ] = await Promise.all([
       db.fetchTasks(),
       db.fetchTrashTasks(),
@@ -218,6 +242,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       db.fetchHabitChecks(),
       db.fetchTimers(),
       db.loadAppSettings(),
+      db.fetchProjects(),
+      db.fetchTaskTemplates(),
     ]);
     set({
       tasks,
@@ -229,6 +255,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       habitChecks,
       timers,
       settings,
+      projects,
+      taskTemplates,
     });
   },
 
@@ -237,13 +265,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       nav,
       selectedTaskId: null,
       dateScope:
-        nav === "today" || nav === "inbox" || nav === "all"
+        nav === "today" || nav === "myday" || nav === "inbox" || nav === "all"
           ? "day"
           : nav === "calendar"
             ? "month"
             : get().dateScope,
       calendarCursor:
-        nav === "today" ? todayDateString() : get().calendarCursor,
+        nav === "today" || nav === "myday"
+          ? todayDateString()
+          : get().calendarCursor,
       viewMode:
         nav === "board"
           ? "board"
@@ -261,7 +291,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }),
   setActiveTag: (activeTagId) => set({ activeTagId, nav: "tags" }),
   setFilter: (patch) => set({ filter: { ...get().filter, ...patch } }),
-  setToast: (toast) => set({ toast }),
+  setToast: (toast) =>
+    set({
+      toast,
+      ...(toast === null ? { canUndo: false, _undoAction: null } : {}),
+    }),
+  undo: async () => {
+    const action = get()._undoAction;
+    if (!action) return;
+    set({ canUndo: false, _undoAction: null, toast: null });
+    await action();
+    set({ toast: "已撤销" });
+  },
 
   addTask: async (draft) => {
     try {
@@ -277,8 +318,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   saveTask: async (id, updates) => {
     try {
-      await db.updateTask(id, updates);
-      await get().refreshAll();
+      const updated = await db.updateTask(id, updates);
+      if (updated) {
+        set((state) => ({
+          tasks: state.tasks.map((task) =>
+            task.id === id ? updated : task,
+          ),
+        }));
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "保存失败";
       set({ error: msg, toast: msg });
@@ -287,6 +334,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   toggleComplete: async (id) => {
+    const before = get().tasks.find((task) => task.id === id);
     const { task } = await db.toggleTaskComplete(id);
     if (task?.status === "completed") {
       const g = await bumpGamification();
@@ -296,12 +344,67 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }));
     }
     await get().refreshAll();
+    if (before) {
+      set({
+        toast: task?.status === "completed" ? "任务已完成" : "已恢复为待办",
+        canUndo: true,
+        _undoAction: async () => {
+          await db.updateTask(id, { status: before.status });
+          await get().refreshAll();
+        },
+      });
+    }
   },
 
   deleteTask: async (id) => {
     await db.softDeleteTask(id);
-    set({ selectedTaskId: null });
+    set({
+      selectedTaskId: null,
+      toast: "任务已移入回收站",
+      canUndo: true,
+      _undoAction: async () => {
+        await db.restoreTask(id);
+        await get().refreshAll();
+      },
+    });
     await get().refreshAll();
+  },
+
+  batchComplete: async (ids) => {
+    const previous = get().tasks
+      .filter((task) => ids.includes(task.id))
+      .map((task) => ({ id: task.id, status: task.status }));
+    await db.batchSetTaskStatus(ids, "completed");
+    await get().refreshAll();
+    set({
+      toast: `已完成 ${ids.length} 项任务`,
+      canUndo: true,
+      _undoAction: async () => {
+        for (const status of [...new Set(previous.map((item) => item.status))]) {
+          await db.batchSetTaskStatus(
+            previous
+              .filter((item) => item.status === status)
+              .map((item) => item.id),
+            status,
+          );
+        }
+        await get().refreshAll();
+      },
+    });
+  },
+
+  batchDelete: async (ids) => {
+    await db.batchSoftDeleteTasks(ids);
+    await get().refreshAll();
+    set({
+      selectedTaskId: null,
+      toast: `已删除 ${ids.length} 项任务`,
+      canUndo: true,
+      _undoAction: async () => {
+        await db.batchRestoreTasks(ids);
+        await get().refreshAll();
+      },
+    });
   },
 
   restoreTask: async (id) => {
@@ -331,6 +434,62 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setTaskTags: async (taskId, tagIds) => {
     await db.setTaskTags(taskId, tagIds);
+    await get().refreshAll();
+  },
+
+  addProject: async (name) => {
+    await db.createProject(name);
+    await get().refreshAll();
+    set({ toast: "项目已创建" });
+  },
+
+  archiveProject: async (id) => {
+    await db.archiveProject(id);
+    await get().refreshAll();
+    set({ toast: "项目已归档" });
+  },
+
+  saveTemplate: async (name, draft) => {
+    await db.saveTaskTemplate(name, draft);
+    await get().refreshAll();
+    set({ toast: "任务模板已保存" });
+  },
+
+  useTemplate: async (id) => {
+    const template = get().taskTemplates.find((item) => item.id === id);
+    if (!template) return;
+    const draft = JSON.parse(template.task_json) as TaskDraft;
+    const variables = [
+      ...new Set(JSON.stringify(draft).match(/\{\{([^}]+)\}\}/g) ?? []),
+    ];
+    let serialized = JSON.stringify(draft);
+    for (const token of variables) {
+      const value = window.prompt(`模板参数：${token.slice(2, -2)}`, "") ?? "";
+      serialized = serialized.split(token).join(value);
+    }
+    const resolved = JSON.parse(serialized) as TaskDraft;
+    const root = await get().addTask({
+      ...resolved,
+      title: resolved.title || template.name,
+      due_date:
+        resolved.relative_due_days != null
+          ? addDays(todayDateString(), resolved.relative_due_days)
+          : todayDateString(),
+    });
+    if (root) {
+      for (const subtask of resolved.subtasks ?? []) {
+        await get().addTask({
+          ...subtask,
+          parent_id: root.id,
+          due_date: null,
+        });
+      }
+    }
+    set({ toast: `已从「${template.name}」创建任务` });
+  },
+
+  removeTemplate: async (id) => {
+    await db.deleteTaskTemplate(id);
     await get().refreshAll();
   },
 
@@ -464,6 +623,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (patch.privacyMode !== undefined) {
       await db.setSetting("privacy_mode", String(patch.privacyMode));
     }
+    if (patch.autoBackup !== undefined) {
+      await db.setSetting("auto_backup", String(patch.autoBackup));
+    }
+    if (patch.onboardingComplete !== undefined) {
+      await db.setSetting(
+        "onboarding_complete",
+        String(patch.onboardingComplete),
+      );
+    }
     set((s) => ({ settings: { ...s.settings, ...patch } }));
   },
 
@@ -473,12 +641,50 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   setFocusTask: (focusTaskId) =>
-    set({ focusTaskId, focusSeconds: 25 * 60, focusRunning: false }),
+    set({
+      focusTaskId,
+      focusSeconds: 25 * 60,
+      focusRunning: false,
+      focusSessionId: null,
+    }),
   tickFocus: () => {
     const { focusRunning, focusSeconds } = get();
     if (!focusRunning || focusSeconds <= 0) return;
-    set({ focusSeconds: focusSeconds - 1 });
+    const next = focusSeconds - 1;
+    set({ focusSeconds: next });
+    if (next === 0 && get().focusSessionId) {
+      const sessionId = get().focusSessionId!;
+      void db.finishFocusSession(sessionId).then(() => get().refreshAll());
+      set({ focusRunning: false, focusSessionId: null, toast: "专注完成，已记录实际耗时" });
+    }
   },
-  toggleFocus: () => set({ focusRunning: !get().focusRunning }),
-  resetFocus: () => set({ focusSeconds: 25 * 60, focusRunning: false }),
+  toggleFocus: async () => {
+    const { focusRunning, focusSessionId, focusTaskId } = get();
+    if (focusRunning) {
+      if (focusSessionId) {
+        await db.finishFocusSession(focusSessionId, "手动暂停");
+      }
+      set({
+        focusRunning: false,
+        focusSessionId: null,
+        toast: "本次专注时间已记录",
+      });
+      await get().refreshAll();
+      return;
+    }
+    const session = await db.startFocusSession(focusTaskId);
+    set({ focusRunning: true, focusSessionId: session.id });
+  },
+  resetFocus: async () => {
+    const { focusSessionId } = get();
+    if (focusSessionId) {
+      await db.finishFocusSession(focusSessionId, "重置计时器");
+      await get().refreshAll();
+    }
+    set({
+      focusSeconds: 25 * 60,
+      focusRunning: false,
+      focusSessionId: null,
+    });
+  },
 }));

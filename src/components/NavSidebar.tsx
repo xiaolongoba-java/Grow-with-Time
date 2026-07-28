@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { todayDateString } from "@/lib/dates";
 import { parseNaturalInput } from "@/lib/nlp";
+import { AppIcon, type AppIconName } from "@/components/AppIcon";
+import { isActiveTask } from "@/lib/tasks";
 
 type NavSidebarProps = {
   onCollapse?: () => void;
@@ -24,7 +26,6 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const saveSmartList = useAppStore((s) => s.saveSmartList);
   const applySmartList = useAppStore((s) => s.applySmartList);
   const removeSmartList = useAppStore((s) => s.removeSmartList);
-  const settings = useAppStore((s) => s.settings);
   const [draft, setDraft] = useState("");
   const [tagName, setTagName] = useState("");
   const [hints, setHints] = useState<string[]>([]);
@@ -36,12 +37,15 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
     return {
       today: roots.filter(
         (t) =>
-          t.status === "pending" && t.due_date !== null && t.due_date <= today,
+          isActiveTask(t) && t.due_date !== null && t.due_date <= today,
       ).length,
-      inbox: roots.filter((t) => t.status === "pending" && t.due_date === null)
+      inbox: roots.filter((t) => isActiveTask(t) && t.due_date === null)
         .length,
       completed: roots.filter((t) => t.status === "completed").length,
       all: roots.length,
+      myday: roots.filter(
+        (t) => isActiveTask(t) && t.my_day_date === today,
+      ).length,
     };
   }, [tasks]);
 
@@ -79,8 +83,13 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
     <aside className="nav-side">
       <div className="nav-side-scroll">
       <div className="brand-row">
-        <h1>Grow with Time</h1>
-        <span className="karma-pill">K {settings.karma}</span>
+        <div className="brand-lockup">
+          <span className="brand-mark" aria-hidden><AppIcon name="sparkle" size={19} /></span>
+          <div>
+            <h1>Grow with Time</h1>
+            <span className="brand-caption">让每一天都有生长</span>
+          </div>
+        </div>
       </div>
 
       <input
@@ -127,19 +136,20 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       <div className="nav-section-label">视图</div>
       {(
         [
-          ["today", "今日", counts.today],
-          ["inbox", "待办箱", counts.inbox],
-          ["completed", "已完成", counts.completed],
-          ["all", "全部", counts.all],
+          ["today", "今日", counts.today, "today"],
+          ["myday", "我的一天", counts.myday, "sparkle"],
+          ["inbox", "待办箱", counts.inbox, "inbox"],
+          ["completed", "已完成", counts.completed, "check"],
+          ["all", "全部", counts.all, "layers"],
         ] as const
-      ).map(([id, label, count]) => (
+      ).map(([id, label, count, icon]) => (
         <button
           key={id}
           type="button"
           className={`nav-item ${nav === id ? "active" : ""}`}
           onClick={() => setNav(id)}
         >
-          <span>{label}</span>
+          <span className="nav-item-label"><AppIcon name={icon as AppIconName} size={17} />{label}</span>
           <span className="nav-count">{count}</span>
         </button>
       ))}
@@ -150,8 +160,17 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         className={`nav-item ${nav === "memos" ? "active" : ""}`}
         onClick={() => setNav("memos")}
       >
-        <span>备忘录</span>
-        <span className="nav-count">✎</span>
+        <span className="nav-item-label"><AppIcon name="memo" size={17} />备忘录</span>
+      </button>
+      <button
+        type="button"
+        className={`nav-item ${nav === "projects" ? "active" : ""}`}
+        onClick={() => setNav("projects")}
+      >
+        <span className="nav-item-label">
+          <AppIcon name="layers" size={17} />
+          项目与模板
+        </span>
       </button>
 
       <div className="nav-section-label">标签</div>
@@ -180,7 +199,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
             if (window.confirm(`删除标签「${tag.name}」？`)) void removeTag(tag.id);
           }}
         >
-          <span style={{ color: tag.color }}>● {tag.name}</span>
+          <span className="nav-item-label" style={{ color: tag.color }}><AppIcon name="tag" size={16} />{tag.name}</span>
         </button>
       ))}
 

@@ -1,6 +1,10 @@
 import type { FilterState, Task, TaskPriority } from "@/types";
 import { isOverdue, todayDateString } from "@/lib/dates";
 
+export function isActiveTask(task: Task): boolean {
+  return task.status !== "completed" && task.status !== "cancelled";
+}
+
 export function filterTasksByView(
   tasks: Task[],
   view: string,
@@ -17,11 +21,16 @@ export function filterTasksByView(
     case "today":
       list = list.filter(
         (t) =>
-          t.status === "pending" && t.due_date !== null && t.due_date <= today,
+          isActiveTask(t) && t.due_date !== null && t.due_date <= today,
+      );
+      break;
+    case "myday":
+      list = list.filter(
+        (t) => isActiveTask(t) && t.my_day_date === today,
       );
       break;
     case "inbox":
-      list = list.filter((t) => t.status === "pending" && t.due_date === null);
+      list = list.filter((t) => isActiveTask(t) && t.due_date === null);
       break;
     case "completed":
       list = list.filter((t) => t.status === "completed");
@@ -82,7 +91,7 @@ export function applyFilter(
 
 export function sortTasks(tasks: Task[]): Task[] {
   const pending = tasks
-    .filter((t) => t.status === "pending")
+    .filter(isActiveTask)
     .sort((a, b) => a.sort_order - b.sort_order);
   const completed = tasks
     .filter((t) => t.status === "completed")
@@ -128,6 +137,7 @@ export function getEmptyMessage(view: string): string {
 export function getViewTitle(view: string): string {
   const map: Record<string, string> = {
     today: "今日",
+    myday: "我的一天",
     inbox: "待办箱",
     completed: "已完成",
     all: "全部任务",
@@ -156,7 +166,7 @@ export function taskRowClassName(task: Task, selected: boolean): string {
 export function boardColumns(tasks: Task[]) {
   const roots = sortTasks(tasks.filter((t) => !t.parent_id));
   return {
-    pending: roots.filter((t) => t.status === "pending" && !isOverdue(t)),
+    pending: roots.filter((t) => isActiveTask(t) && !isOverdue(t)),
     overdue: roots.filter((t) => isOverdue(t)),
     completed: roots.filter((t) => t.status === "completed"),
   };
