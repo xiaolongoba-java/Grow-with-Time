@@ -11,12 +11,22 @@
 - 循环提醒与事项倒计时（桌面浮窗、系统通知）
 - JSON / CSV 导入导出备份
 - AI 拆解与智能排期（设置中配置 OpenAI 兼容 API Key；未配置则禁用）
+- 任务生命周期、依赖关系、完成标准、精力等级与实际耗时
+- 我的⼀天早间规划/晚间复盘、项目目标与里程碑、参数化模板
+- 命令面板、通知中心、批量操作与完整数据备份
 
 不做：云同步、在线协作。
 
 ## 下载
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
+
+### v1.1.0
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.1.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.1.0/Grow.with.Time_1.1.0_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.1.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.1.0/Grow.with.Time_1.1.0_x64-setup.exe) |
 
 ### v1.0.2
 
