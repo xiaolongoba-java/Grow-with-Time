@@ -234,6 +234,11 @@ export function DetailDrawer() {
     await addAttachment(task.id, { kind: "file", name, path: selected });
   };
 
+  const confirmDelete = () => {
+    if (!window.confirm(`确定将「${task.title}」移入回收站吗？`)) return;
+    void deleteTask(task.id);
+  };
+
   return (
     <aside className="detail-panel">
       <div className="panel-head">
@@ -854,8 +859,8 @@ export function DetailDrawer() {
         </div>
       )}
 
-      {mode === "edit" ? (
-        <div className="detail-footer">
+      <div className="detail-footer">
+        {mode === "edit" ? (
           <button
             type="button"
             className="btn-primary"
@@ -864,15 +869,23 @@ export function DetailDrawer() {
           >
             {saving ? "保存中…" : "保存"}
           </button>
+        ) : (
           <button
             type="button"
-            className="btn-ghost danger"
-            onClick={() => void deleteTask(task.id)}
+            className="btn-primary"
+            onClick={enterEdit}
           >
-            删除
+            编辑任务
           </button>
-        </div>
-      ) : null}
+        )}
+        <button
+          type="button"
+          className="btn-ghost danger"
+          onClick={confirmDelete}
+        >
+          删除任务
+        </button>
+      </div>
     </aside>
   );
 }

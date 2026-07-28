@@ -70,13 +70,8 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
     if (task) selectTask(task.id, { edit: true });
   };
 
-  const createBlank = async () => {
-    const task = await addTask({
-      title: "新任务",
-      due_date: nav === "today" ? todayDateString() : null,
-    });
-    if (task) selectTask(task.id, { edit: true });
-    else draftRef.current?.focus();
+  const beginCreate = () => {
+    draftRef.current?.focus();
   };
 
   return (
@@ -99,7 +94,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         onChange={(e) => setFilter({ keyword: e.target.value })}
       />
 
-      <button type="button" className="btn-primary" onClick={() => void createBlank()}>
+      <button type="button" className="btn-primary" onClick={beginCreate}>
         + 新建任务
       </button>
 
