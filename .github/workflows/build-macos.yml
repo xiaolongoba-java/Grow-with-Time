@@ -42,15 +42,26 @@ jobs:
           APPLE_SIGNING_IDENTITY: "-"
         run: npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
 
-      - name: Verify app signature and DMG
+      - name: Re-sign app and rebuild verified DMG
         shell: bash
         run: |
           APP_PATH="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
           DMG_PATH="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
           test -n "$APP_PATH"
           test -n "$DMG_PATH"
+          codesign --force --deep --sign - "$APP_PATH"
           codesign --display --deep --verbose=4 "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          STAGING_DIR="$(mktemp -d)"
+          cp -R "$APP_PATH" "$STAGING_DIR/"
+          ln -s /Applications "$STAGING_DIR/Applications"
+          rm "$DMG_PATH"
+          hdiutil create \
+            -volname "Grow with Time" \
+            -srcfolder "$STAGING_DIR" \
+            -ov \
+            -format UDZO \
+            "$DMG_PATH"
           hdiutil verify "$DMG_PATH"
 
       - name: Upload DMG / App
