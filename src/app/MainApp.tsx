@@ -24,6 +24,7 @@ import {
 import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
 import { todayDateString } from "@/lib/dates";
+import { buildNativeReminderPlans } from "@/lib/nativeReminders";
 
 const NAV_COLLAPSE_KEY = "minimal.navCollapsed";
 
@@ -169,35 +170,18 @@ export function MainApp() {
           const perm = await requestPermission();
           granted = perm === "granted";
         }
-        if (!granted) return;
-
-        const ahead = settings.notifyAhead;
-        for (const task of tasks) {
-          if (
-            !["pending", "in_progress", "waiting"].includes(task.status) ||
-            !task.due_date ||
-            task.parent_id
-          ) {
-            continue;
-          }
-          const due = new Date(
-            `${task.due_date}T${task.due_time ?? "23:59"}:00`,
-          ).getTime();
-          const reminders = task.reminder_minutes.length
-            ? task.reminder_minutes
-            : [task.remind_minutes ?? ahead];
-          for (const remind of reminders) {
-            const fireAt = due - remind * 60 * 1000;
-            if (fireAt <= Date.now()) continue;
-            await invoke("schedule_native_notification", {
-              reminderId: `${task.id}:${task.due_date}:${remind}`,
-              taskId: task.id,
-              title: "任务提醒",
-              body: `${task.title} 将在 ${remind} 分钟内到期`,
-              fireAtMs: fireAt,
-            });
-          }
+        if (!granted) {
+          await invoke("sync_native_notifications", { reminders: [] });
+          return;
         }
+
+        const scheduled = buildNativeReminderPlans(
+          tasks,
+          settings.notifyAhead,
+        );
+        await invoke("sync_native_notifications", {
+          reminders: scheduled,
+        });
       } catch {
         /* ignore */
       }

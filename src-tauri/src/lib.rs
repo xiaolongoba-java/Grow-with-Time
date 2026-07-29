@@ -2,9 +2,10 @@ use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
 use tauri_plugin_notification::NotificationExt;
+use serde::Deserialize;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Condvar, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -263,6 +264,19 @@ CREATE TABLE IF NOT EXISTS milestones (
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "formalize_planning_schema",
+            sql: r#"
+CREATE INDEX IF NOT EXISTS idx_tasks_project_status
+  ON tasks(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_due_status
+  ON tasks(due_date, status);
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '9');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -319,61 +333,130 @@ fn today_pending_count(count: i64) -> Result<i64, String> {
     Ok(count)
 }
 
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeReminder {
+    reminder_id: String,
+    task_id: String,
+    title: String,
+    body: String,
+    fire_at_ms: u64,
+}
+
+#[derive(Default)]
+struct ReminderScheduler {
+    reminders: Mutex<HashMap<String, NativeReminder>>,
+    changed: Condvar,
+}
+
+fn start_notification_scheduler(app: AppHandle, scheduler: Arc<ReminderScheduler>) {
+    std::thread::spawn(move || {
+        loop {
+            let reminder = {
+                let mut guard = scheduler.reminders.lock().unwrap_or_else(|e| e.into_inner());
+                loop {
+                    let next = guard
+                        .values()
+                        .min_by_key(|item| item.fire_at_ms)
+                        .cloned();
+                    let Some(next) = next else {
+                        guard = scheduler
+                            .changed
+                            .wait(guard)
+                            .unwrap_or_else(|e| e.into_inner());
+                        continue;
+                    };
+                    let now_ms = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    if next.fire_at_ms > now_ms {
+                        let wait = Duration::from_millis(next.fire_at_ms - now_ms);
+                        let result = scheduler
+                            .changed
+                            .wait_timeout(guard, wait)
+                            .unwrap_or_else(|e| e.into_inner());
+                        guard = result.0;
+                        continue;
+                    }
+                    guard.remove(&next.reminder_id);
+                    break next;
+                }
+            };
+
+        let _ = app
+            .notification()
+            .builder()
+            .title(&reminder.title)
+            .body(&reminder.body)
+            .show();
+        let _ = app.emit(
+            "native-reminder-fired",
+            serde_json::json!({
+                "id": reminder.reminder_id,
+                "taskId": reminder.task_id,
+                "title": reminder.title,
+                "body": reminder.body,
+                "firedAt": reminder.fire_at_ms
+            }),
+        );
+        }
+    });
+}
+
 #[tauri::command]
 fn schedule_native_notification(
-    app: AppHandle,
-    scheduled: tauri::State<'_, Arc<Mutex<HashMap<String, u64>>>>,
+    scheduled: tauri::State<'_, Arc<ReminderScheduler>>,
     reminder_id: String,
     task_id: String,
     title: String,
     body: String,
     fire_at_ms: u64,
 ) -> Result<(), String> {
-    {
-        let mut guard = scheduled.lock().map_err(|e| e.to_string())?;
-        if guard.get(&reminder_id) == Some(&fire_at_ms) {
-            return Ok(());
-        }
-        guard.insert(reminder_id.clone(), fire_at_ms);
-    }
-    let scheduled = Arc::clone(scheduled.inner());
-    std::thread::spawn(move || {
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-        if fire_at_ms > now_ms {
-            std::thread::sleep(Duration::from_millis(fire_at_ms - now_ms));
-        }
-        let is_current = scheduled
-            .lock()
-            .map(|guard| guard.get(&reminder_id) == Some(&fire_at_ms))
-            .unwrap_or(false);
-        if !is_current {
-            return;
-        }
-        let _ = app
-            .notification()
-            .builder()
-            .title(&title)
-            .body(&body)
-            .show();
-        let _ = app.emit(
-            "native-reminder-fired",
-            serde_json::json!({
-                "id": reminder_id,
-                "taskId": task_id,
-                "title": title,
-                "body": body,
-                "firedAt": fire_at_ms
-            }),
-        );
-        if let Ok(mut guard) = scheduled.lock() {
-            if guard.get(&reminder_id) == Some(&fire_at_ms) {
-                guard.remove(&reminder_id);
-            }
-        }
-    });
+    let mut guard = scheduled.reminders.lock().map_err(|e| e.to_string())?;
+    guard.insert(
+        reminder_id.clone(),
+        NativeReminder {
+            reminder_id,
+            task_id,
+            title,
+            body,
+            fire_at_ms,
+        },
+    );
+    drop(guard);
+    scheduled.changed.notify_all();
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_native_notification(
+    scheduled: tauri::State<'_, Arc<ReminderScheduler>>,
+    reminder_id: String,
+) -> Result<(), String> {
+    scheduled
+        .reminders
+        .lock()
+        .map_err(|e| e.to_string())?
+        .remove(&reminder_id);
+    scheduled.changed.notify_all();
+    Ok(())
+}
+
+#[tauri::command]
+fn sync_native_notifications(
+    scheduled: tauri::State<'_, Arc<ReminderScheduler>>,
+    reminders: Vec<NativeReminder>,
+) -> Result<(), String> {
+    let mut guard = scheduled.reminders.lock().map_err(|e| e.to_string())?;
+    guard.clear();
+    guard.extend(
+        reminders
+            .into_iter()
+            .map(|item| (item.reminder_id.clone(), item)),
+    );
+    drop(guard);
+    scheduled.changed.notify_all();
     Ok(())
 }
 
@@ -430,7 +513,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(Arc::new(Mutex::new(HashMap::<String, u64>::new())))
+        .manage(Arc::new(ReminderScheduler::default()))
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
@@ -452,9 +535,13 @@ pub fn run() {
             start_timer_ui,
             hide_float,
             today_pending_count,
-            schedule_native_notification
+            schedule_native_notification,
+            cancel_native_notification,
+            sync_native_notifications
         ])
         .setup(|app| {
+            let scheduler = Arc::clone(app.state::<Arc<ReminderScheduler>>().inner());
+            start_notification_scheduler(app.handle().clone(), scheduler);
             setup_tray(app.handle())?;
             if let Some(main) = app.get_webview_window("main") {
                 let _ = main.set_title("Grow with Time");

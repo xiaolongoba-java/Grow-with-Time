@@ -81,6 +81,8 @@ export function DetailDrawer() {
   const toggleComplete = useAppStore((s) => s.toggleComplete);
   const setFocusTask = useAppStore((s) => s.setFocusTask);
   const focusTaskId = useAppStore((s) => s.focusTaskId);
+  const focusRunning = useAppStore((s) => s.focusRunning);
+  const toggleFocus = useAppStore((s) => s.toggleFocus);
   const addTimer = useAppStore((s) => s.addTimer);
   const timers = useAppStore((s) => s.timers);
   const projects = useAppStore((s) => s.projects);
@@ -239,6 +241,18 @@ export function DetailDrawer() {
     void deleteTask(task.id);
   };
 
+  const startFocus = () => {
+    if (focusRunning && focusTaskId !== task.id) {
+      setToast("请先暂停当前专注");
+      return;
+    }
+    setFocusTask(task.id);
+    if (task.status !== "in_progress") {
+      void saveTask(task.id, { status: "in_progress" });
+    }
+    if (!focusRunning) void toggleFocus();
+  };
+
   return (
     <aside className="detail-panel">
       <div className="panel-head">
@@ -307,35 +321,56 @@ export function DetailDrawer() {
               </strong>
             </div>
             <div className="detail-meta">
-              <span className="field-label">提醒</span>
-              <strong>
-                {task.reminder_minutes.length
-                  ? task.reminder_minutes.map((m) => `提前 ${m} 分钟`).join("、")
-                  : "无"}
-              </strong>
-            </div>
-            <div className="detail-meta">
-              <span className="field-label">预计耗时</span>
-              <strong>
-                {task.estimated_minutes != null
-                  ? `${task.estimated_minutes} 分钟`
-                  : "未设置"}
-              </strong>
-            </div>
-            <div className="detail-meta">
-              <span className="field-label">实际耗时</span>
-              <strong>{task.actual_minutes} 分钟</strong>
-            </div>
-            <div className="detail-meta">
               <span className="field-label">当前状态</span>
               <strong>{statusLabel(task.status)}</strong>
             </div>
-            <div className="detail-meta">
-              <span className="field-label">重复</span>
-              <strong>{repeatLabel(task.repeat_rule)}</strong>
-            </div>
           </div>
 
+          <details className="detail-section">
+            <summary>计划信息</summary>
+            <div className="detail-section-body">
+              <div className="detail-meta-grid">
+                <div className="detail-meta">
+                  <span className="field-label">提醒</span>
+                  <strong>
+                    {task.reminder_minutes.length
+                      ? task.reminder_minutes.map((m) => `提前 ${m} 分钟`).join("、")
+                      : "无"}
+                  </strong>
+                </div>
+                <div className="detail-meta">
+                  <span className="field-label">预计 / 实际</span>
+                  <strong>
+                    {task.estimated_minutes ?? "—"} / {task.actual_minutes} 分钟
+                  </strong>
+                </div>
+                <div className="detail-meta">
+                  <span className="field-label">精力 / 排程</span>
+                  <strong>
+                    {task.energy_level === "high" ? "高" : task.energy_level === "low" ? "低" : "中"}
+                    {" · "}
+                    {task.flexible ? "可灵活排程" : "固定时间"}
+                  </strong>
+                </div>
+                <div className="detail-meta">
+                  <span className="field-label">重复</span>
+                  <strong>{repeatLabel(task.repeat_rule)}</strong>
+                </div>
+              </div>
+              {task.completion_criteria ? (
+                <div>
+                  <span className="field-label">完成标准</span>
+                  <p className="detail-view-notes">{task.completion_criteria}</p>
+                </div>
+              ) : null}
+            </div>
+          </details>
+
+          <PomodoroPanel compact boundTaskId={task.id} />
+
+          <details className="detail-section">
+            <summary>更多信息</summary>
+            <div className="detail-section-body">
           {taskTags.length > 0 ? (
             <div>
               <span className="field-label">标签</span>
@@ -356,13 +391,6 @@ export function DetailDrawer() {
             </div>
           ) : null}
 
-          {task.completion_criteria ? (
-            <div>
-              <span className="field-label">完成标准</span>
-              <p className="detail-view-notes">{task.completion_criteria}</p>
-            </div>
-          ) : null}
-
           {history.length ? (
             <details className="task-history">
               <summary>任务历史 · {history.length}</summary>
@@ -376,8 +404,6 @@ export function DetailDrawer() {
               </div>
             </details>
           ) : null}
-
-          <PomodoroPanel compact boundTaskId={task.id} />
 
           <div className="detail-utility-actions">
             <button
@@ -491,14 +517,9 @@ export function DetailDrawer() {
               ))}
             </div>
           ) : null}
+            </div>
+          </details>
 
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={enterEdit}
-          >
-            编辑任务
-          </button>
         </div>
       ) : (
         <div className="detail-body">
@@ -870,13 +891,23 @@ export function DetailDrawer() {
             {saving ? "保存中…" : "保存"}
           </button>
         ) : (
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={enterEdit}
-          >
-            编辑任务
-          </button>
+          <>
+            <button type="button" className="btn-primary" onClick={startFocus}>
+              {focusRunning && focusTaskId === task.id ? "专注中" : "开始专注"}
+            </button>
+            {task.status !== "completed" ? (
+              <button
+                type="button"
+                className="btn-ghost detail-complete-action"
+                onClick={() => void toggleComplete(task.id)}
+              >
+                完成
+              </button>
+            ) : null}
+            <button type="button" className="btn-ghost" onClick={enterEdit}>
+              编辑
+            </button>
+          </>
         )}
         <button
           type="button"

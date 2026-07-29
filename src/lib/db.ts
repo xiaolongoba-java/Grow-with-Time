@@ -24,7 +24,7 @@ import type {
   TimerDraft,
 } from "@/types";
 import { createId, DB_URL, nowIso, nowTimeString, addMinutesToTime, ensureEndAfterStart, todayDateString } from "@/lib/dates";
-import { nextOccurrence, parseRepeatRule } from "@/lib/repeat";
+import { nextRepeatTaskDraft, parseRepeatRule } from "@/lib/repeat";
 
 let dbPromise: Promise<Database> | null = null;
 
@@ -599,20 +599,8 @@ export async function toggleTaskComplete(
   let spawned: Task | null = null;
 
   if (current.repeat_rule && current.parent_id === null) {
-    const next = nextOccurrence(current);
-    if (next) {
-      spawned = await createTask({
-        title: current.title,
-        description: current.description,
-        notes: current.notes,
-        priority: current.priority,
-        due_date: next.due_date,
-        due_time: next.due_time,
-        end_time: current.end_time,
-        repeat_rule: current.repeat_rule,
-        remind_minutes: current.remind_minutes,
-      });
-    }
+    const draft = nextRepeatTaskDraft(current);
+    if (draft) spawned = await createTask(draft);
   }
 
   return { task: completed, spawned };

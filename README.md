@@ -14,12 +14,21 @@
 - 任务生命周期、依赖关系、完成标准、精力等级与实际耗时
 - 我的⼀天早间规划/晚间复盘、项目目标与里程碑、参数化模板
 - 命令面板、通知中心、批量操作与完整数据备份
+- 今日计划预览、可锁定智能排程、逐项晚间收尾
+- 可拖拽时间轴入口与高对比深色模式
 
 不做：云同步、在线协作。
 
 ## 下载
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
+
+### v1.2.0
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.2.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.2.0/Grow.with.Time_1.2.0_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.2.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.2.0/Grow.with.Time_1.2.0_x64-setup.exe) |
 
 ### v1.1.0
 

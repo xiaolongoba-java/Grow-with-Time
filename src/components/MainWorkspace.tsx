@@ -93,8 +93,19 @@ function DayBoard() {
   const today = todayDateString();
   const batchComplete = useAppStore((s) => s.batchComplete);
   const batchDelete = useAppStore((s) => s.batchDelete);
+  const setFocusTask = useAppStore((s) => s.setFocusTask);
+  const toggleFocus = useAppStore((s) => s.toggleFocus);
+  const focusRunning = useAppStore((s) => s.focusRunning);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [schedulePreview, setSchedulePreview] = useState<
+    ReturnType<typeof suggestDaySchedule>
+  >([]);
+  const [acceptedScheduleIds, setAcceptedScheduleIds] = useState<string[]>([]);
+  const [lockedScheduleIds, setLockedScheduleIds] = useState<string[]>([]);
+  const [closingDay, setClosingDay] = useState(false);
+  const [reflection, setReflection] = useState("");
+  const [dispositions, setDispositions] = useState<Record<string, string>>({});
 
   const dayTasks = useMemo(() => {
     return allTasks
@@ -129,6 +140,57 @@ function DayBoard() {
   const completion = total ? Math.round((done / total) * 100) : 0;
   const estimatedTotal = pendingEstimatedMinutes(dayTasks);
   const conflictIds = findTimeConflictIds(dayTasks);
+  const previewSchedule = () => {
+    const suggestions = suggestDaySchedule(
+      dayTasks.map((task) =>
+        lockedScheduleIds.includes(task.id) ? { ...task, flexible: 0 } : task,
+      ),
+    );
+    setSchedulePreview(suggestions);
+    setAcceptedScheduleIds(suggestions.map((item) => item.taskId));
+    if (!suggestions.length) {
+      useAppStore.getState().setToast("没有可排程的灵活任务");
+    }
+  };
+
+  const applySchedule = async () => {
+    for (const item of schedulePreview) {
+      if (!acceptedScheduleIds.includes(item.taskId)) continue;
+      await saveTask(item.taskId, {
+        due_date: cursor,
+        due_time: item.start,
+        end_time: item.end,
+      });
+    }
+    setSchedulePreview([]);
+    useAppStore.getState().setToast("今日计划已应用");
+  };
+
+  const openDayClose = () => {
+    setDispositions(
+      Object.fromEntries(
+        dayTasks.filter(isActiveTask).map((task) => [task.id, "tomorrow"]),
+      ),
+    );
+    setClosingDay(true);
+  };
+
+  const settleDay = async () => {
+    await saveDaySnapshot(cursor, dayTasks, "evening", reflection);
+    for (const task of dayTasks.filter(isActiveTask)) {
+      const choice = dispositions[task.id] ?? "tomorrow";
+      if (choice === "cancel") {
+        await saveTask(task.id, { status: "cancelled", my_day_date: null });
+      } else if (choice === "inbox") {
+        await saveTask(task.id, { my_day_date: null });
+      } else {
+        await saveTask(task.id, { my_day_date: addDays(cursor, 1) });
+      }
+    }
+    setClosingDay(false);
+    setReflection("");
+    useAppStore.getState().setToast("今日收尾已完成");
+  };
 
   return (
     <div className="scope-board">
@@ -197,39 +259,78 @@ function DayBoard() {
           <button
             type="button"
             className="btn-ghost schedule-action"
-            onClick={() => {
-              const suggestions = suggestDaySchedule(dayTasks);
-              if (!suggestions.length) {
-                useAppStore.getState().setToast("没有可排程的灵活任务");
-                return;
-              }
-              const preview = suggestions
-                .map((item) => {
-                  const task = dayTasks.find(
-                    (candidate) => candidate.id === item.taskId,
-                  );
-                  return `${item.start}–${item.end}  ${task?.title ?? ""}`;
-                })
-                .join("\n");
-              if (!window.confirm(`建议日程：\n\n${preview}\n\n应用该排程？`)) {
-                return;
-              }
-              void (async () => {
-                for (const item of suggestions) {
-                  await saveTask(item.taskId, {
-                    due_date: cursor,
-                    due_time: item.start,
-                    end_time: item.end,
-                  });
-                }
-                useAppStore.getState().setToast("智能排程已应用");
-              })();
-            }}
+            onClick={previewSchedule}
           >
-            智能排程
+            整理今日
           </button>
         ) : null}
       </div>
+
+      {schedulePreview.length ? (
+        <section className="schedule-preview">
+          <div className="schedule-preview-head">
+            <div>
+              <strong>今日排程建议</strong>
+              <span>先预览，再决定应用哪些调整</span>
+            </div>
+            <button type="button" className="btn-ghost" onClick={() => setSchedulePreview([])}>
+              关闭
+            </button>
+          </div>
+          {schedulePreview.map((item) => {
+            const task = dayTasks.find((candidate) => candidate.id === item.taskId);
+            const accepted = acceptedScheduleIds.includes(item.taskId);
+            return (
+              <div key={item.taskId} className="schedule-preview-row">
+                <input
+                  type="checkbox"
+                  checked={accepted}
+                  onChange={() =>
+                    setAcceptedScheduleIds((ids) =>
+                      accepted
+                        ? ids.filter((id) => id !== item.taskId)
+                        : [...ids, item.taskId],
+                    )
+                  }
+                />
+                <time>{item.start}–{item.end}</time>
+                <div>
+                  <strong>{task?.title}</strong>
+                  <span>
+                    {task?.due_date ? "优先满足截止日期" : "填入今日可用空隙"}
+                    {task?.energy_level ? ` · ${task.energy_level === "high" ? "高精力" : task.energy_level === "low" ? "低精力" : "中等精力"}` : ""}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() =>
+                    setLockedScheduleIds((ids) => {
+                      const locked = ids.includes(item.taskId);
+                      if (!locked) {
+                        setAcceptedScheduleIds((acceptedIds) =>
+                          acceptedIds.filter((id) => id !== item.taskId),
+                        );
+                      }
+                      return locked
+                        ? ids.filter((id) => id !== item.taskId)
+                        : [...ids, item.taskId];
+                    })
+                  }
+                >
+                  {lockedScheduleIds.includes(item.taskId) ? "已锁定" : "锁定"}
+                </button>
+              </div>
+            );
+          })}
+          <div className="schedule-preview-actions">
+            <span>{acceptedScheduleIds.length} 项将被调整</span>
+            <button type="button" className="btn-primary" onClick={() => void applySchedule()}>
+              应用所选排程
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {selecting ? (
         <div className="batch-toolbar">
@@ -291,43 +392,59 @@ function DayBoard() {
               )
             }
           >
-            保存晨间计划
+            确认今日计划
           </button>
           <button
             type="button"
             className="btn-ghost"
-            onClick={() => {
-              const reflection = window.prompt("今天的复盘记录", "") ?? "";
-              const choice = window.prompt(
-                "未完成任务如何处理？请输入：明天 / 待办箱 / 取消任务",
-                "明天",
-              );
-              if (!choice) return;
-              const unfinished = dayTasks.filter(
-                (task) => task.status !== "completed",
-              );
-              const tomorrow = addDays(cursor, 1);
-              void (async () => {
-                await saveDaySnapshot(cursor, dayTasks, "evening", reflection);
-                for (const item of unfinished) {
-                  if (choice.includes("取消")) {
-                    await saveTask(item.id, {
-                      status: "cancelled",
-                      my_day_date: null,
-                    });
-                  } else {
-                    await saveTask(item.id, {
-                      my_day_date: choice.includes("待办") ? null : tomorrow,
-                    });
-                  }
-                }
-                useAppStore.getState().setToast("今日结算已完成");
-              })();
-            }}
+            onClick={openDayClose}
           >
-            晚间结算
+            今日收尾
           </button>
         </div>
+      ) : null}
+
+      {nav === "myday" && closingDay ? (
+        <section className="day-close-panel">
+          <div>
+            <strong>今日收尾</strong>
+            <span>完成 {done} 项，还有 {pending} 项需要决定去向</span>
+          </div>
+          <textarea
+            className="field"
+            rows={2}
+            value={reflection}
+            onChange={(event) => setReflection(event.target.value)}
+            placeholder="今天最值得记录的一句话…"
+          />
+          {dayTasks.filter(isActiveTask).map((task) => (
+            <label key={task.id} className="day-close-task">
+              <span>{task.title}</span>
+              <select
+                className="field"
+                value={dispositions[task.id] ?? "tomorrow"}
+                onChange={(event) =>
+                  setDispositions((current) => ({
+                    ...current,
+                    [task.id]: event.target.value,
+                  }))
+                }
+              >
+                <option value="tomorrow">安排到明天</option>
+                <option value="inbox">移回待办箱</option>
+                <option value="cancel">取消任务</option>
+              </select>
+            </label>
+          ))}
+          <div className="day-close-actions">
+            <button type="button" className="btn-ghost" onClick={() => setClosingDay(false)}>
+              稍后
+            </button>
+            <button type="button" className="btn-primary" onClick={() => void settleDay()}>
+              完成收尾
+            </button>
+          </div>
+        </section>
       ) : null}
 
       <div className="scope-summary">
@@ -374,6 +491,44 @@ function DayBoard() {
                     <span className="conflict-chip">时间冲突</span>
                   ) : null}
                 </>
+              }
+              actions={
+                !selecting && isActiveTask(task) ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => {
+                        setFocusTask(task.id);
+                        if (task.status !== "in_progress") {
+                          void saveTask(task.id, { status: "in_progress" });
+                        }
+                        if (!focusRunning) void toggleFocus();
+                      }}
+                    >
+                      专注
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => void saveTask(task.id, {
+                        due_date: addDays(cursor, 1),
+                        my_day_date: addDays(cursor, 1),
+                      })}
+                    >
+                      明天
+                    </button>
+                    {nav === "myday" ? (
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => void saveTask(task.id, { my_day_date: null })}
+                      >
+                        移出今日
+                      </button>
+                    ) : null}
+                  </>
+                ) : null
               }
             />
           ))

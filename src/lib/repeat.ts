@@ -1,4 +1,4 @@
-import type { RepeatRule, Task } from "@/types";
+import type { RepeatRule, Task, TaskDraft } from "@/types";
 import { todayDateString } from "@/lib/dates";
 
 export function parseRepeatRule(raw: string | null): RepeatRule | null {
@@ -92,4 +92,27 @@ export function nextOccurrence(
     default:
       return null;
   }
+}
+
+export function nextRepeatTaskDraft(task: Task): TaskDraft | null {
+  const next = nextOccurrence(task);
+  if (!next) return null;
+  return {
+    title: task.title,
+    description: task.description,
+    notes: task.notes,
+    priority: task.priority,
+    due_date: next.due_date,
+    due_time: next.due_time,
+    end_time: task.end_time,
+    repeat_rule: task.repeat_rule,
+    remind_minutes: task.remind_minutes,
+    reminder_minutes: [...task.reminder_minutes],
+    estimated_minutes: task.estimated_minutes,
+    project_id: task.project_id,
+    blocked_by_id: task.blocked_by_id,
+    completion_criteria: task.completion_criteria,
+    energy_level: task.energy_level,
+    flexible: task.flexible,
+  };
 }

@@ -8,9 +8,11 @@ export function ExpandableTaskItem({
   task,
   meta,
   selection,
+  actions,
 }: {
   task: Task;
   meta?: ReactNode;
+  actions?: ReactNode;
   selection?: {
     active: boolean;
     selected: boolean;
@@ -96,6 +98,11 @@ export function ExpandableTaskItem({
         >
           详情
         </button>
+        {actions ? (
+          <div className="task-quick-actions" onClick={(event) => event.stopPropagation()}>
+            {actions}
+          </div>
+        ) : null}
         <span className={`expand-caret ${expanded ? "open" : ""}`} aria-hidden>
           ▾
         </span>

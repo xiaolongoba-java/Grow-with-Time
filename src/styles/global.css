@@ -2587,8 +2587,7 @@ html[data-timeline="collapsed"] .app-body {
 
 .detail-footer {
   flex-shrink: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   gap: 8px;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border);
@@ -2596,12 +2595,17 @@ html[data-timeline="collapsed"] .app-body {
 }
 
 .detail-footer .btn-primary {
+  flex: 1 1 auto;
   width: auto;
   min-width: 0;
 }
 
-.detail-footer .btn-ghost.danger {
+.detail-footer .btn-ghost {
+  flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.detail-footer .btn-ghost.danger {
   border: 1px solid color-mix(in srgb, var(--text-overdue) 28%, transparent);
 }
 

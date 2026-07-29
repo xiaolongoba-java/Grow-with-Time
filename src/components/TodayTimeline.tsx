@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useAppStore } from "@/store/app";
 import { parseTimeToMinutes, todayDateString } from "@/lib/dates";
 import type { Task } from "@/types";
@@ -11,6 +17,17 @@ const HOUR_COUNT = HOUR_END - HOUR_START + 1;
 const SLOT_W = 96;
 const LANE_H = 84;
 const COLLAPSE_KEY = "minimal.timelineCollapsed";
+const POSITION_KEY = "minimal.timelineRailPositions";
+
+type RailPosition = { x: number; y: number };
+type RailPositions = { collapsed?: RailPosition; open?: RailPosition };
+
+function defaultRailPosition(collapsed: boolean): RailPosition {
+  return {
+    x: Math.max(12, window.innerWidth - 150),
+    y: collapsed ? Math.max(12, window.innerHeight - 64) : 72,
+  };
+}
 
 type LaidOut = {
   task: Task;
@@ -71,6 +88,54 @@ export function TodayTimeline() {
     }
   });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLButtonElement>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
+  const [railPositions, setRailPositions] = useState<RailPositions>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(POSITION_KEY) ?? "{}");
+    } catch {
+      return {};
+    }
+  });
+  const railMode = collapsed ? "collapsed" : "open";
+  const railPosition =
+    railPositions[railMode] ?? defaultRailPosition(collapsed);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(POSITION_KEY, JSON.stringify(railPositions));
+    } catch {
+      /* ignore */
+    }
+  }, [railPositions]);
+
+  const moveRail = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const width = railRef.current?.offsetWidth ?? 120;
+    const height = railRef.current?.offsetHeight ?? 40;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+    const next = {
+      x: Math.max(8, Math.min(window.innerWidth - width - 8, drag.originX + dx)),
+      y: Math.max(8, Math.min(window.innerHeight - height - 8, drag.originY + dy)),
+    };
+    setRailPositions((current) => ({ ...current, [railMode]: next }));
+  };
+
+  const finishRailDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!drag?.moved) setCollapsed((value) => !value);
+  };
 
   useEffect(() => {
     try {
@@ -153,12 +218,36 @@ export function TodayTimeline() {
         aria-hidden={collapsed}
       >
         <button
+          ref={railRef}
           type="button"
           className="timeline-drawer-rail"
           title={collapsed ? "展开时间轴" : "收起时间轴"}
           aria-label={collapsed ? "展开时间轴" : "收起时间轴"}
           aria-expanded={!collapsed}
-          onClick={() => setCollapsed((v) => !v)}
+          style={{
+            left: railPosition.x,
+            top: railPosition.y,
+            right: "auto",
+            bottom: "auto",
+          }}
+          onPointerDown={(event) => {
+            dragRef.current = {
+              startX: event.clientX,
+              startY: event.clientY,
+              originX: railPosition.x,
+              originY: railPosition.y,
+              moved: false,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={moveRail}
+          onPointerUp={finishRailDrag}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setCollapsed((value) => !value);
+            }
+          }}
         >
           <AppIcon name="timer" size={17} />
           <span className="timeline-drawer-rail-label">

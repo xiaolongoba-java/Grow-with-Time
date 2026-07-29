@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { nextOccurrence, parseRepeatRule, stringifyRepeatRule } from "./repeat";
+import {
+  nextOccurrence,
+  nextRepeatTaskDraft,
+  parseRepeatRule,
+  stringifyRepeatRule,
+} from "./repeat";
 import type { Task } from "@/types";
 
 const task = (repeat_rule: string, due_date = "2026-07-28") =>
@@ -33,5 +38,33 @@ describe("repeat rules", () => {
       ),
     );
     expect(result?.due_date).toBe("2026-08-28");
+  });
+
+  it("preserves planning fields for the next repeated task", () => {
+    const source = {
+      ...task('{"frequency":"daily","interval":1}'),
+      description: "details",
+      notes: "notes",
+      priority: 1,
+      end_time: "10:00",
+      remind_minutes: 10,
+      reminder_minutes: [60, 30, 10],
+      estimated_minutes: 45,
+      project_id: "project-1",
+      blocked_by_id: "blocker-1",
+      completion_criteria: "reviewed",
+      energy_level: "high",
+      flexible: 0,
+    } as Task;
+    expect(nextRepeatTaskDraft(source)).toMatchObject({
+      due_date: "2026-07-29",
+      reminder_minutes: [60, 30, 10],
+      estimated_minutes: 45,
+      project_id: "project-1",
+      blocked_by_id: "blocker-1",
+      completion_criteria: "reviewed",
+      energy_level: "high",
+      flexible: 0,
+    });
   });
 });

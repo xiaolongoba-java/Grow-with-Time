@@ -704,6 +704,36 @@ html[data-nav="collapsed"] .timeline-drawer {
   color: var(--text-muted);
 }
 
+.detail-section {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-panel);
+}
+
+.detail-section summary {
+  padding: 12px 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.detail-section[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-section-body {
+  display: grid;
+  gap: 13px;
+  padding: 13px;
+}
+
+.detail-complete-action {
+  color: var(--accent) !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
 .day-rituals {
   display: flex;
   justify-content: flex-end;
@@ -713,6 +743,250 @@ html[data-nav="collapsed"] .timeline-drawer {
 .day-rituals .btn-ghost {
   border: 1px solid #dfe5f1;
   background: #fff;
+}
+
+.schedule-preview,
+.day-close-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(91, 125, 204, 0.2);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(235, 242, 255, 0.82), var(--bg-panel));
+  box-shadow: var(--shadow-soft);
+}
+
+.schedule-preview-head,
+.schedule-preview-actions,
+.day-close-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.schedule-preview-head > div,
+.day-close-panel > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.schedule-preview-head span,
+.schedule-preview-row span,
+.day-close-panel > div:first-child span,
+.schedule-preview-actions > span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.schedule-preview-row {
+  display: grid;
+  grid-template-columns: auto 92px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+}
+
+.schedule-preview-row time {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.schedule-preview-row > div {
+  display: grid;
+  min-width: 0;
+}
+
+.schedule-preview-actions .btn-primary,
+.day-close-actions .btn-primary {
+  width: auto;
+}
+
+.day-close-task {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  align-items: center;
+  gap: 12px;
+}
+
+.day-close-task .field {
+  padding-block: 8px;
+}
+
+.task-quick-actions {
+  display: flex;
+  gap: 3px;
+}
+
+.task-quick-actions .btn-ghost {
+  padding: 5px 7px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .task-quick-actions {
+    display: none;
+  }
+
+  .schedule-preview-row {
+    grid-template-columns: auto 84px minmax(0, 1fr);
+  }
+
+  .schedule-preview-row > button {
+    grid-column: 2 / -1;
+    justify-self: end;
+  }
+}
+
+.timeline-drawer-rail {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.timeline-drawer-rail:active {
+  cursor: grabbing;
+}
+
+:root[data-theme="dark"] .icon-rail,
+:root[data-theme="dark"] .nav-side,
+:root[data-theme="dark"] .main-workspace {
+  border-color: var(--border);
+  background: var(--bg-root);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .icon-rail {
+  background: var(--bg-rail);
+}
+
+:root[data-theme="dark"] .icon-rail::before,
+:root[data-theme="dark"] .rail-btn:hover,
+:root[data-theme="dark"] .rail-btn.active,
+:root[data-theme="dark"] .scope-card,
+:root[data-theme="dark"] .expand-task,
+:root[data-theme="dark"] .project-card,
+:root[data-theme="dark"] .template-card,
+:root[data-theme="dark"] .timeline-drawer-rail,
+:root[data-theme="dark"] .schedule-preview-row,
+:root[data-theme="dark"] .day-rituals .btn-ghost {
+  color: var(--text-primary) !important;
+  border-color: var(--border-strong);
+  background: var(--bg-panel);
+}
+
+:root[data-theme="dark"] .today-hero {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background:
+    radial-gradient(circle at 91% 25%, rgba(128, 151, 255, 0.16), transparent 24%),
+    linear-gradient(120deg, #232936 0%, #272738 62%, #302722 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+:root[data-theme="dark"] .today-hero h3,
+:root[data-theme="dark"] .today-hero p,
+:root[data-theme="dark"] .today-eyebrow,
+:root[data-theme="dark"] .growth-ring,
+:root[data-theme="dark"] .growth-ring span {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .today-hero p,
+:root[data-theme="dark"] .growth-ring span {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .growth-ring {
+  background:
+    radial-gradient(circle, var(--bg-panel) 57%, transparent 58%),
+    conic-gradient(var(--accent) calc(var(--progress) * 1%), rgba(128, 151, 255, 0.15) 0);
+}
+
+:root[data-theme="dark"] .schedule-preview,
+:root[data-theme="dark"] .day-close-panel {
+  border-color: var(--border-strong);
+  background: linear-gradient(135deg, rgba(44, 53, 76, 0.94), var(--bg-panel));
+}
+
+:root[data-theme="dark"] .field,
+:root[data-theme="dark"] .search-box,
+:root[data-theme="dark"] .quick-add-input {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-input);
+}
+
+:root[data-theme="dark"] .field::placeholder,
+:root[data-theme="dark"] .search-box::placeholder,
+:root[data-theme="dark"] .quick-add-input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .icon-rail,
+  :root[data-theme="system"] .nav-side,
+  :root[data-theme="system"] .main-workspace {
+    border-color: var(--border);
+    background: var(--bg-root);
+    color: var(--text-primary);
+  }
+
+  :root[data-theme="system"] .icon-rail {
+    background: var(--bg-rail);
+  }
+
+  :root[data-theme="system"] .icon-rail::before,
+  :root[data-theme="system"] .rail-btn:hover,
+  :root[data-theme="system"] .rail-btn.active,
+  :root[data-theme="system"] .scope-card,
+  :root[data-theme="system"] .expand-task,
+  :root[data-theme="system"] .project-card,
+  :root[data-theme="system"] .template-card,
+  :root[data-theme="system"] .timeline-drawer-rail,
+  :root[data-theme="system"] .schedule-preview-row,
+  :root[data-theme="system"] .day-rituals .btn-ghost {
+    color: var(--text-primary) !important;
+    border-color: var(--border-strong);
+    background: var(--bg-panel);
+  }
+
+  :root[data-theme="system"] .today-hero {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+    background:
+      radial-gradient(circle at 91% 25%, rgba(128, 151, 255, 0.16), transparent 24%),
+      linear-gradient(120deg, #232936 0%, #272738 62%, #302722 100%);
+  }
+
+  :root[data-theme="system"] .today-hero h3,
+  :root[data-theme="system"] .today-eyebrow,
+  :root[data-theme="system"] .growth-ring {
+    color: var(--text-primary);
+  }
+
+  :root[data-theme="system"] .today-hero p,
+  :root[data-theme="system"] .growth-ring span {
+    color: var(--text-secondary);
+  }
+
+  :root[data-theme="system"] .growth-ring {
+    background:
+      radial-gradient(circle, var(--bg-panel) 57%, transparent 58%),
+      conic-gradient(var(--accent) calc(var(--progress) * 1%), rgba(128, 151, 255, 0.15) 0);
+  }
+
+  :root[data-theme="system"] .schedule-preview,
+  :root[data-theme="system"] .day-close-panel {
+    border-color: var(--border-strong);
+    background: linear-gradient(135deg, rgba(44, 53, 76, 0.94), var(--bg-panel));
+  }
 }
 
 .project-goal {
