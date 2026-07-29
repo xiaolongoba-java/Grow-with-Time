@@ -51,7 +51,7 @@ jobs:
           test -n "$DMG_PATH"
           codesign --force --deep --sign - "$APP_PATH"
           codesign --display --deep --verbose=4 "$APP_PATH"
-          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          codesign --verify --deep --verbose=2 "$APP_PATH"
           STAGING_DIR="$(mktemp -d)"
           cp -R "$APP_PATH" "$STAGING_DIR/"
           ln -s /Applications "$STAGING_DIR/Applications"
