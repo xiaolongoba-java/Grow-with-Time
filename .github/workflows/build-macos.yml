@@ -40,6 +40,16 @@ jobs:
       - name: Build Tauri (aarch64)
         run: npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
 
+      - name: Verify app signature and DMG
+        shell: bash
+        run: |
+          APP_PATH="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
+          DMG_PATH="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$APP_PATH"
+          test -n "$DMG_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          hdiutil verify "$DMG_PATH"
+
       - name: Upload DMG / App
         uses: actions/upload-artifact@v4
         with:
