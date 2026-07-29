@@ -40,7 +40,7 @@ jobs:
       - name: Build Tauri (aarch64)
         env:
           APPLE_SIGNING_IDENTITY: "-"
-        run: npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
+        run: npm run tauri build -- --target aarch64-apple-darwin --bundles app,dmg
 
       - name: Re-sign app and rebuild verified DMG
         shell: bash
