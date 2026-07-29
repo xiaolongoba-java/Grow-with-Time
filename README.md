@@ -23,12 +23,12 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.2.1
+### v1.2.2
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.2.1_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.2.1/Grow.with.Time_1.2.1_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.2.1_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.2.1/Grow.with.Time_1.2.1_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.2.2_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.2.2/Grow.with.Time_1.2.2_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.2.2_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.2.2/Grow.with.Time_1.2.2_x64-setup.exe) |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
 

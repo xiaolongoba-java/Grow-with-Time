@@ -1,4 +1,4 @@
-# Build unsigned macOS Apple Silicon (M1/M2/M3/M4) installer.
+# Build ad-hoc signed macOS Apple Silicon (M1/M2/M3/M4) installer.
 # After push, download the "macos-aarch64" artifact from the Actions run.
 name: Build macOS (Apple Silicon)
 
@@ -38,6 +38,8 @@ jobs:
         run: npm ci
 
       - name: Build Tauri (aarch64)
+        env:
+          APPLE_SIGNING_IDENTITY: "-"
         run: npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
 
       - name: Verify app signature and DMG
@@ -47,6 +49,7 @@ jobs:
           DMG_PATH="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
           test -n "$APP_PATH"
           test -n "$DMG_PATH"
+          codesign --display --deep --verbose=4 "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
           hdiutil verify "$DMG_PATH"
 
