@@ -28,6 +28,7 @@ import { MemosView } from "@/components/MemosView";
 import { ExpandableTaskItem } from "@/components/ExpandableTaskItem";
 import { ProjectsView } from "@/components/ProjectsView";
 import {
+  buildDeferredDateUpdate,
   findTimeConflictIds,
   pendingEstimatedMinutes,
   suggestDaySchedule,
@@ -106,6 +107,13 @@ function DayBoard() {
   const [closingDay, setClosingDay] = useState(false);
   const [reflection, setReflection] = useState("");
   const [dispositions, setDispositions] = useState<Record<string, string>>({});
+  const [batchDate, setBatchDate] = useState(addDays(cursor, 1));
+  const [applyingSchedule, setApplyingSchedule] = useState(false);
+  const [settlingDay, setSettlingDay] = useState(false);
+
+  useEffect(() => {
+    setBatchDate(addDays(cursor, 1));
+  }, [cursor]);
 
   const dayTasks = useMemo(() => {
     return allTasks
@@ -154,16 +162,30 @@ function DayBoard() {
   };
 
   const applySchedule = async () => {
-    for (const item of schedulePreview) {
-      if (!acceptedScheduleIds.includes(item.taskId)) continue;
-      await saveTask(item.taskId, {
-        due_date: cursor,
-        due_time: item.start,
-        end_time: item.end,
-      });
+    if (!acceptedScheduleIds.length || applyingSchedule) return;
+    if (
+      !window.confirm(
+        `将调整 ${acceptedScheduleIds.length} 项任务的日期和时间。确认应用这份排程吗？`,
+      )
+    ) {
+      return;
     }
-    setSchedulePreview([]);
-    useAppStore.getState().setToast("今日计划已应用");
+    setApplyingSchedule(true);
+    try {
+      for (const item of schedulePreview) {
+        if (!acceptedScheduleIds.includes(item.taskId)) continue;
+        await saveTask(item.taskId, {
+          due_date: cursor,
+          due_time: item.start,
+          end_time: item.end,
+          flexible: 0,
+        });
+      }
+      setSchedulePreview([]);
+      useAppStore.getState().setToast("今日计划已应用");
+    } finally {
+      setApplyingSchedule(false);
+    }
   };
 
   const openDayClose = () => {
@@ -176,20 +198,52 @@ function DayBoard() {
   };
 
   const settleDay = async () => {
-    await saveDaySnapshot(cursor, dayTasks, "evening", reflection);
-    for (const task of dayTasks.filter(isActiveTask)) {
-      const choice = dispositions[task.id] ?? "tomorrow";
-      if (choice === "cancel") {
-        await saveTask(task.id, { status: "cancelled", my_day_date: null });
-      } else if (choice === "inbox") {
-        await saveTask(task.id, { my_day_date: null });
-      } else {
-        await saveTask(task.id, { my_day_date: addDays(cursor, 1) });
-      }
+    if (settlingDay) return;
+    const activeTasks = dayTasks.filter(isActiveTask);
+    const tomorrowCount = activeTasks.filter(
+      (task) => (dispositions[task.id] ?? "tomorrow") === "tomorrow",
+    ).length;
+    const removedCount = activeTasks.filter(
+      (task) => dispositions[task.id] === "remove",
+    ).length;
+    const cancelCount = activeTasks.filter(
+      (task) => dispositions[task.id] === "cancel",
+    ).length;
+    if (
+      !window.confirm(
+        `确认今日收尾？\n顺延明天 ${tomorrowCount} 项 · 移出我的一天 ${removedCount} 项 · 取消 ${cancelCount} 项`,
+      )
+    ) {
+      return;
     }
-    setClosingDay(false);
-    setReflection("");
-    useAppStore.getState().setToast("今日收尾已完成");
+    setSettlingDay(true);
+    try {
+      await saveDaySnapshot(cursor, dayTasks, "evening", reflection);
+      for (const task of activeTasks) {
+        const choice = dispositions[task.id] ?? "tomorrow";
+        if (choice === "cancel") {
+          await saveTask(task.id, { status: "cancelled", my_day_date: null });
+        } else if (choice === "remove") {
+          await saveTask(task.id, { my_day_date: null });
+        } else {
+          await saveTask(task.id, { my_day_date: addDays(cursor, 1) });
+        }
+      }
+      setClosingDay(false);
+      setReflection("");
+      useAppStore.getState().setToast("今日收尾已完成");
+    } finally {
+      setSettlingDay(false);
+    }
+  };
+
+  const updateSelected = async (
+    updates: Parameters<typeof saveTask>[1],
+    message: string,
+  ) => {
+    await Promise.all(selectedIds.map((id) => saveTask(id, updates)));
+    setSelectedIds([]);
+    useAppStore.getState().setToast(message);
   };
 
   return (
@@ -325,8 +379,13 @@ function DayBoard() {
           })}
           <div className="schedule-preview-actions">
             <span>{acceptedScheduleIds.length} 项将被调整</span>
-            <button type="button" className="btn-primary" onClick={() => void applySchedule()}>
-              应用所选排程
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!acceptedScheduleIds.length || applyingSchedule}
+              onClick={() => void applySchedule()}
+            >
+              {applyingSchedule ? "应用中…" : "应用所选排程"}
             </button>
           </div>
         </section>
@@ -335,6 +394,60 @@ function DayBoard() {
       {selecting ? (
         <div className="batch-toolbar">
           <span>已选择 {selectedIds.length} 项</span>
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={!selectedIds.length}
+            onClick={() =>
+              void updateSelected(
+                nav === "myday"
+                  ? buildDeferredDateUpdate("myday", addDays(cursor, 1))
+                  : buildDeferredDateUpdate("due", addDays(cursor, 1)),
+                `已将 ${selectedIds.length} 项顺延到明天`,
+              )
+            }
+          >
+            顺延明天
+          </button>
+          {nav === "myday" ? (
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={!selectedIds.length}
+              onClick={() =>
+                void updateSelected(
+                  { my_day_date: null },
+                  `已将 ${selectedIds.length} 项移出我的一天`,
+                )
+              }
+            >
+              移出今日
+            </button>
+          ) : null}
+          <label className="batch-date-action">
+            <span>改期</span>
+            <input
+              type="date"
+              className="field"
+              value={batchDate}
+              onChange={(event) => setBatchDate(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={!selectedIds.length || !batchDate}
+            onClick={() =>
+              void updateSelected(
+                nav === "myday"
+                  ? buildDeferredDateUpdate("myday", batchDate)
+                  : buildDeferredDateUpdate("due", batchDate),
+                `已调整 ${selectedIds.length} 项任务日期`,
+              )
+            }
+          >
+            应用日期
+          </button>
           <button
             type="button"
             className="btn-ghost"
@@ -350,6 +463,13 @@ function DayBoard() {
             className="btn-ghost danger"
             disabled={!selectedIds.length}
             onClick={() => {
+              if (
+                !window.confirm(
+                  `确定将选中的 ${selectedIds.length} 项任务移入回收站吗？`,
+                )
+              ) {
+                return;
+              }
               void batchDelete(selectedIds).then(() => setSelectedIds([]));
             }}
           >
@@ -379,6 +499,15 @@ function DayBoard() {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {nav === "myday" ? (
+        <aside className="myday-semantics">
+          <strong>“我的一天”是今日计划，不会自动修改任务截止日期。</strong>
+          <span>
+            “顺延明天”只调整今日计划；如需修改截止日期，请进入任务详情编辑。
+          </span>
+        </aside>
       ) : null}
 
       {nav === "myday" ? (
@@ -431,7 +560,7 @@ function DayBoard() {
                 }
               >
                 <option value="tomorrow">安排到明天</option>
-                <option value="inbox">移回待办箱</option>
+              <option value="remove">移出我的一天</option>
                 <option value="cancel">取消任务</option>
               </select>
             </label>
@@ -440,8 +569,13 @@ function DayBoard() {
             <button type="button" className="btn-ghost" onClick={() => setClosingDay(false)}>
               稍后
             </button>
-            <button type="button" className="btn-primary" onClick={() => void settleDay()}>
-              完成收尾
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={settlingDay}
+              onClick={() => void settleDay()}
+            >
+              {settlingDay ? "处理中…" : "完成收尾"}
             </button>
           </div>
         </section>
@@ -487,6 +621,19 @@ function DayBoard() {
                 <>
                   <span>{formatTimeRange(task.due_time, task.end_time)}</span>
                   <span>{priorityLabel(task.priority)}</span>
+                  {nav === "myday" ? (
+                    <span
+                      className={`day-source-chip ${
+                        task.due_date === cursor ? "is-due" : "is-planned"
+                      }`}
+                    >
+                      {task.due_date === cursor
+                        ? "今天到期"
+                        : task.due_date
+                          ? `今日计划 · 截止 ${task.due_date}`
+                          : "仅加入今日计划"}
+                    </span>
+                  ) : null}
                   {conflictIds.has(task.id) ? (
                     <span className="conflict-chip">时间冲突</span>
                   ) : null}
@@ -511,10 +658,15 @@ function DayBoard() {
                     <button
                       type="button"
                       className="btn-ghost"
-                      onClick={() => void saveTask(task.id, {
-                        due_date: addDays(cursor, 1),
-                        my_day_date: addDays(cursor, 1),
-                      })}
+                      onClick={() =>
+                        void saveTask(
+                          task.id,
+                          buildDeferredDateUpdate(
+                            nav === "myday" ? "myday" : "due",
+                            addDays(cursor, 1),
+                          ),
+                        )
+                      }
                     >
                       明天
                     </button>

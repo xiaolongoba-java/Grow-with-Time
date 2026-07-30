@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   completed_at TEXT,
-  deleted_at TEXT
+  deleted_at TEXT,
+  reminder_minutes_json TEXT,
+  estimated_minutes INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS settings (

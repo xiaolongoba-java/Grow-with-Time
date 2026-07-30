@@ -31,6 +31,28 @@ describe("native reminder lifecycle", () => {
     ).toEqual([]);
   });
 
+  it("removes every previously scheduled reminder after completion", () => {
+    const before = buildNativeReminderPlans([task({})], 30, now);
+    const after = buildNativeReminderPlans(
+      [task({ status: "completed", completed_at: "2026-07-29T09:30:00.000Z" })],
+      30,
+      now,
+    );
+    expect(before.map((item) => item.reminderId)).toHaveLength(2);
+    expect(after).toEqual([]);
+  });
+
+  it("replaces old reminder identities when date or time changes", () => {
+    const before = buildNativeReminderPlans([task({})], 30, now);
+    const after = buildNativeReminderPlans(
+      [task({ due_date: "2026-07-31", due_time: "08:30" })],
+      30,
+      now,
+    );
+    const beforeIds = new Set(before.map((item) => item.reminderId));
+    expect(after.every((item) => !beforeIds.has(item.reminderId))).toBe(true);
+  });
+
   it("keeps all reminder offsets and changes identity after rescheduling", () => {
     const original = buildNativeReminderPlans([task({})], 30, now);
     const moved = buildNativeReminderPlans(

@@ -23,14 +23,24 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.2.5
+### v1.3.0
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.2.5_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.2.5/Grow.with.Time_1.2.5_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.2.5_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.2.5/Grow.with.Time_1.2.5_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.0/Grow.with.Time_1.3.0_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.0/Grow.with.Time_1.3.0_x64-setup.exe) |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
+
+#### v1.3.0 重点更新
+
+- “我的一天”形成计划、执行、批量顺延、晚间收尾与复盘闭环
+- 整理今日支持预览、选择、锁定与确认后应用，已应用任务不再重复重排
+- 明确区分今日计划与任务截止日期，支持批量改期和移出我的一天
+- 详情编辑增加未保存保护，排程与收尾增加确认及防重复提交
+- 复盘页展示最近每日一句和计划/完成时长
+- 时间轴入口支持拖拽安全区，并在详情抽屉打开时自动隐藏
+- 加强原生提醒生命周期、重复任务字段与数据库 schema 测试
 
 ### v1.2.0
 

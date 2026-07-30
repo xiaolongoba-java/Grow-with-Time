@@ -18,14 +18,36 @@ const SLOT_W = 96;
 const LANE_H = 84;
 const COLLAPSE_KEY = "minimal.timelineCollapsed";
 const POSITION_KEY = "minimal.timelineRailPositions";
+const RAIL_MARGIN = 12;
+const RAIL_TOP_SAFE = 52;
+const RAIL_BOTTOM_SAFE = 76;
 
 type RailPosition = { x: number; y: number };
 type RailPositions = { collapsed?: RailPosition; open?: RailPosition };
 
 function defaultRailPosition(collapsed: boolean): RailPosition {
   return {
-    x: Math.max(12, window.innerWidth - 150),
-    y: collapsed ? Math.max(12, window.innerHeight - 64) : 72,
+    x: Math.max(RAIL_MARGIN, window.innerWidth - 150),
+    y: collapsed
+      ? Math.max(RAIL_TOP_SAFE, window.innerHeight - RAIL_BOTTOM_SAFE)
+      : 72,
+  };
+}
+
+function clampRailPosition(
+  position: RailPosition,
+  width: number,
+  height: number,
+): RailPosition {
+  return {
+    x: Math.max(
+      RAIL_MARGIN,
+      Math.min(window.innerWidth - width - RAIL_MARGIN, position.x),
+    ),
+    y: Math.max(
+      RAIL_TOP_SAFE,
+      Math.min(window.innerHeight - height - RAIL_BOTTOM_SAFE, position.y),
+    ),
   };
 }
 
@@ -104,8 +126,13 @@ export function TodayTimeline() {
     }
   });
   const railMode = collapsed ? "collapsed" : "open";
-  const railPosition =
+  const storedRailPosition =
     railPositions[railMode] ?? defaultRailPosition(collapsed);
+  const railPosition = clampRailPosition(
+    storedRailPosition,
+    railRef.current?.offsetWidth ?? 120,
+    railRef.current?.offsetHeight ?? 40,
+  );
 
   useEffect(() => {
     try {
@@ -123,10 +150,11 @@ export function TodayTimeline() {
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
-    const next = {
-      x: Math.max(8, Math.min(window.innerWidth - width - 8, drag.originX + dx)),
-      y: Math.max(8, Math.min(window.innerHeight - height - 8, drag.originY + dy)),
-    };
+    const next = clampRailPosition(
+      { x: drag.originX + dx, y: drag.originY + dy },
+      width,
+      height,
+    );
     setRailPositions((current) => ({ ...current, [railMode]: next }));
   };
 
@@ -145,6 +173,9 @@ export function TodayTimeline() {
     }
     document.documentElement.dataset.timeline =
       collapsed ? "collapsed" : "expanded";
+    return () => {
+      delete document.documentElement.dataset.timeline;
+    };
   }, [collapsed]);
 
   const todayTasks = useMemo(
@@ -225,6 +256,7 @@ export function TodayTimeline() {
           aria-label={collapsed ? "展开时间轴" : "收起时间轴"}
           aria-expanded={!collapsed}
           style={{
+            position: "fixed",
             left: railPosition.x,
             top: railPosition.y,
             right: "auto",

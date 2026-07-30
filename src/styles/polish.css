@@ -156,7 +156,7 @@ html[data-nav="collapsed"] .timeline-drawer {
 
 .timeline-drawer-rail,
 .timeline-drawer.is-collapsed .timeline-drawer-rail {
-  position: absolute;
+  position: fixed;
   inset: auto 0 0 auto;
   z-index: 48;
   display: inline-flex;
@@ -745,6 +745,57 @@ html[data-nav="collapsed"] .timeline-drawer {
   background: #fff;
 }
 
+.batch-date-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.batch-date-action .field {
+  width: 138px;
+  padding: 6px 8px;
+}
+
+.myday-semantics {
+  display: grid;
+  gap: 4px;
+  padding: 11px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-soft) 62%, var(--bg-panel));
+}
+
+.myday-semantics strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.myday-semantics span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.day-source-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.day-source-chip.is-due {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.day-source-chip.is-planned {
+  border: 1px solid var(--border);
+  background: var(--bg-root);
+  color: var(--text-muted);
+}
+
 .schedule-preview,
 .day-close-panel {
   display: grid;
@@ -851,6 +902,65 @@ html[data-nav="collapsed"] .timeline-drawer {
 
 .timeline-drawer-rail:active {
   cursor: grabbing;
+}
+
+.review-reflections {
+  display: grid;
+  gap: 12px;
+}
+
+.review-reflections-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-reflections-head h3,
+.review-reflections-head p,
+.review-reflection-list p {
+  margin: 0;
+}
+
+.review-reflections-head p,
+.review-reflections-head > span,
+.review-reflection-list span,
+.review-reflection-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.review-reflection-list {
+  display: grid;
+  gap: 8px;
+}
+
+.review-reflection-list article {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-root);
+}
+
+.review-reflection-list time {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+@media (max-width: 860px) {
+  .batch-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .review-reflection-list article {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 
 :root[data-theme="dark"] .icon-rail,

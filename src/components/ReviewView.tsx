@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app";
+import { fetchDaySnapshots } from "@/lib/db";
+import type { DaySnapshot } from "@/types";
 
 function dayKey(iso: string) {
   return iso.slice(0, 10);
@@ -8,6 +10,11 @@ function dayKey(iso: string) {
 export function ReviewView() {
   const tasks = useAppStore((s) => s.tasks);
   const settings = useAppStore((s) => s.settings);
+  const [snapshots, setSnapshots] = useState<DaySnapshot[]>([]);
+
+  useEffect(() => {
+    void fetchDaySnapshots().then(setSnapshots);
+  }, []);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -96,6 +103,36 @@ export function ReviewView() {
           Karma <strong>{settings.karma}</strong> · 连击{" "}
           <strong className="streak-pop">{settings.streak}</strong> 天
         </p>
+      </section>
+
+      <section className="review-card review-reflections" style={{ marginTop: 12 }}>
+        <div className="review-reflections-head">
+          <div>
+            <h3>每日一句</h3>
+            <p>来自“我的一天”晚间收尾</p>
+          </div>
+          <span>{snapshots.filter((item) => item.reflection.trim()).length} 条记录</span>
+        </div>
+        {snapshots.some((item) => item.reflection.trim()) ? (
+          <div className="review-reflection-list">
+            {snapshots
+              .filter((item) => item.reflection.trim())
+              .slice(0, 7)
+              .map((item) => (
+                <article key={item.id}>
+                  <time>{item.plan_date}</time>
+                  <p>{item.reflection}</p>
+                  <span>
+                    完成 {item.completed_minutes} / 计划 {item.planned_minutes} 分钟
+                  </span>
+                </article>
+              ))}
+          </div>
+        ) : (
+          <p className="review-reflection-empty">
+            完成一次“今日收尾”后，你记录的一句话会出现在这里。
+          </p>
+        )}
       </section>
     </main>
   );

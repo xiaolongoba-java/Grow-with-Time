@@ -1,4 +1,4 @@
-import type { Task } from "@/types";
+import type { Task, TaskUpdate } from "@/types";
 import { parseTimeToMinutes } from "@/lib/dates";
 
 export function parseReminderMinutes(input: string): number[] {
@@ -17,6 +17,15 @@ export function pendingEstimatedMinutes(tasks: Task[]): number {
         task.status !== "completed" && task.status !== "cancelled",
     )
     .reduce((sum, task) => sum + (task.estimated_minutes ?? 0), 0);
+}
+
+export function buildDeferredDateUpdate(
+  scope: "myday" | "due",
+  date: string,
+): TaskUpdate {
+  return scope === "myday"
+    ? { my_day_date: date }
+    : { due_date: date };
 }
 
 export function findTimeConflictIds(tasks: Task[]): Set<string> {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDeferredDateUpdate,
   findTimeConflictIds,
   parseReminderMinutes,
   pendingEstimatedMinutes,
@@ -30,6 +31,15 @@ describe("planning helpers", () => {
         task({ status: "completed", estimated_minutes: 90 }),
       ]),
     ).toBe(75);
+  });
+
+  it("keeps My Day planning separate from the task due date", () => {
+    expect(buildDeferredDateUpdate("myday", "2026-07-31")).toEqual({
+      my_day_date: "2026-07-31",
+    });
+    expect(buildDeferredDateUpdate("due", "2026-07-31")).toEqual({
+      due_date: "2026-07-31",
+    });
   });
 
   it("finds overlapping tasks but not adjacent tasks", () => {

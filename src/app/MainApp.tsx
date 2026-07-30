@@ -352,7 +352,7 @@ export function MainApp() {
           </button>
         ) : null}
       </div>
-      <TodayTimeline />
+      {!detailOpen ? <TodayTimeline /> : null}
       <CommandPalette />
       <NotificationCenter />
       <OnboardingGuide />

@@ -111,6 +111,7 @@ export function DetailDrawer() {
   const [subTitle, setSubTitle] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const loadedId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -121,6 +122,7 @@ export function DetailDrawer() {
     }
     if (loadedId.current === task.id) return;
     loadedId.current = task.id;
+    setDirty(false);
     setMode(detailPreferEdit ? "edit" : "view");
     hydrateFromTask();
     void loadAttachments(task.id);
@@ -156,13 +158,37 @@ export function DetailDrawer() {
 
   const enterEdit = () => {
     hydrateFromTask();
+    setDirty(false);
     setMode("edit");
   };
 
   const cancelEdit = () => {
+    if (dirty && !window.confirm("当前修改尚未保存，确定放弃吗？")) return;
     hydrateFromTask();
+    setDirty(false);
     setMode("view");
   };
+
+  const closeDetail = () => {
+    if (
+      mode === "edit" &&
+      dirty &&
+      !window.confirm("当前修改尚未保存，确定关闭吗？")
+    ) {
+      return;
+    }
+    selectTask(null);
+  };
+
+  useEffect(() => {
+    if (mode !== "edit" || !dirty) return;
+    const preventClose = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventClose);
+    return () => window.removeEventListener("beforeunload", preventClose);
+  }, [mode, dirty]);
 
   const persist = async () => {
     if (!task || saving) return false;
@@ -194,6 +220,7 @@ export function DetailDrawer() {
         repeat_rule: stringifyRepeatRule(repeat),
       });
       setToast("已保存");
+      setDirty(false);
       setMode("view");
       return true;
     } catch {
@@ -280,7 +307,7 @@ export function DetailDrawer() {
           <button
             type="button"
             className="btn-ghost"
-            onClick={() => selectTask(null)}
+            onClick={closeDetail}
           >
             ✕
           </button>
@@ -522,7 +549,10 @@ export function DetailDrawer() {
 
         </div>
       ) : (
-        <div className="detail-body">
+        <div
+          className="detail-body"
+          onChangeCapture={() => setDirty(true)}
+        >
           <div>
             <label className="field-label">标题</label>
             <input
