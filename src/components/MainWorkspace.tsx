@@ -30,7 +30,6 @@ import { ProjectsView } from "@/components/ProjectsView";
 import {
   buildDeferredDateUpdate,
   findTimeConflictIds,
-  pendingEstimatedMinutes,
   suggestDaySchedule,
 } from "@/lib/planning";
 import { saveDaySnapshot } from "@/lib/db";
@@ -146,8 +145,41 @@ function DayBoard() {
   const done = dayTasks.filter((t) => t.status === "completed").length;
   const total = pending + done;
   const completion = total ? Math.round((done / total) * 100) : 0;
-  const estimatedTotal = pendingEstimatedMinutes(dayTasks);
   const conflictIds = findTimeConflictIds(dayTasks);
+  const nextTask = useMemo(() => {
+    const active = dayTasks.filter(isActiveTask);
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const priorityRank = (priority: number) => priority;
+    const timingRank = (task: Task) => {
+      const minutes = parseTimeToMinutes(task.due_time);
+      if (minutes === null) return [2, Number.MAX_SAFE_INTEGER] as const;
+      if (cursor !== today) return [0, minutes] as const;
+      if (minutes <= nowMinutes) return [0, nowMinutes - minutes] as const;
+      return [1, minutes - nowMinutes] as const;
+    };
+
+    return [...active].sort((left, right) => {
+      const leftTiming = timingRank(left);
+      const rightTiming = timingRank(right);
+      return (
+        leftTiming[0] - rightTiming[0] ||
+        priorityRank(left.priority) - priorityRank(right.priority) ||
+        leftTiming[1] - rightTiming[1] ||
+        left.sort_order - right.sort_order
+      );
+    })[0];
+  }, [cursor, dayTasks, today]);
+  const startNextTask = () => {
+    if (!nextTask) {
+      useAppStore.getState().setToast("今天还没有待执行任务");
+      return;
+    }
+    setFocusTask(nextTask.id);
+    if (!focusRunning) {
+      void toggleFocus();
+    }
+  };
   const previewSchedule = () => {
     const suggestions = suggestDaySchedule(
       dayTasks.map((task) =>
@@ -254,16 +286,26 @@ function DayBoard() {
             {cursor === today ? "TODAY · 今日成长" : "DAILY PLAN · 当日计划"}
           </span>
           <h3>{done ? "做得很好，继续保持节奏。" : "从一件小事开始今天。"}</h3>
-          <p>
-            {total
-              ? `今天安排 ${total} 件事 · 预计 ${Math.floor(estimatedTotal / 60)} 小时 ${estimatedTotal % 60} 分钟${estimatedTotal > 480 ? " · 计划可能过载" : ""}`
-              : "暂时没有安排，给自己留一点生长的空间。"}
-          </p>
           {conflictIds.size ? (
             <span className="plan-warning">
               {conflictIds.size} 项任务存在时间冲突
             </span>
           ) : null}
+          <button
+            type="button"
+            className="today-focus-action"
+            onClick={startNextTask}
+            disabled={!nextTask}
+          >
+            <span aria-hidden="true">▶</span>
+            <span className="today-focus-label">
+              {focusRunning
+                ? "继续专注"
+                : nextTask
+                  ? `开始：${nextTask.title}`
+                  : "今天已完成"}
+            </span>
+          </button>
         </div>
         <div
           className="growth-ring"

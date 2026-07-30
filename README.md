@@ -23,14 +23,22 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.3.0
+### v1.3.1
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.0/Grow.with.Time_1.3.0_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.0/Grow.with.Time_1.3.0_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.1_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.1/Grow.with.Time_1.3.1_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.1_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.1/Grow.with.Time_1.3.1_x64-setup.exe) |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
+
+#### v1.3.1 重点更新
+
+- 统一为清晰的成长蓝视觉系统，提升浅色与深色模式的文字对比度
+- 精简今日首屏，突出“开始任务”主操作并显示即将执行的任务
+- 下一任务按照当前时间、优先级、计划时间和手动排序智能选择
+- 收拢 Hero 与进度环样式来源，清理重复 CSS 和无效网络字体依赖
+- 为 Hero 增加轻量暖色氛围，统一导航、按钮、卡片和状态色
 
 #### v1.3.0 重点更新
 
