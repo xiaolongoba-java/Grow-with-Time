@@ -32,9 +32,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   completed_at TEXT,
-  deleted_at TEXT,
-  reminder_minutes_json TEXT,
-  estimated_minutes INTEGER
+  deleted_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -517,6 +515,15 @@ pub fn run() {
     tauri::Builder::default()
         .manage(Arc::new(ReminderScheduler::default()))
         .plugin(tauri_plugin_opener::init())
+        .plugin(
+            tauri::plugin::Builder::<tauri::Wry>::new("app-data")
+                .setup(|app, _api| {
+                    let app_data_dir = app.path().app_data_dir()?;
+                    std::fs::create_dir_all(&app_data_dir)?;
+                    Ok(())
+                })
+                .build(),
+        )
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations(DB_URL, migrations())

@@ -10,8 +10,13 @@ describe("database migration declarations", () => {
     expect(new Set(versions).size).toBe(versions.length);
     expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(source).toContain("schema_contract");
-    expect(source).toContain("reminder_minutes_json TEXT");
-    expect(source).toContain("estimated_minutes INTEGER");
+    const firstMigration = source.slice(
+      source.indexOf('description: "create_tasks_and_settings"'),
+      source.indexOf('description: "full_prd_schema"'),
+    );
+    expect(firstMigration).toContain("deleted_at TEXT\n);");
+    expect(firstMigration).not.toContain("reminder_minutes_json");
+    expect(firstMigration).not.toContain("estimated_minutes");
     const compatibility = readFileSync("src/lib/db.ts", "utf8");
     expect(compatibility).toContain(
       "ALTER TABLE tasks ADD COLUMN reminder_minutes_json TEXT",
