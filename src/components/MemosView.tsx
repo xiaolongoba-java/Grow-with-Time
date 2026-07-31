@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useAppStore } from "@/store/app";
 import {
   createMemo,
@@ -39,6 +41,32 @@ export function MemosView() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [viewMode, setViewMode] = useState<"edit" | "split" | "preview">("split");
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertMarkdown = (before: string, after = "", fallback = "文本") => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.slice(start, end) || fallback;
+    const nextContent =
+      content.slice(0, start) +
+      before +
+      selectedText +
+      after +
+      content.slice(end);
+    setContent(nextContent);
+    setDirty(true);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const selectionStart = start + before.length;
+      textarea.setSelectionRange(
+        selectionStart,
+        selectionStart + selectedText.length,
+      );
+    });
+  };
 
   const refresh = async (preferId?: string | null) => {
     const list = await fetchMemos();
@@ -166,6 +194,18 @@ export function MemosView() {
                 {dirty ? "未保存" : "已保存"} · {formatMemoTime(selected.updated_at)}
               </span>
               <div className="memo-editor-actions">
+                <div className="memo-view-switch" aria-label="Markdown 显示模式">
+                  {(["edit", "split", "preview"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={viewMode === mode ? "active" : ""}
+                      onClick={() => setViewMode(mode)}
+                    >
+                      {mode === "edit" ? "编辑" : mode === "split" ? "分屏" : "预览"}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   className="btn-ghost"
@@ -217,21 +257,57 @@ export function MemosView() {
                 setDirty(true);
               }}
             />
-            <textarea
-              className="memo-content-input"
-              placeholder="写下想法、会议纪要、灵感…"
-              value={content}
-              onChange={(e) => {
-                setContent(e.target.value);
-                setDirty(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  void save();
-                }
-              }}
-            />
+            {viewMode !== "preview" ? (
+              <div className="memo-markdown-tools">
+                <button type="button" title="标题" onClick={() => insertMarkdown("## ", "", "标题")}>H2</button>
+                <button type="button" title="粗体" onClick={() => insertMarkdown("**", "**")}>B</button>
+                <button type="button" title="引用" onClick={() => insertMarkdown("> ", "", "引用")}>❝</button>
+                <button type="button" title="无序列表" onClick={() => insertMarkdown("- ", "", "列表项")}>• 列表</button>
+                <button type="button" title="任务清单" onClick={() => insertMarkdown("- [ ] ", "", "待办")}>☐ 待办</button>
+                <button type="button" title="行内代码" onClick={() => insertMarkdown("`", "`", "代码")}>{"</>"}</button>
+                <button type="button" title="链接" onClick={() => insertMarkdown("[", "](https://)", "链接文字")}>🔗</button>
+              </div>
+            ) : null}
+            <div className={`memo-markdown-workspace mode-${viewMode}`}>
+              {viewMode !== "preview" ? (
+                <textarea
+                  ref={contentRef}
+                  className="memo-content-input"
+                  placeholder={"支持 Markdown：# 标题、- 列表、- [ ] 任务、```代码块```…"}
+                  value={content}
+                  onChange={(e) => {
+                    setContent(e.target.value);
+                    setDirty(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      void save();
+                    }
+                  }}
+                />
+              ) : null}
+              {viewMode !== "edit" ? (
+                <article className="memo-markdown-preview">
+                  {content.trim() ? (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: ({ children, ...props }) => (
+                          <a {...props} target="_blank" rel="noreferrer">
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {content}
+                    </ReactMarkdown>
+                  ) : (
+                    <div className="memo-markdown-empty">Markdown 预览会显示在这里</div>
+                  )}
+                </article>
+              ) : null}
+            </div>
           </>
         ) : (
           <div className="empty-state">选择或新建一条备忘录</div>

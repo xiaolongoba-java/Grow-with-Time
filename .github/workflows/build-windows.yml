@@ -33,8 +33,31 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
+      - name: Test application and migration contracts
+        run: npm test
+
       - name: Build Tauri (NSIS)
         run: npm run tauri build -- --bundles nsis
+
+      - name: Smoke test fresh install and existing database
+        shell: pwsh
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP "grow-with-time-smoke"
+          $roaming = Join-Path $testRoot "Roaming"
+          $local = Join-Path $testRoot "Local"
+          New-Item -ItemType Directory -Force -Path $roaming, $local | Out-Null
+          $env:APPDATA = $roaming
+          $env:LOCALAPPDATA = $local
+          $exe = Resolve-Path "src-tauri/target/release/minimal-todo.exe"
+          foreach ($scenario in @("fresh", "existing")) {
+            $process = Start-Process -FilePath $exe -PassThru
+            Start-Sleep -Seconds 8
+            $process.Refresh()
+            if ($process.HasExited) {
+              throw "$scenario startup failed with exit code $($process.ExitCode)"
+            }
+            Stop-Process -Id $process.Id -Force
+          }
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4

@@ -1,10 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { exportBackup, importBackup } from "@/lib/db";
 import type { BackupPayload, ThemeMode } from "@/types";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { invoke } from "@tauri-apps/api/core";
+
+type DatabaseHealth = {
+  healthy: boolean;
+  databaseExists: boolean;
+  databaseSize: number;
+  dataDirectory: string;
+  writable: boolean;
+};
+
+type DatabaseBackupInfo = {
+  id: string;
+  size: number;
+  createdAt: number;
+};
 
 export function SettingsView() {
   const settings = useAppStore((s) => s.settings);
@@ -13,6 +28,43 @@ export function SettingsView() {
   const saveAi = useAppStore((s) => s.saveAi);
   const setToast = useAppStore((s) => s.setToast);
   const [ai, setAi] = useState(settings.ai);
+  const [databaseHealth, setDatabaseHealth] = useState<DatabaseHealth | null>(null);
+  const [databaseBackups, setDatabaseBackups] = useState<DatabaseBackupInfo[]>([]);
+  const [checkingData, setCheckingData] = useState(false);
+
+  const refreshDataHealth = async () => {
+    setCheckingData(true);
+    try {
+      const [health, backups] = await Promise.all([
+        invoke<DatabaseHealth>("database_health"),
+        invoke<DatabaseBackupInfo[]>("list_database_backups"),
+      ]);
+      setDatabaseHealth(health);
+      setDatabaseBackups(backups);
+    } catch (error) {
+      setToast(`数据检查失败：${String(error)}`);
+    } finally {
+      setCheckingData(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshDataHealth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const restoreDatabaseBackup = async (backup: DatabaseBackupInfo) => {
+    const created = new Date(backup.createdAt * 1000).toLocaleString();
+    if (
+      !window.confirm(
+        `确认恢复 ${created} 的启动备份？\n\n当前数据库会先自动备份，应用随后重启。`,
+      )
+    ) {
+      return;
+    }
+    await invoke("schedule_database_restore", { backupId: backup.id });
+    await invoke("restart_app");
+  };
 
   const exportJson = async () => {
     const payload = await exportBackup();
@@ -189,6 +241,65 @@ export function SettingsView() {
           <button type="button" className="btn-ghost" onClick={() => void importJson()}>
             导入恢复
           </button>
+          <button type="button" className="btn-ghost" onClick={() => void invoke("open_data_directory")}>
+            打开数据目录
+          </button>
+        </div>
+
+        <div className="data-health-panel">
+          <div className="data-health-head">
+            <div>
+              <strong>数据健康</strong>
+              <span>
+                {databaseHealth
+                  ? databaseHealth.healthy && databaseHealth.writable
+                    ? "数据库正常，可读写"
+                    : "数据库需要检查"
+                  : "尚未检查"}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={checkingData}
+              onClick={() => void refreshDataHealth()}
+            >
+              {checkingData ? "检查中…" : "重新检查"}
+            </button>
+          </div>
+          {databaseHealth ? (
+            <dl className="data-health-details">
+              <div>
+                <dt>数据库大小</dt>
+                <dd>{Math.max(1, Math.round(databaseHealth.databaseSize / 1024))} KB</dd>
+              </div>
+              <div>
+                <dt>启动备份</dt>
+                <dd>{databaseBackups.length} 份</dd>
+              </div>
+            </dl>
+          ) : null}
+          {databaseBackups.length ? (
+            <div className="database-backup-list">
+              {databaseBackups.slice(0, 5).map((backup) => (
+                <div key={backup.id}>
+                  <span>
+                    {new Date(backup.createdAt * 1000).toLocaleString()}
+                    <small>{Math.max(1, Math.round(backup.size / 1024))} KB</small>
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => void restoreDatabaseBackup(backup)}
+                  >
+                    恢复此版本
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="settings-hint">下次启动时会生成第一份数据库快照。</p>
+          )}
         </div>
       </section>
 

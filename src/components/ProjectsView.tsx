@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
 import type { Milestone } from "@/types";
 import {
@@ -18,8 +18,20 @@ export function ProjectsView() {
   const removeTemplate = useAppStore((state) => state.removeTemplate);
   const selectTask = useAppStore((state) => state.selectTask);
   const [name, setName] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const refreshMilestones = async () => setMilestones(await fetchMilestones());
+  const createProject = async () => {
+    const projectName = name.trim();
+    if (!projectName) {
+      nameInputRef.current?.focus();
+      useAppStore.getState().setToast("请先输入项目名称");
+      return;
+    }
+    await addProject(projectName);
+    setName("");
+    nameInputRef.current?.focus();
+  };
 
   useEffect(() => {
     void refreshMilestones();
@@ -40,24 +52,20 @@ export function ProjectsView() {
             <h3>项目</h3>
             <div className="inline-create">
               <input
+                ref={nameInputRef}
                 className="field"
                 value={name}
                 placeholder="新项目名称"
                 onChange={(event) => setName(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key !== "Enter" || !name.trim()) return;
-                  void addProject(name.trim());
-                  setName("");
+                  void createProject();
                 }}
               />
               <button
                 type="button"
                 className="btn-primary"
-                disabled={!name.trim()}
-                onClick={() => {
-                  void addProject(name.trim());
-                  setName("");
-                }}
+                onClick={() => void createProject()}
               >
                 创建
               </button>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   DndContext,
   type DragEndEvent,
@@ -24,7 +24,6 @@ import { SettingsView } from "@/components/SettingsView";
 import { HabitsView } from "@/components/HabitsView";
 import { RemindersView } from "@/components/RemindersView";
 import { ReviewView } from "@/components/ReviewView";
-import { MemosView } from "@/components/MemosView";
 import { ExpandableTaskItem } from "@/components/ExpandableTaskItem";
 import { ProjectsView } from "@/components/ProjectsView";
 import {
@@ -33,6 +32,12 @@ import {
   suggestDaySchedule,
 } from "@/lib/planning";
 import { saveDaySnapshot } from "@/lib/db";
+
+const MemosView = lazy(() =>
+  import("@/components/MemosView").then((module) => ({
+    default: module.MemosView,
+  })),
+);
 
 function BoardView({ tasks }: { tasks: Task[] }) {
   const cols = boardColumns(tasks);
@@ -1142,7 +1147,13 @@ export function MainWorkspace() {
     );
   }
   if (nav === "review") return <ReviewView />;
-  if (nav === "memos") return <MemosView />;
+  if (nav === "memos") {
+    return (
+      <Suspense fallback={<div className="empty-state">正在加载备忘录…</div>}>
+        <MemosView />
+      </Suspense>
+    );
+  }
   if (nav === "projects") return <ProjectsView />;
   if (nav === "trash") {
     return (

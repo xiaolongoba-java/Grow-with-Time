@@ -2,14 +2,198 @@ use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
 use tauri_plugin_notification::NotificationExt;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
+    path::{Path, PathBuf},
     sync::{Arc, Condvar, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 const DB_URL: &str = "sqlite:app.db";
+const DATABASE_BACKUP_DIR: &str = "database-backups";
+const PENDING_RESTORE_FILE: &str = "pending-database-restore";
+
+fn copy_database_files(source_dir: &Path, target_dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(target_dir)?;
+    for name in ["app.db", "app.db-wal", "app.db-shm"] {
+        let source = source_dir.join(name);
+        if source.exists() {
+            std::fs::copy(source, target_dir.join(name))?;
+        }
+    }
+    Ok(())
+}
+
+fn create_startup_database_backup(app_data_dir: &Path) -> std::io::Result<()> {
+    if !app_data_dir.join("app.db").exists() {
+        return Ok(());
+    }
+    let root = app_data_dir.join(DATABASE_BACKUP_DIR);
+    std::fs::create_dir_all(&root)?;
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    copy_database_files(app_data_dir, &root.join(format!("startup-{stamp}")))?;
+    let mut snapshots = std::fs::read_dir(&root)?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
+        .collect::<Vec<_>>();
+    snapshots.sort_by_key(|entry| std::cmp::Reverse(entry.file_name()));
+    for old in snapshots.into_iter().skip(10) {
+        let _ = std::fs::remove_dir_all(old.path());
+    }
+    Ok(())
+}
+
+fn apply_pending_database_restore(app_data_dir: &Path) -> std::io::Result<()> {
+    let marker = app_data_dir.join(PENDING_RESTORE_FILE);
+    if !marker.exists() {
+        return Ok(());
+    }
+    let source = PathBuf::from(std::fs::read_to_string(&marker)?.trim());
+    let backup_root = app_data_dir.join(DATABASE_BACKUP_DIR).canonicalize()?;
+    let source = source.canonicalize()?;
+    if !source.starts_with(&backup_root) || !source.join("app.db").exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "invalid database restore source",
+        ));
+    }
+    create_startup_database_backup(app_data_dir)?;
+    for name in ["app.db", "app.db-wal", "app.db-shm"] {
+        let target = app_data_dir.join(name);
+        if target.exists() {
+            std::fs::remove_file(&target)?;
+        }
+        let backup_file = source.join(name);
+        if backup_file.exists() {
+            std::fs::copy(backup_file, target)?;
+        }
+    }
+    std::fs::remove_file(marker)?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DatabaseBackupInfo {
+    id: String,
+    size: u64,
+    created_at: u64,
+}
+
+#[tauri::command]
+fn database_health(app: AppHandle) -> Result<serde_json::Value, String> {
+    let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    let database = dir.join("app.db");
+    let probe = dir.join(".write-probe");
+    std::fs::write(&probe, b"ok").map_err(|error| error.to_string())?;
+    let _ = std::fs::remove_file(probe);
+    Ok(serde_json::json!({
+        "healthy": database.exists(),
+        "databaseExists": database.exists(),
+        "databaseSize": database.metadata().map(|item| item.len()).unwrap_or(0),
+        "dataDirectory": dir.to_string_lossy(),
+        "writable": true
+    }))
+}
+
+#[tauri::command]
+fn list_database_backups(app: AppHandle) -> Result<Vec<DatabaseBackupInfo>, String> {
+    let root = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join(DATABASE_BACKUP_DIR);
+    if !root.exists() {
+        return Ok(Vec::new());
+    }
+    let mut backups = std::fs::read_dir(root)
+        .map_err(|error| error.to_string())?
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let id = entry.file_name().to_string_lossy().to_string();
+            let database = entry.path().join("app.db");
+            let size = database.metadata().ok()?.len();
+            let created_at = id.rsplit('-').next()?.parse().ok()?;
+            Some(DatabaseBackupInfo { id, size, created_at })
+        })
+        .collect::<Vec<_>>();
+    backups.sort_by_key(|item| std::cmp::Reverse(item.created_at));
+    Ok(backups)
+}
+
+#[tauri::command]
+fn schedule_database_restore(app: AppHandle, backup_id: String) -> Result<(), String> {
+    if !backup_id.starts_with("startup-")
+        || backup_id.contains('/')
+        || backup_id.contains('\\')
+    {
+        return Err("无效的备份编号".into());
+    }
+    let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    let backup = dir.join(DATABASE_BACKUP_DIR).join(&backup_id);
+    if !backup.join("app.db").exists() {
+        return Err("备份文件不存在".into());
+    }
+    std::fs::write(dir.join(PENDING_RESTORE_FILE), backup.to_string_lossy().as_bytes())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn open_data_directory(app: AppHandle) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("explorer")
+        .arg(dir)
+        .spawn()
+        .map_err(|error| error.to_string())?;
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg(dir)
+        .spawn()
+        .map_err(|error| error.to_string())?;
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open")
+        .arg(dir)
+        .spawn()
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn restart_app(app: AppHandle) {
+    app.restart();
+}
+
+fn show_startup_error(message: &str) {
+    eprintln!("{message}");
+    #[cfg(target_os = "windows")]
+    {
+        let script = "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($env:GWT_STARTUP_ERROR, 'Grow with Time 启动失败', 'OK', 'Error') | Out-Null";
+        let _ = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", script])
+            .env("GWT_STARTUP_ERROR", message)
+            .spawn();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let script =
+            "display dialog (system attribute \"GWT_STARTUP_ERROR\") with title \"Grow with Time 启动失败\" buttons {\"好\"} default button \"好\" with icon stop";
+        let _ = std::process::Command::new("osascript")
+            .args(["-e", script])
+            .env("GWT_STARTUP_ERROR", message)
+            .spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("zenity")
+            .args(["--error", "--title=Grow with Time 启动失败", "--text", message])
+            .spawn();
+    }
+}
 
 fn migrations() -> Vec<tauri_plugin_sql::Migration> {
     use tauri_plugin_sql::{Migration, MigrationKind};
@@ -520,6 +704,8 @@ pub fn run() {
                 .setup(|app, _api| {
                     let app_data_dir = app.path().app_data_dir()?;
                     std::fs::create_dir_all(&app_data_dir)?;
+                    apply_pending_database_restore(&app_data_dir)?;
+                    create_startup_database_backup(&app_data_dir)?;
                     Ok(())
                 })
                 .build(),
@@ -546,7 +732,12 @@ pub fn run() {
             today_pending_count,
             schedule_native_notification,
             cancel_native_notification,
-            sync_native_notifications
+            sync_native_notifications,
+            database_health,
+            list_database_backups,
+            schedule_database_restore,
+            open_data_directory,
+            restart_app
         ])
         .setup(|app| {
             let scheduler = Arc::clone(app.state::<Arc<ReminderScheduler>>().inner());
@@ -580,5 +771,11 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|error| {
+            let message = format!(
+                "Grow with Time 无法启动。\n\n{}\n\n你的任务数据仍保存在本机，请不要删除应用数据目录。",
+                error
+            );
+            show_startup_error(&message);
+        });
 }

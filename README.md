@@ -23,14 +23,25 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.3.2
+### v1.3.3
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.2_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.2/Grow.with.Time_1.3.2_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.2_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.2/Grow.with.Time_1.3.2_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | 发布后提供 |
+| Windows x64 | `.exe` 安装包 | 发布后提供 |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
+
+#### v1.3.3 重点更新
+
+- 每次启动前自动保存数据库快照，保留最近 10 个版本
+- 设置页增加数据健康检查、启动备份恢复和打开数据目录
+- 数据库恢复在重启阶段执行，避免运行中覆盖造成数据损坏
+- 启动失败显示可读的系统错误窗口，不再静默闪退
+- Windows Release 增加全新安装与已有数据库两轮启动测试
+- 固化已发布 migration 契约，防止历史迁移被意外修改
+- 项目创建按钮支持空名称提示与自动聚焦
+- 备忘录支持 Markdown 编辑、分屏预览、任务清单、表格和代码块
 
 #### v1.3.2 热修复
 
