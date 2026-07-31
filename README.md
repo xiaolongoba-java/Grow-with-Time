@@ -23,16 +23,16 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.3.4
+### v1.3.5
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.4_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.4/Grow.with.Time_1.3.4_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.4_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.4/Grow.with.Time_1.3.4_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.5_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.5/Grow.with.Time_1.3.5_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.5_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.5/Grow.with.Time_1.3.5_x64-setup.exe) |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
 
-#### v1.3.4 重点更新
+#### v1.3.5 重点更新
 
 - 每次启动前自动保存数据库快照，保留最近 10 个版本
 - 设置页增加数据健康检查、启动备份恢复和打开数据目录

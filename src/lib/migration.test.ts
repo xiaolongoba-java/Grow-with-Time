@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 
 describe("database migration declarations", () => {
   it("keeps migration versions unique and contains workflow tables", () => {
-    const source = readFileSync("src-tauri/src/lib.rs", "utf8");
+    const source = readFileSync("src-tauri/src/lib.rs", "utf8").replace(
+      /\r\n/g,
+      "\n",
+    );
     const versions = [...source.matchAll(/version:\s*(\d+)/g)].map((match) =>
       Number(match[1]),
     );
