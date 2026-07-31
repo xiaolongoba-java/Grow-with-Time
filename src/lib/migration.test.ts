@@ -38,7 +38,10 @@ describe("database migration declarations", () => {
   });
 
   it("keeps the released first migration immutable", () => {
-    const source = readFileSync("src-tauri/src/lib.rs", "utf8");
+    const source = readFileSync("src-tauri/src/lib.rs", "utf8").replace(
+      /\r\n/g,
+      "\n",
+    );
     const match = source.match(
       /description:\s*"create_tasks_and_settings",\s*sql:\s*r#"\n([\s\S]*?)"#,/,
     );
