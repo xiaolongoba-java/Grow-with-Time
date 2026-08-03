@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app";
-import { fetchDaySnapshots } from "@/lib/db";
-import type { DaySnapshot } from "@/types";
+import { fetchDaySnapshots, fetchGoalEntries, fetchGoals } from "@/lib/db";
+import type { DaySnapshot, Goal, GoalEntry } from "@/types";
 
 function dayKey(iso: string) {
   return iso.slice(0, 10);
@@ -11,9 +11,17 @@ export function ReviewView() {
   const tasks = useAppStore((s) => s.tasks);
   const settings = useAppStore((s) => s.settings);
   const [snapshots, setSnapshots] = useState<DaySnapshot[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [goalEntries, setGoalEntries] = useState<GoalEntry[]>([]);
 
   useEffect(() => {
-    void fetchDaySnapshots().then(setSnapshots);
+    void Promise.all([fetchDaySnapshots(), fetchGoals(), fetchGoalEntries()]).then(
+      ([nextSnapshots, nextGoals, nextEntries]) => {
+        setSnapshots(nextSnapshots);
+        setGoals(nextGoals);
+        setGoalEntries(nextEntries);
+      },
+    );
   }, []);
 
   const stats = useMemo(() => {
@@ -94,6 +102,28 @@ export function ReviewView() {
           {stats.completed.map((v, i) => (
             <span key={stats.days[i]} style={{ height: `${(v / stats.max) * 100}%` }} title={`${stats.days[i]}: ${v}`} />
           ))}
+        </div>
+      </section>
+
+      <section className="review-card" style={{ marginTop: 12 }}>
+        <h3>本周目标投入</h3>
+        <div className="review-goal-list">
+          {goals.filter((goal) => goal.status === "active").map((goal) => {
+            const weekStart = new Date();
+            weekStart.setDate(weekStart.getDate() - 6);
+            const startKey = dayKey(weekStart.toISOString());
+            const value = goalEntries
+              .filter((entry) => entry.goal_id === goal.id && entry.entry_date >= startKey)
+              .reduce((sum, entry) => sum + Number(entry.value), 0);
+            return (
+              <div key={goal.id} className="review-goal-row">
+                <i style={{ background: goal.color }} />
+                <span>{goal.title}</span>
+                <strong>{Math.round(value * 10) / 10}{goal.unit}</strong>
+              </div>
+            );
+          })}
+          {!goals.some((goal) => goal.status === "active") ? <p>暂无进行中的长期目标。</p> : null}
         </div>
       </section>
 

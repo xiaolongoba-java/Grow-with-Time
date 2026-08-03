@@ -38,6 +38,11 @@ const MemosView = lazy(() =>
     default: module.MemosView,
   })),
 );
+const GrowthView = lazy(() =>
+  import("@/components/GrowthView").then((module) => ({
+    default: module.GrowthView,
+  })),
+);
 
 function BoardView({ tasks }: { tasks: Task[] }) {
   const cols = boardColumns(tasks);
@@ -1147,6 +1152,7 @@ export function MainWorkspace() {
     );
   }
   if (nav === "review") return <ReviewView />;
+  if (nav === "growth") return <Suspense fallback={<div className="empty-state">正在加载成长数据…</div>}><GrowthView /></Suspense>;
   if (nav === "memos") {
     return (
       <Suspense fallback={<div className="empty-state">正在加载备忘录…</div>}>

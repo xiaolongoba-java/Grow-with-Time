@@ -23,6 +23,7 @@ export type NavId =
   | "habits"
   | "reminders"
   | "review"
+  | "growth"
   | "memos"
   | "trash"
   | "settings"
@@ -73,6 +74,8 @@ export interface Task {
   energy_level: "low" | "medium" | "high";
   flexible: number;
   actual_minutes: number;
+  goal_id: string | null;
+  goal_contribution: number;
 }
 
 export interface Tag {
@@ -111,6 +114,8 @@ export interface Habit {
   title: string;
   target_per_week: number;
   created_at: string;
+  goal_id: string | null;
+  goal_contribution: number;
 }
 
 export interface HabitCheck {
@@ -175,6 +180,8 @@ export interface TaskDraft {
   completion_criteria?: string;
   energy_level?: Task["energy_level"];
   flexible?: number;
+  goal_id?: string | null;
+  goal_contribution?: number;
   tagIds?: string[];
 }
 
@@ -199,6 +206,8 @@ export interface TaskUpdate {
   energy_level?: Task["energy_level"];
   flexible?: number;
   actual_minutes?: number;
+  goal_id?: string | null;
+  goal_contribution?: number;
   sort_order?: number;
 }
 
@@ -274,6 +283,76 @@ export interface Milestone {
   created_at: string;
 }
 
+export type GoalType =
+  | "quantity"
+  | "change"
+  | "frequency"
+  | "time"
+  | "project"
+  | "custom";
+export type GoalStatus =
+  | "active"
+  | "paused"
+  | "completed"
+  | "abandoned"
+  | "archived";
+
+export interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  goal_type: GoalType;
+  start_date: string;
+  target_date: string | null;
+  start_value: number;
+  target_value: number;
+  current_value: number;
+  unit: string;
+  status: GoalStatus;
+  motivation: string;
+  project_id: string | null;
+  weekly_target: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoalEntry {
+  id: string;
+  goal_id: string;
+  entry_date: string;
+  value: number;
+  source_type: "manual" | "task" | "habit" | "focus" | "milestone";
+  source_id: string | null;
+  note: string;
+  created_at: string;
+}
+
+export interface GoalMilestone {
+  id: string;
+  goal_id: string;
+  title: string;
+  target_value: number;
+  target_date: string | null;
+  completed_at: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface Achievement {
+  id: string;
+  goal_id: string | null;
+  title: string;
+  description: string;
+  achieved_at: string;
+  image_path: string | null;
+  source_type: "manual" | "milestone" | "goal" | "streak";
+  source_id: string | null;
+  pinned: number;
+  created_at: string;
+}
+
 export interface TaskTemplate {
   id: string;
   name: string;
@@ -295,7 +374,7 @@ export interface AppNotification {
 }
 
 export interface BackupPayload {
-  version: 2 | 3;
+  version: 2 | 3 | 4;
   exportedAt: string;
   tasks: Task[];
   tags: Tag[];
@@ -312,5 +391,9 @@ export interface BackupPayload {
   focusSessions?: FocusSession[];
   daySnapshots?: DaySnapshot[];
   milestones?: Milestone[];
+  goals?: Goal[];
+  goalEntries?: GoalEntry[];
+  goalMilestones?: GoalMilestone[];
+  achievements?: Achievement[];
   settings: Record<string, string>;
 }

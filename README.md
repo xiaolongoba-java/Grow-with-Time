@@ -23,25 +23,27 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.3.6
+### v1.4.0
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.6_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.6/Grow.with.Time_1.3.6_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.6_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.6/Grow.with.Time_1.3.6_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.4.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.0/Grow.with.Time_1.4.0_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.4.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.0/Grow.with.Time_1.4.0_x64-setup.exe) |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
 
-#### v1.3.6 重点更新
+#### v1.4.0 重点更新
 
-- 今日时间轴改为一项任务独占一行，短任务保持可读宽度
-- 时间轴悬停显示任务时间、优先级、状态、预计时长和说明
-- 新增月历、今日计划、Markdown 备忘录三张独立桌面组件
-- 桌面组件支持独立拖拽、缩放、置顶并记忆窗口位置
-- 支持 6 套预设配色、自定义颜色和透明度调节
-- 新增完全透明模式，并使用局部阅读层保证复杂壁纸上的可读性
-- 今日计划组件支持快速添加和直接完成任务
-- 月历通过优先级色点展示每日任务负载
+- 新增“成长”中心，将长期目标、每日行动、里程碑和成就连成闭环
+- 支持累计数量、数值变化、持续频率、累计时间、项目与自定义目标
+- 年度热点图展示过去一年的行动强度，并支持按目标筛选和日期回看
+- 任务完成、习惯打卡和关联任务的专注时间可自动计入目标进度
+- 任务详情与习惯页支持关联目标和设置单次贡献值
+- 支持手动记录进展、目标暂停/恢复、阶段里程碑与自动完成判断
+- 达成里程碑或目标时自动生成成就，也可手动记录并置顶重要成果
+- 生产力复盘新增本周目标投入，长期成长与每日执行保持一致
+- 备份格式升级至 v4，完整包含目标、贡献、里程碑和成就数据
+- 数据库增加正式 v10 migration，并保留历史 migration 不可变性
 
 #### v1.3.2 热修复
 

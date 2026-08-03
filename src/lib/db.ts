@@ -9,6 +9,10 @@ import type {
   Habit,
   HabitCheck,
   FocusSession,
+  Goal,
+  GoalEntry,
+  GoalMilestone,
+  Achievement,
   Memo,
   Milestone,
   Project,
@@ -105,6 +109,8 @@ function mapTask(row: Task): Task {
     energy_level: row.energy_level ?? "medium",
     flexible: row.flexible ?? 1,
     actual_minutes: row.actual_minutes ?? 0,
+    goal_id: row.goal_id ?? null,
+    goal_contribution: row.goal_contribution ?? 1,
   };
 }
 
@@ -174,6 +180,8 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
     energy_level: draft.energy_level ?? "medium",
     flexible: draft.flexible ?? 1,
     actual_minutes: 0,
+    goal_id: draft.goal_id ?? null,
+    goal_contribution: draft.goal_contribution ?? 1,
   };
 
   await db.execute(
@@ -182,8 +190,9 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
       due_date, due_time, end_time, sort_order, created_at, updated_at,
       completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
       reminder_minutes_json, estimated_minutes, project_id, my_day_date,
-      blocked_by_id, completion_criteria, energy_level, flexible, actual_minutes
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
+      blocked_by_id, completion_criteria, energy_level, flexible, actual_minutes,
+      goal_id, goal_contribution
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
     [
       task.id,
       task.title,
@@ -211,6 +220,8 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
       task.energy_level,
       task.flexible,
       task.actual_minutes,
+      task.goal_id,
+      task.goal_contribution,
     ],
   );
   await recordTaskEvent(task.id, "created", null, task);
@@ -261,8 +272,8 @@ export async function updateTask(
       reminder_minutes_json=$15, estimated_minutes=$16,
       project_id=$17, my_day_date=$18, blocked_by_id=$19,
       completion_criteria=$20, energy_level=$21, flexible=$22,
-      actual_minutes=$23
-    WHERE id=$24`,
+      actual_minutes=$23, goal_id=$24, goal_contribution=$25
+    WHERE id=$26`,
     [
       next.title,
       next.description,
@@ -287,10 +298,34 @@ export async function updateTask(
       next.energy_level,
       next.flexible,
       next.actual_minutes,
+      next.goal_id,
+      next.goal_contribution,
       id,
     ],
   );
   await recordTaskEvent(id, "updated", current, next);
+  const goalLinkChanged =
+    current.goal_id !== next.goal_id ||
+    current.goal_contribution !== next.goal_contribution;
+  if (current.status === "completed" && goalLinkChanged && current.goal_id) {
+    await removeGoalEntryBySource(current.goal_id, "task", current.id);
+  }
+  if (
+    next.goal_id &&
+    next.status === "completed" &&
+    (current.status !== "completed" || goalLinkChanged)
+  ) {
+    await addGoalEntry({
+      goal_id: next.goal_id,
+      entry_date: (next.completed_at ?? nowIso()).slice(0, 10),
+      value: next.goal_contribution || 1,
+      source_type: "task",
+      source_id: next.id,
+      note: next.title,
+    });
+  } else if (current.goal_id && current.status === "completed" && next.status !== "completed") {
+    await removeGoalEntryBySource(current.goal_id, "task", current.id);
+  }
 
   return next;
 }
@@ -399,6 +434,21 @@ export async function finishFocusSession(
       null,
       { minutes, interruptionReason: interruptionReason ?? null },
     );
+    const taskRows = await db.select<Task[]>(
+      "SELECT * FROM tasks WHERE id = $1 LIMIT 1",
+      [session.task_id],
+    );
+    const task = taskRows[0] ? mapTask(taskRows[0]) : null;
+    if (task?.goal_id) {
+      await addGoalEntry({
+        goal_id: task.goal_id,
+        entry_date: ended.slice(0, 10),
+        value: minutes,
+        source_type: "focus",
+        source_id: id,
+        note: `专注：${task.title}`,
+      });
+    }
   }
 }
 
@@ -786,7 +836,12 @@ export async function deleteSmartList(id: string): Promise<void> {
 /* Habits */
 export async function fetchHabits(): Promise<Habit[]> {
   const db = await getDb();
-  return db.select<Habit[]>("SELECT * FROM habits ORDER BY created_at DESC");
+  const rows = await db.select<Habit[]>("SELECT * FROM habits ORDER BY created_at DESC");
+  return rows.map((habit) => ({
+    ...habit,
+    goal_id: habit.goal_id ?? null,
+    goal_contribution: habit.goal_contribution ?? 1,
+  }));
 }
 
 export async function createHabit(
@@ -799,6 +854,8 @@ export async function createHabit(
     title: title.trim(),
     target_per_week: targetPerWeek,
     created_at: nowIso(),
+    goal_id: null,
+    goal_contribution: 1,
   };
   await db.execute(
     "INSERT INTO habits (id, title, target_per_week, created_at) VALUES ($1,$2,$3,$4)",
@@ -832,11 +889,63 @@ export async function toggleHabitCheck(
       "DELETE FROM habit_checks WHERE habit_id=$1 AND check_date=$2",
       [habitId, date],
     );
+    const habits = await fetchHabits();
+    const habit = habits.find((item) => item.id === habitId);
+    if (habit?.goal_id) {
+      await removeGoalEntryBySource(habit.goal_id, "habit", `${habitId}:${date}`);
+    }
   } else {
     await db.execute(
       "INSERT INTO habit_checks (id, habit_id, check_date) VALUES ($1,$2,$3)",
       [createId(), habitId, date],
     );
+    const habits = await fetchHabits();
+    const habit = habits.find((item) => item.id === habitId);
+    if (habit?.goal_id) {
+      await addGoalEntry({
+        goal_id: habit.goal_id,
+        entry_date: date,
+        value: habit.goal_contribution || 1,
+        source_type: "habit",
+        source_id: `${habitId}:${date}`,
+        note: habit.title,
+      });
+    }
+  }
+}
+
+export async function updateHabitGoal(
+  habitId: string,
+  goalId: string | null,
+  contribution = 1,
+): Promise<void> {
+  const db = await getDb();
+  const currentRows = await db.select<Habit[]>("SELECT * FROM habits WHERE id=$1", [habitId]);
+  const currentGoalId = currentRows[0]?.goal_id ?? null;
+  const checks = await db.select<HabitCheck[]>(
+    "SELECT * FROM habit_checks WHERE habit_id=$1",
+    [habitId],
+  );
+  if (currentGoalId) {
+    for (const check of checks) {
+      await removeGoalEntryBySource(currentGoalId, "habit", `${habitId}:${check.check_date}`);
+    }
+  }
+  await db.execute(
+    "UPDATE habits SET goal_id=$1, goal_contribution=$2 WHERE id=$3",
+    [goalId, contribution, habitId],
+  );
+  if (goalId) {
+    for (const check of checks) {
+      await addGoalEntry({
+        goal_id: goalId,
+        entry_date: check.check_date,
+        value: contribution,
+        source_type: "habit",
+        source_id: `${habitId}:${check.check_date}`,
+        note: currentRows[0]?.title ?? "习惯打卡",
+      });
+    }
   }
 }
 
@@ -1247,6 +1356,254 @@ export async function settleExpiredTimers(): Promise<FiredTimer[]> {
   return fired;
 }
 
+/* Growth goals, contributions, milestones and achievements */
+export async function fetchGoals(includeArchived = false): Promise<Goal[]> {
+  const db = await getDb();
+  return db.select<Goal[]>(
+    `SELECT * FROM goals ${includeArchived ? "" : "WHERE status != 'archived'"}
+     ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
+              updated_at DESC`,
+  );
+}
+
+export async function createGoal(
+  draft: Partial<Goal> & Pick<Goal, "title">,
+): Promise<Goal> {
+  const db = await getDb();
+  const stamp = nowIso();
+  const goal: Goal = {
+    id: createId(),
+    title: draft.title.trim(),
+    description: draft.description?.trim() ?? "",
+    icon: draft.icon ?? "target",
+    color: draft.color ?? "#2F6FED",
+    goal_type: draft.goal_type ?? "quantity",
+    start_date: draft.start_date ?? todayDateString(),
+    target_date: draft.target_date ?? null,
+    start_value: Number(draft.start_value ?? 0),
+    target_value: Math.max(1, Number(draft.target_value ?? 1)),
+    current_value: Number(draft.current_value ?? draft.start_value ?? 0),
+    unit: draft.unit?.trim() || "次",
+    status: draft.status ?? "active",
+    motivation: draft.motivation?.trim() ?? "",
+    project_id: draft.project_id ?? null,
+    weekly_target: Math.max(0, Number(draft.weekly_target ?? 0)),
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  await db.execute(
+    `INSERT INTO goals
+     (id,title,description,icon,color,goal_type,start_date,target_date,start_value,
+      target_value,current_value,unit,status,motivation,project_id,weekly_target,
+      created_at,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+    [
+      goal.id, goal.title, goal.description, goal.icon, goal.color,
+      goal.goal_type, goal.start_date, goal.target_date, goal.start_value,
+      goal.target_value, goal.current_value, goal.unit, goal.status,
+      goal.motivation, goal.project_id, goal.weekly_target,
+      goal.created_at, goal.updated_at,
+    ],
+  );
+  return goal;
+}
+
+export async function updateGoal(
+  id: string,
+  updates: Partial<Goal>,
+): Promise<void> {
+  const db = await getDb();
+  const rows = await db.select<Goal[]>("SELECT * FROM goals WHERE id=$1", [id]);
+  if (!rows[0]) return;
+  const next = { ...rows[0], ...updates, updated_at: nowIso() };
+  await db.execute(
+    `UPDATE goals SET title=$1,description=$2,icon=$3,color=$4,goal_type=$5,
+     start_date=$6,target_date=$7,start_value=$8,target_value=$9,current_value=$10,
+     unit=$11,status=$12,motivation=$13,project_id=$14,weekly_target=$15,updated_at=$16
+     WHERE id=$17`,
+    [
+      next.title, next.description, next.icon, next.color, next.goal_type,
+      next.start_date, next.target_date, next.start_value, next.target_value,
+      next.current_value, next.unit, next.status, next.motivation,
+      next.project_id, next.weekly_target, next.updated_at, id,
+    ],
+  );
+}
+
+export async function fetchGoalEntries(goalId?: string): Promise<GoalEntry[]> {
+  const db = await getDb();
+  return goalId
+    ? db.select<GoalEntry[]>(
+        "SELECT * FROM goal_entries WHERE goal_id=$1 ORDER BY entry_date DESC, created_at DESC",
+        [goalId],
+      )
+    : db.select<GoalEntry[]>(
+        "SELECT * FROM goal_entries ORDER BY entry_date DESC, created_at DESC",
+      );
+}
+
+async function refreshGoalProgress(goalId: string): Promise<void> {
+  const db = await getDb();
+  const goalRows = await db.select<Goal[]>("SELECT * FROM goals WHERE id=$1", [goalId]);
+  if (!goalRows[0]) return;
+  const sums = await db.select<{ total: number | null }[]>(
+    "SELECT SUM(value) AS total FROM goal_entries WHERE goal_id=$1",
+    [goalId],
+  );
+  const current = Number(goalRows[0].start_value) + Number(sums[0]?.total ?? 0);
+  const reached = Number(goalRows[0].target_value) >= Number(goalRows[0].start_value)
+    ? current >= Number(goalRows[0].target_value)
+    : current <= Number(goalRows[0].target_value);
+  await db.execute(
+    `UPDATE goals SET current_value=$1,
+     status=CASE
+       WHEN $2=1 AND status='active' THEN 'completed'
+       WHEN $2=0 AND status='completed' THEN 'active'
+       ELSE status END,
+     updated_at=$3 WHERE id=$4`,
+    [current, reached ? 1 : 0, nowIso(), goalId],
+  );
+  const ascending = Number(goalRows[0].target_value) >= Number(goalRows[0].start_value);
+  const allMilestones = await db.select<GoalMilestone[]>(
+    "SELECT * FROM goal_milestones WHERE goal_id=$1",
+    [goalId],
+  );
+  const reverted = allMilestones.filter(
+    (milestone) => milestone.completed_at &&
+      (ascending ? current < milestone.target_value : current > milestone.target_value),
+  );
+  for (const milestone of reverted) {
+    await db.execute("UPDATE goal_milestones SET completed_at=NULL WHERE id=$1", [milestone.id]);
+    await db.execute(
+      "DELETE FROM achievements WHERE source_type='milestone' AND source_id=$1",
+      [milestone.id],
+    );
+  }
+  const milestones = allMilestones.filter(
+    (milestone) => !milestone.completed_at &&
+      (ascending ? current >= milestone.target_value : current <= milestone.target_value),
+  );
+  for (const milestone of milestones) {
+    const stamp = nowIso();
+    await db.execute(
+      "UPDATE goal_milestones SET completed_at=$1 WHERE id=$2",
+      [stamp, milestone.id],
+    );
+    await createAchievement({
+      goal_id: goalId,
+      title: milestone.title,
+      description: `达成阶段目标：${milestone.target_value}${goalRows[0].unit}`,
+      achieved_at: stamp.slice(0, 10),
+      source_type: "milestone",
+      source_id: milestone.id,
+    });
+  }
+  if (reached) {
+    await createAchievement({
+      goal_id: goalId,
+      title: `完成目标：${goalRows[0].title}`,
+      description: `累计达到 ${current}${goalRows[0].unit}`,
+      achieved_at: todayDateString(),
+      source_type: "goal",
+      source_id: goalId,
+    });
+  } else {
+    await db.execute(
+      "DELETE FROM achievements WHERE source_type='goal' AND source_id=$1",
+      [goalId],
+    );
+  }
+}
+
+export async function addGoalEntry(
+  input: Pick<GoalEntry, "goal_id" | "entry_date" | "value" | "source_type"> &
+    Partial<Pick<GoalEntry, "source_id" | "note">>,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT OR IGNORE INTO goal_entries
+     (id,goal_id,entry_date,value,source_type,source_id,note,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [
+      createId(), input.goal_id, input.entry_date, Number(input.value),
+      input.source_type, input.source_id ?? null, input.note?.trim() ?? "", nowIso(),
+    ],
+  );
+  await refreshGoalProgress(input.goal_id);
+}
+
+export async function removeGoalEntryBySource(
+  goalId: string,
+  sourceType: GoalEntry["source_type"],
+  sourceId: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM goal_entries WHERE goal_id=$1 AND source_type=$2 AND source_id=$3",
+    [goalId, sourceType, sourceId],
+  );
+  await refreshGoalProgress(goalId);
+}
+
+export async function fetchGoalMilestones(goalId?: string): Promise<GoalMilestone[]> {
+  const db = await getDb();
+  return goalId
+    ? db.select<GoalMilestone[]>(
+        "SELECT * FROM goal_milestones WHERE goal_id=$1 ORDER BY sort_order,target_value",
+        [goalId],
+      )
+    : db.select<GoalMilestone[]>("SELECT * FROM goal_milestones ORDER BY created_at DESC");
+}
+
+export async function createGoalMilestone(
+  goalId: string,
+  title: string,
+  targetValue: number,
+  targetDate: string | null = null,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO goal_milestones
+     (id,goal_id,title,target_value,target_date,completed_at,sort_order,created_at)
+     VALUES ($1,$2,$3,$4,$5,NULL,$6,$7)`,
+    [createId(), goalId, title.trim(), targetValue, targetDate, Date.now(), nowIso()],
+  );
+  await refreshGoalProgress(goalId);
+}
+
+export async function fetchAchievements(): Promise<Achievement[]> {
+  const db = await getDb();
+  return db.select<Achievement[]>(
+    "SELECT * FROM achievements ORDER BY pinned DESC, achieved_at DESC, created_at DESC",
+  );
+}
+
+export async function createAchievement(
+  input: Pick<Achievement, "title" | "achieved_at" | "source_type"> &
+    Partial<Omit<Achievement, "id" | "title" | "achieved_at" | "source_type" | "created_at">>,
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT OR IGNORE INTO achievements
+     (id,goal_id,title,description,achieved_at,image_path,source_type,source_id,pinned,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [
+      createId(), input.goal_id ?? null, input.title.trim(),
+      input.description?.trim() ?? "", input.achieved_at,
+      input.image_path ?? null, input.source_type, input.source_id ?? null,
+      input.pinned ?? 0, nowIso(),
+    ],
+  );
+}
+
+export async function toggleAchievementPinned(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "UPDATE achievements SET pinned=CASE pinned WHEN 1 THEN 0 ELSE 1 END WHERE id=$1",
+    [id],
+  );
+}
+
 /* Backup */
 export async function exportBackup(): Promise<BackupPayload> {
   const db = await getDb();
@@ -1273,10 +1630,14 @@ export async function exportBackup(): Promise<BackupPayload> {
     "SELECT * FROM day_snapshots",
   );
   const milestones = await db.select<Milestone[]>("SELECT * FROM milestones");
+  const goals = await fetchGoals(true);
+  const goalEntries = await fetchGoalEntries();
+  const goalMilestones = await fetchGoalMilestones();
+  const achievements = await fetchAchievements();
   const settings = await getAllSettings();
 
   return {
-    version: 3,
+    version: 4,
     exportedAt: nowIso(),
     tasks,
     tags,
@@ -1293,12 +1654,20 @@ export async function exportBackup(): Promise<BackupPayload> {
     focusSessions,
     daySnapshots,
     milestones,
+    goals,
+    goalEntries,
+    goalMilestones,
+    achievements,
     settings,
   };
 }
 
 export async function importBackup(payload: BackupPayload): Promise<void> {
   const db = await getDb();
+  await db.execute("DELETE FROM achievements");
+  await db.execute("DELETE FROM goal_milestones");
+  await db.execute("DELETE FROM goal_entries");
+  await db.execute("DELETE FROM goals");
   await db.execute("DELETE FROM focus_sessions");
   await db.execute("DELETE FROM task_events");
   await db.execute("DELETE FROM day_snapshots");
@@ -1322,8 +1691,9 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         due_date, due_time, end_time, sort_order, created_at, updated_at,
         completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
         reminder_minutes_json, estimated_minutes, project_id, my_day_date,
-        blocked_by_id, completion_criteria, energy_level, flexible, actual_minutes
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
+        blocked_by_id, completion_criteria, energy_level, flexible, actual_minutes,
+        goal_id, goal_contribution
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
       [
         task.id,
         task.title,
@@ -1351,6 +1721,8 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         task.energy_level ?? "medium",
         task.flexible ?? 0,
         task.actual_minutes ?? 0,
+        task.goal_id ?? null,
+        task.goal_contribution ?? 1,
       ],
     );
   }
@@ -1381,8 +1753,8 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
   }
   for (const h of payload.habits) {
     await db.execute(
-      "INSERT INTO habits (id, title, target_per_week, created_at) VALUES ($1,$2,$3,$4)",
-      [h.id, h.title, h.target_per_week, h.created_at],
+      "INSERT INTO habits (id, title, target_per_week, created_at, goal_id, goal_contribution) VALUES ($1,$2,$3,$4,$5,$6)",
+      [h.id, h.title, h.target_per_week, h.created_at, h.goal_id ?? null, h.goal_contribution ?? 1],
     );
   }
   for (const c of payload.habitChecks) {
@@ -1517,6 +1889,47 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         milestone.completed,
         milestone.created_at,
       ],
+    );
+  }
+  for (const goal of payload.goals ?? []) {
+    await db.execute(
+      `INSERT INTO goals
+       (id,title,description,icon,color,goal_type,start_date,target_date,start_value,
+        target_value,current_value,unit,status,motivation,project_id,weekly_target,
+        created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [goal.id,goal.title,goal.description,goal.icon,goal.color,goal.goal_type,
+       goal.start_date,goal.target_date,goal.start_value,goal.target_value,
+       goal.current_value,goal.unit,goal.status,goal.motivation,goal.project_id,
+       goal.weekly_target,goal.created_at,goal.updated_at],
+    );
+  }
+  for (const entry of payload.goalEntries ?? []) {
+    await db.execute(
+      `INSERT INTO goal_entries
+       (id,goal_id,entry_date,value,source_type,source_id,note,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [entry.id,entry.goal_id,entry.entry_date,entry.value,entry.source_type,
+       entry.source_id,entry.note,entry.created_at],
+    );
+  }
+  for (const milestone of payload.goalMilestones ?? []) {
+    await db.execute(
+      `INSERT INTO goal_milestones
+       (id,goal_id,title,target_value,target_date,completed_at,sort_order,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [milestone.id,milestone.goal_id,milestone.title,milestone.target_value,
+       milestone.target_date,milestone.completed_at,milestone.sort_order,milestone.created_at],
+    );
+  }
+  for (const achievement of payload.achievements ?? []) {
+    await db.execute(
+      `INSERT INTO achievements
+       (id,goal_id,title,description,achieved_at,image_path,source_type,source_id,pinned,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [achievement.id,achievement.goal_id,achievement.title,achievement.description,
+       achievement.achieved_at,achievement.image_path,achievement.source_type,
+       achievement.source_id,achievement.pinned,achievement.created_at],
     );
   }
   for (const [key, value] of Object.entries(payload.settings)) {

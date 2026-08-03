@@ -461,6 +461,86 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "growth_goals_achievements",
+            sql: r#"
+ALTER TABLE tasks ADD COLUMN goal_id TEXT;
+ALTER TABLE tasks ADD COLUMN goal_contribution REAL NOT NULL DEFAULT 1;
+ALTER TABLE habits ADD COLUMN goal_id TEXT;
+ALTER TABLE habits ADD COLUMN goal_contribution REAL NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS goals (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  icon TEXT NOT NULL DEFAULT 'target',
+  color TEXT NOT NULL DEFAULT '#2F6FED',
+  goal_type TEXT NOT NULL DEFAULT 'quantity',
+  start_date TEXT NOT NULL,
+  target_date TEXT,
+  start_value REAL NOT NULL DEFAULT 0,
+  target_value REAL NOT NULL DEFAULT 1,
+  current_value REAL NOT NULL DEFAULT 0,
+  unit TEXT NOT NULL DEFAULT '次',
+  status TEXT NOT NULL DEFAULT 'active',
+  motivation TEXT NOT NULL DEFAULT '',
+  project_id TEXT,
+  weekly_target REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS goal_entries (
+  id TEXT PRIMARY KEY,
+  goal_id TEXT NOT NULL,
+  entry_date TEXT NOT NULL,
+  value REAL NOT NULL DEFAULT 1,
+  source_type TEXT NOT NULL DEFAULT 'manual',
+  source_id TEXT,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_goal_entries_source
+  ON goal_entries(goal_id, source_type, source_id)
+  WHERE source_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_goal_entries_date
+  ON goal_entries(entry_date, goal_id);
+
+CREATE TABLE IF NOT EXISTS goal_milestones (
+  id TEXT PRIMARY KEY,
+  goal_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  target_value REAL NOT NULL DEFAULT 0,
+  target_date TEXT,
+  completed_at TEXT,
+  sort_order REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS achievements (
+  id TEXT PRIMARY KEY,
+  goal_id TEXT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  achieved_at TEXT NOT NULL,
+  image_path TEXT,
+  source_type TEXT NOT NULL DEFAULT 'manual',
+  source_id TEXT,
+  pinned INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_achievements_source
+  ON achievements(source_type, source_id)
+  WHERE source_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_tasks_goal_status
+  ON tasks(goal_id, status);
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '10');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

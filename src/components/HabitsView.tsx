@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { todayDateString } from "@/lib/dates";
+import { fetchGoals, updateHabitGoal } from "@/lib/db";
+import type { Goal } from "@/types";
 
 export function HabitsView() {
   const habits = useAppStore((s) => s.habits);
@@ -9,7 +11,12 @@ export function HabitsView() {
   const removeHabit = useAppStore((s) => s.removeHabit);
   const toggleHabitDay = useAppStore((s) => s.toggleHabitDay);
   const [title, setTitle] = useState("");
+  const [goals, setGoals] = useState<Goal[]>([]);
   const today = todayDateString();
+
+  useEffect(() => {
+    void fetchGoals().then(setGoals);
+  }, []);
 
   const weekDates = useMemo(() => {
     const d = new Date();
@@ -90,6 +97,40 @@ export function HabitsView() {
               <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
                 本周 {weekCount}/{habit.target_per_week} · 连续 {streak} 天
               </p>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <select
+                  className="field"
+                  value={habit.goal_id ?? ""}
+                  onChange={(event) =>
+                    void updateHabitGoal(
+                      habit.id,
+                      event.target.value || null,
+                      habit.goal_contribution,
+                    ).then(() => useAppStore.getState().refreshAll())
+                  }
+                >
+                  <option value="">不关联成长目标</option>
+                  {goals.filter((goal) => goal.status === "active").map((goal) => (
+                    <option key={goal.id} value={goal.id}>{goal.title}</option>
+                  ))}
+                </select>
+                <input
+                  className="field"
+                  type="number"
+                  min={0.1}
+                  step={0.1}
+                  title="每次打卡贡献值"
+                  style={{ width: 88 }}
+                  value={habit.goal_contribution}
+                  onChange={(event) =>
+                    void updateHabitGoal(
+                      habit.id,
+                      habit.goal_id,
+                      Math.max(0.1, Number(event.target.value) || 1),
+                    ).then(() => useAppStore.getState().refreshAll())
+                  }
+                />
+              </div>
               <div style={{ display: "flex", gap: 6 }}>
                 {weekDates.map((date) => {
                   const on = checks.some((c) => c.check_date === date);

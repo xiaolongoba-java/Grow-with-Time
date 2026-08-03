@@ -55,6 +55,8 @@ describe("repeat rules", () => {
       completion_criteria: "reviewed",
       energy_level: "high",
       flexible: 0,
+      goal_id: "goal-1",
+      goal_contribution: 2,
     } as Task;
     expect(nextRepeatTaskDraft(source)).toMatchObject({
       due_date: "2026-07-29",
@@ -65,6 +67,8 @@ describe("repeat rules", () => {
       completion_criteria: "reviewed",
       energy_level: "high",
       flexible: 0,
+      goal_id: "goal-1",
+      goal_contribution: 2,
     });
   });
 });

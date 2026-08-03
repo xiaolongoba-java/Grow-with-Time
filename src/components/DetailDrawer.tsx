@@ -8,12 +8,13 @@ import type {
   TaskEvent,
   TaskPriority,
   TaskStatus,
+  Goal,
 } from "@/types";
 import { open } from "@tauri-apps/plugin-dialog";
 import { TimeRangeFields, defaultTimeRange } from "@/components/TimePicker";
 import { PomodoroPanel } from "@/components/PomodoroPanel";
 import { parseReminderMinutes } from "@/lib/planning";
-import { fetchTaskEvents } from "@/lib/db";
+import { fetchGoals, fetchTaskEvents } from "@/lib/db";
 import {
   ensureEndAfterStart,
   formatTimeRange,
@@ -107,12 +108,17 @@ export function DetailDrawer() {
   const [flexible, setFlexible] = useState(true);
   const [blockedById, setBlockedById] = useState("");
   const [history, setHistory] = useState<TaskEvent[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [repeat, setRepeat] = useState<RepeatRule | null>(null);
   const [subTitle, setSubTitle] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const loadedId = useRef<string | null>(null);
+
+  useEffect(() => {
+    void fetchGoals().then(setGoals);
+  }, []);
 
   useEffect(() => {
     if (!task) {
@@ -669,6 +675,38 @@ export function DetailDrawer() {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="lifecycle-grid">
+            <div>
+              <label className="field-label">关联成长目标</label>
+              <select
+                className="field"
+                value={task.goal_id ?? ""}
+                onChange={(event) =>
+                  void saveTask(task.id, { goal_id: event.target.value || null })
+                }
+              >
+                <option value="">不关联目标</option>
+                {goals.filter((goal) => goal.status === "active").map((goal) => (
+                  <option key={goal.id} value={goal.id}>{goal.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">完成贡献值</label>
+              <input
+                className="field"
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={task.goal_contribution}
+                onChange={(event) =>
+                  void saveTask(task.id, {
+                    goal_contribution: Math.max(0.1, Number(event.target.value) || 1),
+                  })
+                }
+              />
+            </div>
           </div>
           <div className="lifecycle-grid">
             <div>

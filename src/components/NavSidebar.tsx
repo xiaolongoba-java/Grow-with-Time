@@ -152,6 +152,13 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       <div className="nav-section-label">工具</div>
       <button
         type="button"
+        className={`nav-item ${nav === "growth" ? "active" : ""}`}
+        onClick={() => setNav("growth")}
+      >
+        <span className="nav-item-label"><AppIcon name="sparkle" size={17} />成长</span>
+      </button>
+      <button
+        type="button"
         className={`nav-item ${nav === "memos" ? "active" : ""}`}
         onClick={() => setNav("memos")}
       >

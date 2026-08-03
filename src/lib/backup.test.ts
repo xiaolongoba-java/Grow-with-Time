@@ -9,6 +9,10 @@ describe("backup coverage", () => {
       "focus_sessions",
       "day_snapshots",
       "milestones",
+      "goals",
+      "goal_entries",
+      "goal_milestones",
+      "achievements",
     ]) {
       expect(source).toContain(`SELECT * FROM ${table}`);
       expect(source).toContain(`INSERT INTO ${table}`);
@@ -16,5 +20,6 @@ describe("backup coverage", () => {
     expect(source).toContain("reminder_minutes_json");
     expect(source).toContain("completion_criteria");
     expect(source).toContain("actual_minutes");
+    expect(source).toContain("goal_contribution");
   });
 });
