@@ -58,7 +58,7 @@ type LaidOut = {
   lane: number;
 };
 
-function layoutLanes(tasks: Task[]): { items: LaidOut[]; laneCount: number } {
+function layoutRows(tasks: Task[]): { items: LaidOut[]; laneCount: number } {
   const timed = tasks
     .map((task) => {
       const startMin =
@@ -72,21 +72,10 @@ function layoutLanes(tasks: Task[]): { items: LaidOut[]; laneCount: number } {
     })
     .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
 
-  const laneEnds: number[] = [];
-  const items: LaidOut[] = [];
-
-  for (const ev of timed) {
-    let lane = laneEnds.findIndex((end) => end <= ev.startMin);
-    if (lane < 0) {
-      lane = laneEnds.length;
-      laneEnds.push(ev.endMin);
-    } else {
-      laneEnds[lane] = ev.endMin;
-    }
-    items.push({ ...ev, lane });
-  }
-
-  return { items, laneCount: Math.max(1, laneEnds.length) };
+  return {
+    items: timed.map((event, lane) => ({ ...event, lane })),
+    laneCount: Math.max(1, timed.length),
+  };
 }
 
 function formatRange(start?: string | null, end?: string | null) {
@@ -109,6 +98,12 @@ export function TodayTimeline() {
       return false;
     }
   });
+  const [hoveredTask, setHoveredTask] = useState<{
+    task: Task;
+    range: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLButtonElement>(null);
   const dragRef = useRef<{
@@ -191,7 +186,7 @@ export function TodayTimeline() {
   );
 
   const { items, laneCount } = useMemo(
-    () => layoutLanes(todayTasks),
+    () => layoutRows(todayTasks),
     [todayTasks],
   );
 
@@ -229,8 +224,26 @@ export function TodayTimeline() {
   }, [collapsed, highlightTaskId, items, axisWidth, totalMin, axisStart, axisEnd]);
 
   const openTaskDetail = (taskId: string) => {
+    setHoveredTask(null);
     selectTask(taskId);
     setCollapsed(true);
+  };
+
+  const showTaskPreview = (
+    event: { currentTarget: HTMLButtonElement },
+    task: Task,
+    range: string,
+  ) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setHoveredTask({
+      task,
+      range,
+      x: Math.min(window.innerWidth - 304, Math.max(12, rect.left)),
+      y:
+        rect.bottom + 200 < window.innerHeight
+          ? rect.bottom + 10
+          : Math.max(12, rect.top - 198),
+    });
   };
 
   return (
@@ -353,7 +366,7 @@ export function TodayTimeline() {
 
                     {items.map(({ task, startMin, endMin, lane }) => {
                       const left = minToX(startMin);
-                      const width = Math.max(54, minToX(endMin) - left - 7);
+                      const width = Math.max(168, minToX(endMin) - left - 7);
                       const range = formatRange(task.due_time, task.end_time);
                       const p = task.priority ?? 3;
                       return (
@@ -367,7 +380,18 @@ export function TodayTimeline() {
                             top: lane * LANE_H + 8,
                             height: LANE_H - 16,
                           }}
-                          title={`${task.title}\n${range}\n点击查看详情`}
+                          aria-label={`${task.title} ${range}`}
+                          onMouseEnter={(event) =>
+                            showTaskPreview(event, task, range)
+                          }
+                          onMouseMove={(event) =>
+                            showTaskPreview(event, task, range)
+                          }
+                          onMouseLeave={() => setHoveredTask(null)}
+                          onFocus={(event) =>
+                            showTaskPreview(event, task, range)
+                          }
+                          onBlur={() => setHoveredTask(null)}
                           onClick={() => openTaskDetail(task.id)}
                         >
                           <span className="timeline-h-event-title">
@@ -388,6 +412,40 @@ export function TodayTimeline() {
           </div>
         ) : null}
       </aside>
+
+      {hoveredTask && !collapsed ? (
+        <div
+          className="timeline-task-popover"
+          style={{ left: hoveredTask.x, top: hoveredTask.y }}
+          role="tooltip"
+        >
+          <div className="timeline-task-popover-head">
+            <strong>{hoveredTask.task.title}</strong>
+            <span
+              className={`timeline-task-priority p${hoveredTask.task.priority}`}
+            >
+              P{hoveredTask.task.priority}
+            </span>
+          </div>
+          <div className="timeline-task-popover-meta">
+            <span>
+              <AppIcon name="timer" size={14} />
+              {hoveredTask.range || "未设置时间"}
+            </span>
+            <span>
+              {hoveredTask.task.status === "in_progress" ? "进行中" : "待处理"}
+            </span>
+            {hoveredTask.task.estimated_minutes ? (
+              <span>预计 {hoveredTask.task.estimated_minutes} 分钟</span>
+            ) : null}
+          </div>
+          {hoveredTask.task.description || hoveredTask.task.notes ? (
+            <p>{hoveredTask.task.description || hoveredTask.task.notes}</p>
+          ) : (
+            <p className="is-muted">点击任务可查看完整详情</p>
+          )}
+        </div>
+      ) : null}
     </>
   );
 }

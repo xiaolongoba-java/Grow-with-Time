@@ -513,6 +513,16 @@ fn hide_float(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn show_desktop_widgets(app: AppHandle) -> Result<(), String> {
+    for label in ["widget-calendar", "widget-today", "widget-memo"] {
+        if let Some(window) = app.get_webview_window(label) {
+            window.show().map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn today_pending_count(count: i64) -> Result<i64, String> {
     Ok(count)
 }
@@ -729,6 +739,7 @@ pub fn run() {
             show_float,
             start_timer_ui,
             hide_float,
+            show_desktop_widgets,
             today_pending_count,
             schedule_native_notification,
             cancel_native_notification,

@@ -36,11 +36,11 @@ export function IconRail() {
       <button
         type="button"
         className="rail-btn"
-        title="打开桌面浮窗（今日待办 / 速记）"
-        aria-label="打开桌面浮窗"
+        title="打开桌面组件（月历 / 今日计划 / 备忘录）"
+        aria-label="打开桌面组件"
         onClick={() => {
           void import("@tauri-apps/api/core").then(({ invoke }) =>
-            invoke("show_float"),
+            invoke("show_desktop_widgets"),
           );
         }}
       >

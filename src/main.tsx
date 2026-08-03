@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { MainApp } from "@/app/MainApp";
 import { QuickAddApp } from "@/app/QuickAddApp";
 import { FloatApp } from "@/app/FloatApp";
+import { DesktopWidgetApp } from "@/app/DesktopWidgetApp";
 import "@/styles/global.css";
 import "@/styles/polish.css";
 
@@ -42,6 +43,13 @@ try {
 function AppByLabel() {
   if (label === "quick-add") return <QuickAddApp />;
   if (label === "float") return <FloatApp />;
+  if (label.startsWith("widget-")) {
+    return (
+      <DesktopWidgetApp
+        kind={label.slice("widget-".length) as "calendar" | "today" | "memo"}
+      />
+    );
+  }
   return <MainApp />;
 }
 

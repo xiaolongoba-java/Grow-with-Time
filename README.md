@@ -23,26 +23,25 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.3.5
+### v1.3.6
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.5_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.5/Grow.with.Time_1.3.5_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.5_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.5/Grow.with.Time_1.3.5_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.3.6_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.6/Grow.with.Time_1.3.6_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.3.6_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.3.6/Grow.with.Time_1.3.6_x64-setup.exe) |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
 
-#### v1.3.5 重点更新
+#### v1.3.6 重点更新
 
-- 每次启动前自动保存数据库快照，保留最近 10 个版本
-- 设置页增加数据健康检查、启动备份恢复和打开数据目录
-- 数据库恢复在重启阶段执行，避免运行中覆盖造成数据损坏
-- 启动失败显示可读的系统错误窗口，不再静默闪退
-- Windows Release 增加全新安装与已有数据库两轮启动测试
-- 固化已发布 migration 契约，防止历史迁移被意外修改
-- 项目创建按钮支持空名称提示与自动聚焦
-- 备忘录支持 Markdown 编辑、分屏预览、任务清单、表格和代码块
-- 修复 Windows CI 在 CRLF 换行下误判 migration 契约的问题
+- 今日时间轴改为一项任务独占一行，短任务保持可读宽度
+- 时间轴悬停显示任务时间、优先级、状态、预计时长和说明
+- 新增月历、今日计划、Markdown 备忘录三张独立桌面组件
+- 桌面组件支持独立拖拽、缩放、置顶并记忆窗口位置
+- 支持 6 套预设配色、自定义颜色和透明度调节
+- 新增完全透明模式，并使用局部阅读层保证复杂壁纸上的可读性
+- 今日计划组件支持快速添加和直接完成任务
+- 月历通过优先级色点展示每日任务负载
 
 #### v1.3.2 热修复
 
