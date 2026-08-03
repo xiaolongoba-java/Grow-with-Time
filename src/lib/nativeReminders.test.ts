@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/types";
-import { buildNativeReminderPlans } from "./nativeReminders";
+import {
+  buildMissedReminderPlans,
+  buildNativeReminderPlans,
+} from "./nativeReminders";
 
 const task = (patch: Partial<Task>): Task =>
   ({
@@ -64,5 +67,42 @@ describe("native reminder lifecycle", () => {
     expect(original.map((item) => item.reminderId)).not.toEqual(
       moved.map((item) => item.reminderId),
     );
+  });
+
+  it("recovers only reminders missed while the app was closed", () => {
+    const closedAt = new Date("2026-07-30T09:20:00").getTime();
+    const reopenedAt = new Date("2026-07-30T09:35:00").getTime();
+    const plans = buildMissedReminderPlans(
+      [task({ reminder_minutes: [30] })],
+      30,
+      closedAt,
+      reopenedAt,
+    );
+    expect(plans).toHaveLength(1);
+    expect(plans[0].showSystemNotification).toBe(true);
+  });
+
+  it("keeps older missed reminders in the center without a system popup", () => {
+    const closedAt = new Date("2026-07-30T08:00:00").getTime();
+    const reopenedAt = new Date("2026-07-30T09:45:01").getTime();
+    const plans = buildMissedReminderPlans(
+      [task({ reminder_minutes: [60] })],
+      30,
+      closedAt,
+      reopenedAt,
+    );
+    expect(plans).toHaveLength(1);
+    expect(plans[0].showSystemNotification).toBe(false);
+  });
+
+  it("does not recover completed tasks", () => {
+    expect(
+      buildMissedReminderPlans(
+        [task({ status: "completed", reminder_minutes: [30] })],
+        30,
+        new Date("2026-07-30T09:00:00").getTime(),
+        new Date("2026-07-30T09:45:00").getTime(),
+      ),
+    ).toEqual([]);
   });
 });

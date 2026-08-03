@@ -17,14 +17,20 @@ import { NotificationCenter } from "@/components/NotificationCenter";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
 import {
   createNotificationRecord,
+  ensureReminderRecord,
   ensureMissedNotification,
   fetchDueNotifications,
+  getSetting,
+  setSetting,
   setNotificationStatus,
 } from "@/lib/db";
 import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
 import { todayDateString } from "@/lib/dates";
-import { buildNativeReminderPlans } from "@/lib/nativeReminders";
+import {
+  buildMissedReminderPlans,
+  buildNativeReminderPlans,
+} from "@/lib/nativeReminders";
 
 const NAV_COLLAPSE_KEY = "minimal.navCollapsed";
 
@@ -190,6 +196,45 @@ export function MainApp() {
   }, [tasks, settings.notifyAhead]);
 
   useEffect(() => {
+    if (!ready) return;
+    const recoverMissedReminders = async () => {
+      const now = Date.now();
+      const stored = await getSetting("native_reminder_last_scan_at");
+      const lastScan = stored ? Number(stored) : now;
+      const missed = buildMissedReminderPlans(
+        tasks,
+        settings.notifyAhead,
+        lastScan,
+        now,
+      );
+      for (const item of missed) {
+        const created = await ensureReminderRecord({
+          taskId: item.taskId,
+          title: item.title,
+          body: item.body,
+          scheduledAt: new Date(item.fireAtMs).toISOString(),
+        });
+        if (created && item.showSystemNotification) {
+          sendNotification({ title: item.title, body: item.body });
+        }
+      }
+      await setSetting("native_reminder_last_scan_at", String(now));
+      if (missed.length) {
+        window.dispatchEvent(new Event("notifications:changed"));
+      }
+    };
+    void recoverMissedReminders().catch(() => undefined);
+  }, [ready, tasks, settings.notifyAhead]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const timer = window.setInterval(() => {
+      void setSetting("native_reminder_last_scan_at", String(Date.now()));
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [ready]);
+
+  useEffect(() => {
     let unlisten: (() => void) | undefined;
     void listen<{
       id: string;
@@ -207,6 +252,7 @@ export function MainApp() {
       }).then(() =>
         window.dispatchEvent(new Event("notifications:changed")),
       );
+      void setSetting("native_reminder_last_scan_at", String(Date.now()));
     }).then((fn) => {
       unlisten = fn;
     });

@@ -108,6 +108,7 @@ function mapTask(row: Task): Task {
     completion_criteria: row.completion_criteria ?? "",
     energy_level: row.energy_level ?? "medium",
     flexible: row.flexible ?? 1,
+    schedule_locked: row.schedule_locked ?? 0,
     actual_minutes: row.actual_minutes ?? 0,
     goal_id: row.goal_id ?? null,
     goal_contribution: row.goal_contribution ?? 1,
@@ -179,6 +180,7 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
     completion_criteria: draft.completion_criteria ?? "",
     energy_level: draft.energy_level ?? "medium",
     flexible: draft.flexible ?? 1,
+    schedule_locked: draft.schedule_locked ?? 0,
     actual_minutes: 0,
     goal_id: draft.goal_id ?? null,
     goal_contribution: draft.goal_contribution ?? 1,
@@ -190,9 +192,9 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
       due_date, due_time, end_time, sort_order, created_at, updated_at,
       completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
       reminder_minutes_json, estimated_minutes, project_id, my_day_date,
-      blocked_by_id, completion_criteria, energy_level, flexible, actual_minutes,
-      goal_id, goal_contribution
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
+      blocked_by_id, completion_criteria, energy_level, flexible, schedule_locked,
+      actual_minutes, goal_id, goal_contribution
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
     [
       task.id,
       task.title,
@@ -219,6 +221,7 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
       task.completion_criteria,
       task.energy_level,
       task.flexible,
+      task.schedule_locked,
       task.actual_minutes,
       task.goal_id,
       task.goal_contribution,
@@ -272,8 +275,8 @@ export async function updateTask(
       reminder_minutes_json=$15, estimated_minutes=$16,
       project_id=$17, my_day_date=$18, blocked_by_id=$19,
       completion_criteria=$20, energy_level=$21, flexible=$22,
-      actual_minutes=$23, goal_id=$24, goal_contribution=$25
-    WHERE id=$26`,
+      schedule_locked=$23, actual_minutes=$24, goal_id=$25, goal_contribution=$26
+    WHERE id=$27`,
     [
       next.title,
       next.description,
@@ -297,6 +300,7 @@ export async function updateTask(
       next.completion_criteria,
       next.energy_level,
       next.flexible,
+      next.schedule_locked,
       next.actual_minutes,
       next.goal_id,
       next.goal_contribution,
@@ -1634,10 +1638,11 @@ export async function exportBackup(): Promise<BackupPayload> {
   const goalEntries = await fetchGoalEntries();
   const goalMilestones = await fetchGoalMilestones();
   const achievements = await fetchAchievements();
+  const timers = await fetchTimers();
   const settings = await getAllSettings();
 
   return {
-    version: 4,
+    version: 5,
     exportedAt: nowIso(),
     tasks,
     tags,
@@ -1658,12 +1663,14 @@ export async function exportBackup(): Promise<BackupPayload> {
     goalEntries,
     goalMilestones,
     achievements,
+    timers,
     settings,
   };
 }
 
 export async function importBackup(payload: BackupPayload): Promise<void> {
   const db = await getDb();
+  await db.execute("DELETE FROM timers");
   await db.execute("DELETE FROM achievements");
   await db.execute("DELETE FROM goal_milestones");
   await db.execute("DELETE FROM goal_entries");
@@ -1691,9 +1698,9 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         due_date, due_time, end_time, sort_order, created_at, updated_at,
         completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
         reminder_minutes_json, estimated_minutes, project_id, my_day_date,
-        blocked_by_id, completion_criteria, energy_level, flexible, actual_minutes,
-        goal_id, goal_contribution
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
+        blocked_by_id, completion_criteria, energy_level, flexible, schedule_locked,
+        actual_minutes, goal_id, goal_contribution
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
       [
         task.id,
         task.title,
@@ -1719,7 +1726,8 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         task.blocked_by_id ?? null,
         task.completion_criteria ?? "",
         task.energy_level ?? "medium",
-        task.flexible ?? 0,
+        task.flexible ?? 1,
+        task.schedule_locked ?? 0,
         task.actual_minutes ?? 0,
         task.goal_id ?? null,
         task.goal_contribution ?? 1,
@@ -1932,6 +1940,19 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
        achievement.source_id,achievement.pinned,achievement.created_at],
     );
   }
+  for (const timer of payload.timers ?? []) {
+    await db.execute(
+      `INSERT INTO timers
+       (id,kind,title,interval_sec,remaining_sec,running,enabled,task_id,ends_at,
+        last_fired_at,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [
+        timer.id, timer.kind, timer.title, timer.interval_sec,
+        timer.remaining_sec, timer.running, timer.enabled, timer.task_id,
+        timer.ends_at, timer.last_fired_at, timer.created_at, timer.updated_at,
+      ],
+    );
+  }
   for (const [key, value] of Object.entries(payload.settings)) {
     await setSetting(key, value);
   }
@@ -1989,7 +2010,9 @@ export async function archiveProject(id: string): Promise<void> {
 
 export async function updateProject(
   id: string,
-  updates: Partial<Pick<Project, "name" | "goal" | "success_criteria" | "due_date">>,
+  updates: Partial<
+    Pick<Project, "name" | "color" | "goal" | "success_criteria" | "due_date">
+  >,
 ): Promise<void> {
   const db = await getDb();
   const current = (
@@ -2001,10 +2024,11 @@ export async function updateProject(
   if (!current) return;
   const next = { ...current, ...updates, updated_at: nowIso() };
   await db.execute(
-    `UPDATE projects SET name=$1, goal=$2, success_criteria=$3,
-     due_date=$4, updated_at=$5 WHERE id=$6`,
+    `UPDATE projects SET name=$1, color=$2, goal=$3, success_criteria=$4,
+     due_date=$5, updated_at=$6 WHERE id=$7`,
     [
       next.name,
+      next.color,
       next.goal,
       next.success_criteria,
       next.due_date,
@@ -2130,6 +2154,29 @@ export async function createNotificationRecord(input: {
     ],
   );
   return notification;
+}
+
+export async function ensureReminderRecord(input: {
+  taskId: string;
+  title: string;
+  body: string;
+  scheduledAt: string;
+}): Promise<boolean> {
+  const db = await getDb();
+  const existing = await db.select<{ id: string }[]>(
+    `SELECT id FROM app_notifications
+     WHERE task_id=$1 AND kind='reminder' AND scheduled_at=$2 LIMIT 1`,
+    [input.taskId, input.scheduledAt],
+  );
+  if (existing.length) return false;
+  await createNotificationRecord({
+    taskId: input.taskId,
+    kind: "reminder",
+    title: input.title,
+    body: input.body,
+    scheduledAt: input.scheduledAt,
+  });
+  return true;
 }
 
 export async function setNotificationStatus(

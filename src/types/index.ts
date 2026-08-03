@@ -73,6 +73,7 @@ export interface Task {
   completion_criteria: string;
   energy_level: "low" | "medium" | "high";
   flexible: number;
+  schedule_locked: number;
   actual_minutes: number;
   goal_id: string | null;
   goal_contribution: number;
@@ -180,6 +181,7 @@ export interface TaskDraft {
   completion_criteria?: string;
   energy_level?: Task["energy_level"];
   flexible?: number;
+  schedule_locked?: number;
   goal_id?: string | null;
   goal_contribution?: number;
   tagIds?: string[];
@@ -205,6 +207,7 @@ export interface TaskUpdate {
   completion_criteria?: string;
   energy_level?: Task["energy_level"];
   flexible?: number;
+  schedule_locked?: number;
   actual_minutes?: number;
   goal_id?: string | null;
   goal_contribution?: number;
@@ -374,7 +377,7 @@ export interface AppNotification {
 }
 
 export interface BackupPayload {
-  version: 2 | 3 | 4;
+  version: 2 | 3 | 4 | 5;
   exportedAt: string;
   tasks: Task[];
   tags: Tag[];
@@ -395,5 +398,6 @@ export interface BackupPayload {
   goalEntries?: GoalEntry[];
   goalMilestones?: GoalMilestone[];
   achievements?: Achievement[];
+  timers?: Timer[];
   settings: Record<string, string>;
 }

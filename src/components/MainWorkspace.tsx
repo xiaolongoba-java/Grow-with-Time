@@ -112,7 +112,6 @@ function DayBoard() {
     ReturnType<typeof suggestDaySchedule>
   >([]);
   const [acceptedScheduleIds, setAcceptedScheduleIds] = useState<string[]>([]);
-  const [lockedScheduleIds, setLockedScheduleIds] = useState<string[]>([]);
   const [closingDay, setClosingDay] = useState(false);
   const [reflection, setReflection] = useState("");
   const [dispositions, setDispositions] = useState<Record<string, string>>({});
@@ -193,7 +192,7 @@ function DayBoard() {
   const previewSchedule = () => {
     const suggestions = suggestDaySchedule(
       dayTasks.map((task) =>
-        lockedScheduleIds.includes(task.id) ? { ...task, flexible: 0 } : task,
+        task.schedule_locked ? { ...task, flexible: 0 } : task,
       ),
     );
     setSchedulePreview(suggestions);
@@ -221,6 +220,7 @@ function DayBoard() {
           due_time: item.start,
           end_time: item.end,
           flexible: 0,
+          schedule_locked: 1,
         });
       }
       setSchedulePreview([]);
@@ -410,21 +410,19 @@ function DayBoard() {
                 <button
                   type="button"
                   className="btn-ghost"
-                  onClick={() =>
-                    setLockedScheduleIds((ids) => {
-                      const locked = ids.includes(item.taskId);
-                      if (!locked) {
-                        setAcceptedScheduleIds((acceptedIds) =>
-                          acceptedIds.filter((id) => id !== item.taskId),
-                        );
-                      }
-                      return locked
-                        ? ids.filter((id) => id !== item.taskId)
-                        : [...ids, item.taskId];
-                    })
-                  }
+                  onClick={() => {
+                    const locked = Boolean(task?.schedule_locked);
+                    if (!locked) {
+                      setAcceptedScheduleIds((ids) =>
+                        ids.filter((id) => id !== item.taskId),
+                      );
+                    }
+                    void saveTask(item.taskId, {
+                      schedule_locked: locked ? 0 : 1,
+                    });
+                  }}
                 >
-                  {lockedScheduleIds.includes(item.taskId) ? "已锁定" : "锁定"}
+                  {task?.schedule_locked ? "已锁定" : "锁定"}
                 </button>
               </div>
             );

@@ -8,6 +8,10 @@ export type NativeReminderPlan = {
   fireAtMs: number;
 };
 
+export type MissedReminderPlan = NativeReminderPlan & {
+  showSystemNotification: boolean;
+};
+
 export function buildNativeReminderPlans(
   tasks: Task[],
   defaultAhead: number,
@@ -40,6 +44,43 @@ export function buildNativeReminderPlans(
         fireAtMs,
       });
     }
+  }
+  return plans;
+}
+
+export function buildMissedReminderPlans(
+  tasks: Task[],
+  defaultAhead: number,
+  lastScanMs: number,
+  nowMs = Date.now(),
+  systemGraceMs = 30 * 60 * 1000,
+): MissedReminderPlan[] {
+  if (!Number.isFinite(lastScanMs) || lastScanMs >= nowMs) return [];
+  const plans: MissedReminderPlan[] = [];
+  for (const task of tasks) {
+    if (
+      !["pending", "in_progress", "waiting"].includes(task.status) ||
+      task.deleted_at ||
+      !task.due_date ||
+      task.parent_id
+    ) continue;
+    const due = new Date(`${task.due_date}T${task.due_time ?? "23:59"}:00`).getTime();
+    const reminders = task.reminder_minutes.length
+      ? task.reminder_minutes
+      : [task.remind_minutes ?? defaultAhead];
+    const missed = reminders
+      .map((remind) => ({ remind, fireAtMs: due - remind * 60 * 1000 }))
+      .filter((item) => item.fireAtMs > lastScanMs && item.fireAtMs <= nowMs)
+      .sort((a, b) => b.fireAtMs - a.fireAtMs)[0];
+    if (!missed) continue;
+    plans.push({
+      reminderId: `${task.id}:${task.due_date}:${task.due_time ?? "23:59"}:${missed.remind}`,
+      taskId: task.id,
+      title: "错过的任务提醒",
+      body: `${task.title} 的提醒已错过`,
+      fireAtMs: missed.fireAtMs,
+      showSystemNotification: nowMs - missed.fireAtMs <= systemGraceMs,
+    });
   }
   return plans;
 }

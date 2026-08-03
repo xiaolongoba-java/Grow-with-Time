@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
-import type { Milestone } from "@/types";
+import type { Milestone, Project } from "@/types";
 import {
   createMilestone,
   fetchMilestones,
@@ -18,6 +18,12 @@ export function ProjectsView() {
   const removeTemplate = useAppStore((state) => state.removeTemplate);
   const selectTask = useAppStore((state) => state.selectTask);
   const [name, setName] = useState("");
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState("#7D9BE8");
+  const [editGoal, setEditGoal] = useState("");
+  const [editCriteria, setEditCriteria] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const refreshMilestones = async () => setMilestones(await fetchMilestones());
@@ -36,6 +42,32 @@ export function ProjectsView() {
   useEffect(() => {
     void refreshMilestones();
   }, []);
+
+  const beginEditProject = (project: Project) => {
+    setEditingProject(project);
+    setEditName(project.name);
+    setEditColor(project.color);
+    setEditGoal(project.goal ?? "");
+    setEditCriteria(project.success_criteria ?? "");
+    setEditDueDate(project.due_date ?? "");
+  };
+
+  const saveProject = async () => {
+    if (!editingProject || !editName.trim()) {
+      useAppStore.getState().setToast("项目名称不能为空");
+      return;
+    }
+    await updateProject(editingProject.id, {
+      name: editName.trim(),
+      color: editColor,
+      goal: editGoal.trim(),
+      success_criteria: editCriteria.trim(),
+      due_date: editDueDate || null,
+    });
+    await useAppStore.getState().refreshAll();
+    setEditingProject(null);
+    useAppStore.getState().setToast("项目已更新");
+  };
 
   return (
     <main className="main-workspace projects-view">
@@ -88,6 +120,13 @@ export function ProjectsView() {
                   <div className="project-card-head">
                     <span style={{ background: project.color }} />
                     <strong>{project.name}</strong>
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => beginEditProject(project)}
+                    >
+                      编辑
+                    </button>
                     <button
                       type="button"
                       className="btn-ghost"
@@ -205,6 +244,54 @@ export function ProjectsView() {
           </div>
         </section>
       </div>
+
+      {editingProject ? (
+        <div className="modal-backdrop" onMouseDown={() => setEditingProject(null)}>
+          <form
+            className="project-edit-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveProject();
+            }}
+          >
+            <div className="modal-head">
+              <div>
+                <span>项目设置</span>
+                <h3>编辑项目</h3>
+              </div>
+              <button type="button" onClick={() => setEditingProject(null)}>×</button>
+            </div>
+            <label>
+              项目名称
+              <input autoFocus value={editName} onChange={(event) => setEditName(event.target.value)} />
+            </label>
+            <label>
+              项目标识色
+              <div className="project-color-field">
+                <input type="color" value={editColor} onChange={(event) => setEditColor(event.target.value)} />
+                <span>{editColor.toUpperCase()}</span>
+              </div>
+            </label>
+            <label>
+              项目目标
+              <textarea value={editGoal} placeholder="这个项目最终要实现什么？" onChange={(event) => setEditGoal(event.target.value)} />
+            </label>
+            <label>
+              成功标准
+              <textarea value={editCriteria} placeholder="满足哪些条件代表项目完成？" onChange={(event) => setEditCriteria(event.target.value)} />
+            </label>
+            <label>
+              截止日期
+              <input type="date" value={editDueDate} onChange={(event) => setEditDueDate(event.target.value)} />
+            </label>
+            <div className="project-edit-actions">
+              <button type="button" className="btn-ghost" onClick={() => setEditingProject(null)}>取消</button>
+              <button type="submit" className="btn-primary">保存修改</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </main>
   );
 }

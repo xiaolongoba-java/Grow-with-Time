@@ -114,6 +114,7 @@ export function nextRepeatTaskDraft(task: Task): TaskDraft | null {
     completion_criteria: task.completion_criteria,
     energy_level: task.energy_level,
     flexible: task.flexible,
+    schedule_locked: task.schedule_locked,
     goal_id: task.goal_id,
     goal_contribution: task.goal_contribution,
   };

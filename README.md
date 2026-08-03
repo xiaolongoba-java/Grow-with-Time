@@ -23,14 +23,24 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.4.0
+### v1.4.1
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.4.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.0/Grow.with.Time_1.4.0_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.4.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.0/Grow.with.Time_1.4.0_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.4.1_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.1/Grow.with.Time_1.4.1_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.4.1_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.1/Grow.with.Time_1.4.1_x64-setup.exe) |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
+
+#### v1.4.1 修复
+
+- 项目现在支持编辑名称、颜色、目标、成功标准和截止日期
+- 完整备份加入循环提醒与事项倒计时，恢复后不再丢失 timers 数据
+- 旧备份缺少 `flexible` 时按可灵活排程恢复，与新建任务保持一致
+- 智能排程锁定改为数据库持久化，重启及备份恢复后仍然有效
+- 启动时受控补发关闭期间错过的提醒，超过 30 分钟只进入通知中心
+- 今日 Hero 样式统一收口至 `global.css`，减少暗色和窄屏覆盖冲突
+- 数据库增加 v11 migration，并保持所有已发布 migration 不变
 
 #### v1.4.0 重点更新
 

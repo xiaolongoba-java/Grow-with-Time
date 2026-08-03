@@ -541,6 +541,18 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 11,
+            description: "persistent_schedule_lock",
+            sql: r#"
+ALTER TABLE tasks ADD COLUMN schedule_locked INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_tasks_schedule_locked
+  ON tasks(schedule_locked, due_date, status);
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '11');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

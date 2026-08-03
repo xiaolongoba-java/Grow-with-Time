@@ -106,6 +106,7 @@ export function DetailDrawer() {
   const [energyLevel, setEnergyLevel] =
     useState<"low" | "medium" | "high">("medium");
   const [flexible, setFlexible] = useState(true);
+  const [scheduleLocked, setScheduleLocked] = useState(false);
   const [blockedById, setBlockedById] = useState("");
   const [history, setHistory] = useState<TaskEvent[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -158,6 +159,7 @@ export function DetailDrawer() {
     setCompletionCriteria(task.completion_criteria);
     setEnergyLevel(task.energy_level);
     setFlexible(Boolean(task.flexible));
+    setScheduleLocked(Boolean(task.schedule_locked));
     setBlockedById(task.blocked_by_id ?? "");
     setRepeat(parseRepeatRule(task.repeat_rule));
   };
@@ -222,6 +224,7 @@ export function DetailDrawer() {
         completion_criteria: completionCriteria,
         energy_level: energyLevel,
         flexible: flexible ? 1 : 0,
+        schedule_locked: scheduleLocked ? 1 : 0,
         blocked_by_id: blockedById || null,
         repeat_rule: stringifyRepeatRule(repeat),
       });
@@ -783,6 +786,14 @@ export function DetailDrawer() {
               onChange={(event) => setFlexible(event.target.checked)}
             />
             可由智能排程调整时间
+          </label>
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={scheduleLocked}
+              onChange={(event) => setScheduleLocked(event.target.checked)}
+            />
+            锁定当前排程（重启后仍保留）
           </label>
           <div>
             <label className="field-label">重复</label>
