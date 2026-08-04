@@ -317,6 +317,7 @@ export interface Goal {
   motivation: string;
   project_id: string | null;
   weekly_target: number;
+  manual_completion: number;
   created_at: string;
   updated_at: string;
 }

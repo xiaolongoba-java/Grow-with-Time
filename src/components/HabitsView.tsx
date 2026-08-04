@@ -112,7 +112,7 @@ export function HabitsView() {
                   <option value="">不关联成长目标</option>
                   {goals.filter((goal) =>
                     goal.status === "active" &&
-                    ["quantity", "frequency", "custom"].includes(goal.goal_type)
+                    ["quantity", "frequency"].includes(goal.goal_type)
                   ).map((goal) => (
                     <option key={goal.id} value={goal.id}>{goal.title}</option>
                   ))}

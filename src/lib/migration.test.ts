@@ -11,7 +11,7 @@ describe("database migration declarations", () => {
       Number(match[1]),
     );
     expect(new Set(versions).size).toBe(versions.length);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     expect(source).toContain("schema_contract");
     const firstMigration = source.slice(
       source.indexOf('description: "create_tasks_and_settings"'),
@@ -30,6 +30,8 @@ describe("database migration declarations", () => {
     expect(source).toContain(
       "ALTER TABLE tasks ADD COLUMN schedule_locked INTEGER NOT NULL DEFAULT 0",
     );
+    expect(source).toContain("CREATE TABLE IF NOT EXISTS task_planning_metadata");
+    expect(source).toContain("ALTER TABLE goals ADD COLUMN manual_completion");
     for (const table of [
       "projects",
       "task_templates",

@@ -224,15 +224,13 @@ export function MainApp() {
       }
     };
     void recoverMissedReminders().catch(() => undefined);
-  }, [ready, tasks, settings.notifyAhead]);
-
-  useEffect(() => {
-    if (!ready) return;
     const timer = window.setInterval(() => {
-      void setSetting("native_reminder_last_scan_at", String(Date.now()));
+      // Advance the watermark only after a real scan. This preserves the sleep
+      // interval when Windows/macOS suspends the process between callbacks.
+      void recoverMissedReminders().catch(() => undefined);
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [ready]);
+  }, [ready, tasks, settings.notifyAhead]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;

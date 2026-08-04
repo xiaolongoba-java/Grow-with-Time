@@ -553,6 +553,21 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "canonical_task_planning_and_manual_goal_completion",
+            sql: r#"
+CREATE TABLE IF NOT EXISTS task_planning_metadata (
+  task_id TEXT PRIMARY KEY,
+  reminder_minutes_json TEXT NOT NULL DEFAULT '[]',
+  estimated_minutes INTEGER
+);
+ALTER TABLE goals ADD COLUMN manual_completion INTEGER NOT NULL DEFAULT 0;
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '12');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

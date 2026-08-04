@@ -24,5 +24,7 @@ describe("backup coverage", () => {
     expect(source).toContain("goal_contribution");
     expect(source).toContain("task.flexible ?? 1");
     expect(source).toContain("schedule_locked");
+    expect(source).toContain("saveTaskPlanningMetadata(task)");
+    expect(source).not.toContain("saveTaskPlanningMetadata(mapTask(task))");
   });
 });

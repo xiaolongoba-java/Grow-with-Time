@@ -29,9 +29,14 @@ import type {
 } from "@/types";
 import { createId, DB_URL, nowIso, nowTimeString, addMinutesToTime, ensureEndAfterStart, todayDateString } from "@/lib/dates";
 import { nextRepeatTaskDraft, parseRepeatRule } from "@/lib/repeat";
-import { goalAcceptsSource, localWeekStartKey } from "@/lib/growth";
+import { goalAcceptsSource, localDateKey, localWeekStartKey } from "@/lib/growth";
 
 let dbPromise: Promise<Database> | null = null;
+const TASK_SELECT = `SELECT tasks.*,
+  task_planning_metadata.reminder_minutes_json AS reminder_minutes_json,
+  task_planning_metadata.estimated_minutes AS estimated_minutes
+  FROM tasks LEFT JOIN task_planning_metadata
+    ON task_planning_metadata.task_id = tasks.id`;
 
 export async function getDb(): Promise<Database> {
   if (!dbPromise) {
@@ -77,6 +82,13 @@ export async function getDb(): Promise<Database> {
       } catch {
         /* ignore */
       }
+      // v12 owns planning metadata formally. The legacy columns are read once
+      // as an upgrade bridge, then every write is mirrored to the canonical table.
+      await db.execute(
+        `INSERT OR IGNORE INTO task_planning_metadata
+         (task_id, reminder_minutes_json, estimated_minutes)
+         SELECT id, COALESCE(reminder_minutes_json, '[]'), estimated_minutes FROM tasks`,
+      );
       return db;
     });
   }
@@ -86,9 +98,11 @@ export async function getDb(): Promise<Database> {
 function mapTask(row: Task): Task {
   const raw = (row as Task & { reminder_minutes_json?: string | null })
     .reminder_minutes_json;
-  let reminders: number[] = [];
+  let reminders: number[] = Array.isArray(row.reminder_minutes)
+    ? row.reminder_minutes
+    : [];
   try {
-    reminders = raw ? JSON.parse(raw) : [];
+    if (raw) reminders = JSON.parse(raw);
   } catch {
     reminders = [];
   }
@@ -116,11 +130,24 @@ function mapTask(row: Task): Task {
   };
 }
 
+async function saveTaskPlanningMetadata(task: Task): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO task_planning_metadata
+     (task_id, reminder_minutes_json, estimated_minutes)
+     VALUES ($1,$2,$3)
+     ON CONFLICT(task_id) DO UPDATE SET
+       reminder_minutes_json=excluded.reminder_minutes_json,
+       estimated_minutes=excluded.estimated_minutes`,
+    [task.id, JSON.stringify(task.reminder_minutes ?? []), task.estimated_minutes ?? null],
+  );
+}
+
 export async function fetchTasks(includeDeleted = false): Promise<Task[]> {
   const db = await getDb();
   const query = includeDeleted
-    ? "SELECT * FROM tasks ORDER BY sort_order ASC, created_at DESC"
-    : "SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at DESC";
+    ? `${TASK_SELECT} ORDER BY tasks.sort_order ASC, tasks.created_at DESC`
+    : `${TASK_SELECT} WHERE tasks.deleted_at IS NULL ORDER BY tasks.sort_order ASC, tasks.created_at DESC`;
   const rows = await db.select<Task[]>(query);
   return rows.map(mapTask);
 }
@@ -128,7 +155,7 @@ export async function fetchTasks(includeDeleted = false): Promise<Task[]> {
 export async function fetchTrashTasks(): Promise<Task[]> {
   const db = await getDb();
   const rows = await db.select<Task[]>(
-    "SELECT * FROM tasks WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
+    `${TASK_SELECT} WHERE tasks.deleted_at IS NOT NULL ORDER BY tasks.deleted_at DESC`,
   );
   return rows.map(mapTask);
 }
@@ -192,10 +219,10 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
       id, title, description, notes, priority, status,
       due_date, due_time, end_time, sort_order, created_at, updated_at,
       completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
-      reminder_minutes_json, estimated_minutes, project_id, my_day_date,
+      project_id, my_day_date,
       blocked_by_id, completion_criteria, energy_level, flexible, schedule_locked,
       actual_minutes, goal_id, goal_contribution
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
     [
       task.id,
       task.title,
@@ -214,8 +241,6 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
       task.parent_id,
       task.repeat_rule,
       task.remind_minutes,
-      JSON.stringify(task.reminder_minutes),
-      task.estimated_minutes,
       task.project_id,
       task.my_day_date,
       task.blocked_by_id,
@@ -228,6 +253,7 @@ export async function createTask(draft: TaskDraft): Promise<Task> {
       task.goal_contribution,
     ],
   );
+  await saveTaskPlanningMetadata(task);
   await recordTaskEvent(task.id, "created", null, task);
 
   if (draft.tagIds?.length) {
@@ -245,7 +271,7 @@ export async function updateTask(
 ): Promise<Task | null> {
   const db = await getDb();
   const existing = await db.select<Task[]>(
-    "SELECT * FROM tasks WHERE id = $1 LIMIT 1",
+    `${TASK_SELECT} WHERE tasks.id = $1 LIMIT 1`,
     [id],
   );
   if (existing.length === 0) return null;
@@ -273,11 +299,10 @@ export async function updateTask(
       title=$1, description=$2, notes=$3, priority=$4, status=$5,
       due_date=$6, due_time=$7, end_time=$8, updated_at=$9, completed_at=$10,
       parent_id=$11, repeat_rule=$12, remind_minutes=$13, sort_order=$14,
-      reminder_minutes_json=$15, estimated_minutes=$16,
-      project_id=$17, my_day_date=$18, blocked_by_id=$19,
-      completion_criteria=$20, energy_level=$21, flexible=$22,
-      schedule_locked=$23, actual_minutes=$24, goal_id=$25, goal_contribution=$26
-    WHERE id=$27`,
+      project_id=$15, my_day_date=$16, blocked_by_id=$17,
+      completion_criteria=$18, energy_level=$19, flexible=$20,
+      schedule_locked=$21, actual_minutes=$22, goal_id=$23, goal_contribution=$24
+    WHERE id=$25`,
     [
       next.title,
       next.description,
@@ -293,8 +318,6 @@ export async function updateTask(
       next.repeat_rule,
       next.remind_minutes,
       next.sort_order,
-      JSON.stringify(next.reminder_minutes),
-      next.estimated_minutes,
       next.project_id,
       next.my_day_date,
       next.blocked_by_id,
@@ -308,6 +331,7 @@ export async function updateTask(
       id,
     ],
   );
+  await saveTaskPlanningMetadata(next);
   await recordTaskEvent(id, "updated", current, next);
   const goalLinkChanged =
     current.goal_id !== next.goal_id ||
@@ -322,7 +346,7 @@ export async function updateTask(
   ) {
     await addGoalEntry({
       goal_id: next.goal_id,
-      entry_date: (next.completed_at ?? nowIso()).slice(0, 10),
+      entry_date: localDateKey(new Date(next.completed_at ?? nowIso())),
       value: next.goal_contribution || 1,
       source_type: "task",
       source_id: next.id,
@@ -446,14 +470,14 @@ export async function finishFocusSession(
       { minutes, interruptionReason: interruptionReason ?? null },
     );
     const taskRows = await db.select<Task[]>(
-      "SELECT * FROM tasks WHERE id = $1 LIMIT 1",
+      `${TASK_SELECT} WHERE tasks.id = $1 LIMIT 1`,
       [session.task_id],
     );
     const task = taskRows[0] ? mapTask(taskRows[0]) : null;
     if (task?.goal_id) {
       await addGoalEntry({
         goal_id: task.goal_id,
-        entry_date: ended.slice(0, 10),
+        entry_date: localDateKey(new Date(ended)),
         value: minutes,
         source_type: "focus",
         source_id: id,
@@ -646,7 +670,7 @@ export async function toggleTaskComplete(
 ): Promise<{ task: Task | null; spawned: Task | null }> {
   const db = await getDb();
   const existing = await db.select<Task[]>(
-    "SELECT * FROM tasks WHERE id = $1 LIMIT 1",
+    `${TASK_SELECT} WHERE tasks.id = $1 LIMIT 1`,
     [id],
   );
   if (existing.length === 0) return { task: null, spawned: null };
@@ -693,6 +717,9 @@ export async function purgeTrash(): Promise<number> {
   );
   await db.execute(
     "DELETE FROM task_tags WHERE task_id IN (SELECT id FROM tasks WHERE deleted_at IS NOT NULL)",
+  );
+  await db.execute(
+    "DELETE FROM task_planning_metadata WHERE task_id IN (SELECT id FROM tasks WHERE deleted_at IS NOT NULL)",
   );
   await db.execute("DELETE FROM tasks WHERE deleted_at IS NOT NULL");
   return before[0]?.count ?? 0;
@@ -1399,6 +1426,7 @@ export async function createGoal(
     motivation: draft.motivation?.trim() ?? "",
     project_id: draft.project_id ?? null,
     weekly_target: Math.max(0, Number(draft.weekly_target ?? 0)),
+    manual_completion: draft.status === "completed" ? 1 : 0,
     created_at: stamp,
     updated_at: stamp,
   };
@@ -1406,13 +1434,13 @@ export async function createGoal(
     `INSERT INTO goals
      (id,title,description,icon,color,goal_type,start_date,target_date,start_value,
       target_value,current_value,unit,status,motivation,project_id,weekly_target,
-      created_at,updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      manual_completion,created_at,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
     [
       goal.id, goal.title, goal.description, goal.icon, goal.color,
       goal.goal_type, goal.start_date, goal.target_date, goal.start_value,
       goal.target_value, goal.current_value, goal.unit, goal.status,
-      goal.motivation, goal.project_id, goal.weekly_target,
+      goal.motivation, goal.project_id, goal.weekly_target, goal.manual_completion,
       goal.created_at, goal.updated_at,
     ],
   );
@@ -1427,17 +1455,26 @@ export async function updateGoal(
   const db = await getDb();
   const rows = await db.select<Goal[]>("SELECT * FROM goals WHERE id=$1", [id]);
   if (!rows[0]) return;
-  const next = { ...rows[0], ...updates, updated_at: nowIso() };
+  const next = {
+    ...rows[0],
+    ...updates,
+    manual_completion: updates.status === "completed"
+      ? 1
+      : updates.status !== undefined
+        ? 0
+        : rows[0].manual_completion ?? 0,
+    updated_at: nowIso(),
+  };
   await db.execute(
     `UPDATE goals SET title=$1,description=$2,icon=$3,color=$4,goal_type=$5,
      start_date=$6,target_date=$7,start_value=$8,target_value=$9,current_value=$10,
-     unit=$11,status=$12,motivation=$13,project_id=$14,weekly_target=$15,updated_at=$16
-     WHERE id=$17`,
+     unit=$11,status=$12,motivation=$13,project_id=$14,weekly_target=$15,
+     manual_completion=$16,updated_at=$17 WHERE id=$18`,
     [
       next.title, next.description, next.icon, next.color, next.goal_type,
       next.start_date, next.target_date, next.start_value, next.target_value,
       next.current_value, next.unit, next.status, next.motivation,
-      next.project_id, next.weekly_target, next.updated_at, id,
+      next.project_id, next.weekly_target, next.manual_completion, next.updated_at, id,
     ],
   );
 }
@@ -1503,7 +1540,7 @@ async function refreshGoalProgress(goalId: string): Promise<void> {
     `UPDATE goals SET current_value=$1,
      status=CASE
        WHEN $2=1 AND status='active' THEN 'completed'
-       WHEN $2=0 AND status='completed' THEN 'active'
+       WHEN $2=0 AND status='completed' AND manual_completion=0 THEN 'active'
        ELSE status END,
      updated_at=$3 WHERE id=$4`,
     [current, reached ? 1 : 0, nowIso(), goalId],
@@ -1538,7 +1575,7 @@ async function refreshGoalProgress(goalId: string): Promise<void> {
       goal_id: goalId,
       title: milestone.title,
       description: `达成阶段目标：${milestone.target_value}${goalRows[0].unit}`,
-      achieved_at: stamp.slice(0, 10),
+      achieved_at: localDateKey(new Date(stamp)),
       source_type: "milestone",
       source_id: milestone.id,
     });
@@ -1753,6 +1790,7 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
   await db.execute("DELETE FROM task_tags");
   await db.execute("DELETE FROM smart_lists");
   await db.execute("DELETE FROM tags");
+  await db.execute("DELETE FROM task_planning_metadata");
   await db.execute("DELETE FROM tasks");
   await db.execute("DELETE FROM memos");
   await db.execute("DELETE FROM app_notifications");
@@ -1765,10 +1803,10 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         id, title, description, notes, priority, status,
         due_date, due_time, end_time, sort_order, created_at, updated_at,
         completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
-        reminder_minutes_json, estimated_minutes, project_id, my_day_date,
+        project_id, my_day_date,
         blocked_by_id, completion_criteria, energy_level, flexible, schedule_locked,
         actual_minutes, goal_id, goal_contribution
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
       [
         task.id,
         task.title,
@@ -1787,8 +1825,6 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         task.parent_id ?? null,
         task.repeat_rule ?? null,
         task.remind_minutes ?? null,
-        JSON.stringify(task.reminder_minutes ?? []),
-        task.estimated_minutes ?? null,
         task.project_id ?? null,
         task.my_day_date ?? null,
         task.blocked_by_id ?? null,
@@ -1801,6 +1837,9 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         task.goal_contribution ?? 1,
       ],
     );
+    // Backup tasks already carry the normalized multi-reminder array. Persist
+    // it directly instead of re-parsing a database-only JSON column.
+    await saveTaskPlanningMetadata(task);
   }
 
   for (const tag of payload.tags) {
@@ -1972,12 +2011,13 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
       `INSERT INTO goals
        (id,title,description,icon,color,goal_type,start_date,target_date,start_value,
         target_value,current_value,unit,status,motivation,project_id,weekly_target,
-        created_at,updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+        manual_completion,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
       [goal.id,goal.title,goal.description,goal.icon,goal.color,goal.goal_type,
        goal.start_date,goal.target_date,goal.start_value,goal.target_value,
        goal.current_value,goal.unit,goal.status,goal.motivation,goal.project_id,
-       goal.weekly_target,goal.created_at,goal.updated_at],
+       goal.weekly_target,goal.manual_completion ?? (goal.status === "completed" ? 1 : 0),
+       goal.created_at,goal.updated_at],
     );
   }
   for (const entry of payload.goalEntries ?? []) {

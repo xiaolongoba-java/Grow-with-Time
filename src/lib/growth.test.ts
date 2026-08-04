@@ -46,6 +46,9 @@ describe("growth metrics", () => {
     expect(goalAcceptsSource(typed("time"), "task")).toBe(false);
     expect(goalAcceptsSource(typed("change"), "manual")).toBe(true);
     expect(goalAcceptsSource(typed("change"), "habit")).toBe(false);
+    expect(goalAcceptsSource(typed("custom"), "task")).toBe(false);
+    expect(goalAcceptsSource(typed("custom"), "focus")).toBe(false);
+    expect(goalAcceptsSource(typed("custom"), "manual")).toBe(true);
     expect(goalAcceptsSource(typed("quantity", "paused"), "task")).toBe(false);
   });
 

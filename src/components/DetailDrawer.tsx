@@ -695,7 +695,7 @@ export function DetailDrawer() {
                 <option value="">不关联目标</option>
                 {goals.filter((goal) =>
                   goal.status === "active" &&
-                  ["quantity", "frequency", "time", "custom"].includes(goal.goal_type)
+                  ["quantity", "frequency", "time"].includes(goal.goal_type)
                 ).map((goal) => (
                   <option key={goal.id} value={goal.id}>{goal.title}</option>
                 ))}

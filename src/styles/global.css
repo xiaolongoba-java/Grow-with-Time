@@ -3887,19 +3887,23 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
   display: grid;
   place-items: center;
   z-index: 50;
+  padding: 20px;
+  overflow: hidden;
+  backdrop-filter: blur(5px);
 }
 
 .project-edit-modal {
   width: min(520px, calc(100vw - 32px));
-  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 40px);
   overflow: auto;
   display: grid;
   gap: 16px;
   padding: 24px;
   border: 1px solid var(--border);
   border-radius: 22px;
-  background: var(--surface-strong);
-  box-shadow: var(--shadow-lg);
+  background: var(--bg-panel);
+  box-shadow: 0 24px 70px rgba(20, 35, 70, 0.22);
+  overscroll-behavior: contain;
 }
 
 .project-edit-modal label {
@@ -3944,6 +3948,18 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
   justify-content: flex-end;
   gap: 10px;
   padding-top: 4px;
+  position: sticky;
+  bottom: -24px;
+  margin: 0 -24px -24px;
+  padding: 14px 24px 24px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+}
+
+.project-edit-actions .btn-primary,
+.project-edit-actions .btn-ghost {
+  width: auto;
+  min-width: 108px;
 }
 
 .modal {

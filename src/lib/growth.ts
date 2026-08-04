@@ -10,9 +10,9 @@ export function goalAcceptsSource(
     return source === "task" || source === "habit";
   }
   if (goal.goal_type === "time") return source === "focus";
-  if (goal.goal_type === "custom") {
-    return source === "task" || source === "habit" || source === "focus";
-  }
+  // Custom goals have no unambiguous automatic unit. Keep them manual-only so
+  // completing and focusing the same task can never count twice.
+  if (goal.goal_type === "custom") return false;
   return false;
 }
 
