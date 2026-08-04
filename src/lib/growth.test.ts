@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Goal, GoalEntry } from "@/types";
-import { activityLevel, calculateGoalProgress, longestDateStreak } from "./growth";
+import {
+  activityLevel,
+  calculateGoalProgress,
+  currentDateStreak,
+  goalAcceptsSource,
+  localWeekStartKey,
+  longestDateStreak,
+} from "./growth";
 
 const goal = (start: number, current: number, target: number) =>
   ({ start_value: start, current_value: current, target_value: target }) as Goal;
@@ -23,5 +30,26 @@ describe("growth metrics", () => {
 
   it("finds the longest streak without double-counting dates", () => {
     expect(longestDateStreak(["2026-08-01", "2026-08-02", "2026-08-02", "2026-08-04"])).toBe(2);
+  });
+
+  it("keeps yesterday's streak until today ends", () => {
+    expect(currentDateStreak(["2026-08-01", "2026-08-02"], "2026-08-03")).toBe(2);
+    expect(currentDateStreak(["2026-08-02", "2026-08-03"], "2026-08-03")).toBe(2);
+  });
+
+  it("routes contribution sources by goal type and active status", () => {
+    const typed = (goal_type: Goal["goal_type"], status: Goal["status"] = "active") =>
+      ({ goal_type, status }) as Goal;
+    expect(goalAcceptsSource(typed("quantity"), "task")).toBe(true);
+    expect(goalAcceptsSource(typed("quantity"), "focus")).toBe(false);
+    expect(goalAcceptsSource(typed("time"), "focus")).toBe(true);
+    expect(goalAcceptsSource(typed("time"), "task")).toBe(false);
+    expect(goalAcceptsSource(typed("change"), "manual")).toBe(true);
+    expect(goalAcceptsSource(typed("change"), "habit")).toBe(false);
+    expect(goalAcceptsSource(typed("quantity", "paused"), "task")).toBe(false);
+  });
+
+  it("calculates the local Monday without UTC conversion", () => {
+    expect(localWeekStartKey(new Date("2026-08-05T00:30:00+08:00"))).toBe("2026-08-03");
   });
 });

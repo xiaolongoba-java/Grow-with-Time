@@ -1390,7 +1390,7 @@ select {
     padding: 22px;
   }
 
-  .growth-ring {
+  .today-progress-ring {
     width: 82px;
     height: 82px;
   }
@@ -3531,6 +3531,8 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
 .goal-detail-hero p { margin: 0; color: var(--text-secondary); }
 .goal-detail-hero > strong { color: var(--goal-color); font-size: 34px; }
 .goal-detail-actions, .goal-inline-form, .achievement-compose { display: flex; gap: 8px; margin-top: 14px; }
+.goal-detail-actions { flex-wrap: wrap; }
+.field-hint { display: block; margin-top: 5px; color: var(--text-muted); font-size: 11px; line-height: 1.4; }
 .goal-detail-actions input, .goal-inline-form input, .achievement-compose input, .goal-create-modal input, .goal-create-modal select, .goal-create-modal textarea { min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; outline: none; background: var(--bg-panel); color: var(--text-primary); }
 .goal-detail-actions input:first-child { width: 84px; }
 .goal-detail-actions input:nth-child(2) { flex: 1; }

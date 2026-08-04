@@ -318,7 +318,7 @@ function DayBoard() {
           </button>
         </div>
         <div
-          className="growth-ring"
+          className="today-progress-ring"
           style={{ "--progress": completion } as CSSProperties}
           aria-label={`完成进度 ${completion}%`}
         >

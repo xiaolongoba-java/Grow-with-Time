@@ -29,6 +29,7 @@ import type {
 } from "@/types";
 import { createId, DB_URL, nowIso, nowTimeString, addMinutesToTime, ensureEndAfterStart, todayDateString } from "@/lib/dates";
 import { nextRepeatTaskDraft, parseRepeatRule } from "@/lib/repeat";
+import { goalAcceptsSource, localWeekStartKey } from "@/lib/growth";
 
 let dbPromise: Promise<Database> | null = null;
 
@@ -329,6 +330,12 @@ export async function updateTask(
     });
   } else if (current.goal_id && current.status === "completed" && next.status !== "completed") {
     await removeGoalEntryBySource(current.goal_id, "task", current.id);
+  }
+  const affectedProjectIds = new Set(
+    [current.project_id, next.project_id].filter((value): value is string => Boolean(value)),
+  );
+  for (const projectId of affectedProjectIds) {
+    await refreshProjectGoals(projectId);
   }
 
   return next;
@@ -1409,6 +1416,7 @@ export async function createGoal(
       goal.created_at, goal.updated_at,
     ],
   );
+  if (goal.goal_type === "project") await refreshGoalProgress(goal.id);
   return goal;
 }
 
@@ -1450,14 +1458,47 @@ async function refreshGoalProgress(goalId: string): Promise<void> {
   const db = await getDb();
   const goalRows = await db.select<Goal[]>("SELECT * FROM goals WHERE id=$1", [goalId]);
   if (!goalRows[0]) return;
-  const sums = await db.select<{ total: number | null }[]>(
-    "SELECT SUM(value) AS total FROM goal_entries WHERE goal_id=$1",
-    [goalId],
-  );
-  const current = Number(goalRows[0].start_value) + Number(sums[0]?.total ?? 0);
-  const reached = Number(goalRows[0].target_value) >= Number(goalRows[0].start_value)
-    ? current >= Number(goalRows[0].target_value)
-    : current <= Number(goalRows[0].target_value);
+  const goal = goalRows[0];
+  let current = Number(goal.start_value);
+  if (goal.goal_type === "change") {
+    const latest = await db.select<{ value: number }[]>(
+      `SELECT value FROM goal_entries
+       WHERE goal_id=$1 AND source_type='manual'
+       ORDER BY entry_date DESC, created_at DESC LIMIT 1`,
+      [goalId],
+    );
+    current = latest.length ? Number(latest[0].value) : Number(goal.start_value);
+  } else if (goal.goal_type === "frequency") {
+    const sums = await db.select<{ total: number | null }[]>(
+      "SELECT SUM(value) AS total FROM goal_entries WHERE goal_id=$1 AND entry_date >= $2",
+      [goalId, localWeekStartKey()],
+    );
+    current = Number(sums[0]?.total ?? 0);
+  } else if (goal.goal_type === "project" && goal.project_id) {
+    const counts = await db.select<{ total: number; done: number }[]>(
+      `SELECT COUNT(*) AS total,
+       SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS done
+       FROM tasks WHERE project_id=$1 AND deleted_at IS NULL AND parent_id IS NULL`,
+      [goal.project_id],
+    );
+    current = counts[0]?.total
+      ? Math.round((Number(counts[0].done ?? 0) / Number(counts[0].total)) * 1000) / 10
+      : 0;
+  } else {
+    const sums = await db.select<{ total: number | null }[]>(
+      "SELECT SUM(value) AS total FROM goal_entries WHERE goal_id=$1",
+      [goalId],
+    );
+    current = Number(goal.start_value) + Number(sums[0]?.total ?? 0);
+  }
+  const effectiveTarget = goal.goal_type === "frequency" && goal.weekly_target > 0
+    ? Number(goal.weekly_target)
+    : Number(goal.target_value);
+  const reached = goal.goal_type === "frequency"
+    ? false
+    : effectiveTarget >= Number(goal.start_value)
+      ? current >= effectiveTarget
+      : current <= effectiveTarget;
   await db.execute(
     `UPDATE goals SET current_value=$1,
      status=CASE
@@ -1522,9 +1563,12 @@ async function refreshGoalProgress(goalId: string): Promise<void> {
 export async function addGoalEntry(
   input: Pick<GoalEntry, "goal_id" | "entry_date" | "value" | "source_type"> &
     Partial<Pick<GoalEntry, "source_id" | "note">>,
-): Promise<void> {
+): Promise<boolean> {
   const db = await getDb();
-  await db.execute(
+  const goals = await db.select<Goal[]>("SELECT * FROM goals WHERE id=$1 LIMIT 1", [input.goal_id]);
+  const goal = goals[0];
+  if (!goal || !goalAcceptsSource(goal, input.source_type)) return false;
+  const result = await db.execute(
     `INSERT OR IGNORE INTO goal_entries
      (id,goal_id,entry_date,value,source_type,source_id,note,created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -1534,6 +1578,30 @@ export async function addGoalEntry(
     ],
   );
   await refreshGoalProgress(input.goal_id);
+  return result.rowsAffected > 0;
+}
+
+async function refreshProjectGoals(projectId: string): Promise<void> {
+  const db = await getDb();
+  const goals = await db.select<{ id: string }[]>(
+    "SELECT id FROM goals WHERE goal_type='project' AND project_id=$1",
+    [projectId],
+  );
+  for (const goal of goals) await refreshGoalProgress(goal.id);
+}
+
+export async function reconcileGoalEntries(goalId: string): Promise<number> {
+  const db = await getDb();
+  const goals = await db.select<Goal[]>("SELECT * FROM goals WHERE id=$1 LIMIT 1", [goalId]);
+  const goal = goals[0];
+  if (!goal) return 0;
+  const entries = await db.select<GoalEntry[]>("SELECT * FROM goal_entries WHERE goal_id=$1", [goalId]);
+  const invalid = entries.filter((entry) => !goalAcceptsSource({ ...goal, status: "active" }, entry.source_type));
+  for (const entry of invalid) {
+    await db.execute("DELETE FROM goal_entries WHERE id=$1", [entry.id]);
+  }
+  await refreshGoalProgress(goalId);
+  return invalid.length;
 }
 
 export async function removeGoalEntryBySource(

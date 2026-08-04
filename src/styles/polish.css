@@ -71,7 +71,7 @@
   letter-spacing: 0.11em;
 }
 
-.growth-ring {
+.today-progress-ring {
   --progress: 0;
   position: relative;
   z-index: 1;
@@ -88,17 +88,17 @@
   border-radius: 50%;
 }
 
-.growth-ring > div {
+.today-progress-ring > div {
   display: grid;
   text-align: center;
 }
 
-.growth-ring strong {
+.today-progress-ring strong {
   font-size: 21px;
   line-height: 1.05;
 }
 
-.growth-ring span {
+.today-progress-ring span {
   margin-top: 4px;
   color: var(--text-muted);
   font-size: 9px;
@@ -1079,16 +1079,16 @@ html[data-nav="collapsed"] .timeline-drawer {
 }
 
 :root[data-theme="dark"] .today-eyebrow,
-:root[data-theme="dark"] .growth-ring,
-:root[data-theme="dark"] .growth-ring span {
+:root[data-theme="dark"] .today-progress-ring,
+:root[data-theme="dark"] .today-progress-ring span {
   color: var(--text-primary);
 }
 
-:root[data-theme="dark"] .growth-ring span {
+:root[data-theme="dark"] .today-progress-ring span {
   color: var(--text-secondary);
 }
 
-:root[data-theme="dark"] .growth-ring {
+:root[data-theme="dark"] .today-progress-ring {
   background:
     radial-gradient(circle, var(--bg-panel) 57%, transparent 58%),
     conic-gradient(var(--accent) calc(var(--progress) * 1%), rgba(128, 151, 255, 0.15) 0);
@@ -1144,15 +1144,15 @@ html[data-nav="collapsed"] .timeline-drawer {
   }
 
   :root[data-theme="system"] .today-eyebrow,
-  :root[data-theme="system"] .growth-ring {
+  :root[data-theme="system"] .today-progress-ring {
     color: var(--text-primary);
   }
 
-  :root[data-theme="system"] .growth-ring span {
+  :root[data-theme="system"] .today-progress-ring span {
     color: var(--text-secondary);
   }
 
-  :root[data-theme="system"] .growth-ring {
+  :root[data-theme="system"] .today-progress-ring {
     background:
       radial-gradient(circle, var(--bg-panel) 57%, transparent 58%),
       conic-gradient(var(--accent) calc(var(--progress) * 1%), rgba(128, 151, 255, 0.15) 0);

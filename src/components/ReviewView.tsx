@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { fetchDaySnapshots, fetchGoalEntries, fetchGoals } from "@/lib/db";
 import type { DaySnapshot, Goal, GoalEntry } from "@/types";
+import { localWeekStartKey } from "@/lib/growth";
 
 function dayKey(iso: string) {
   return iso.slice(0, 10);
@@ -109,9 +110,7 @@ export function ReviewView() {
         <h3>本周目标投入</h3>
         <div className="review-goal-list">
           {goals.filter((goal) => goal.status === "active").map((goal) => {
-            const weekStart = new Date();
-            weekStart.setDate(weekStart.getDate() - 6);
-            const startKey = dayKey(weekStart.toISOString());
+            const startKey = localWeekStartKey();
             const value = goalEntries
               .filter((entry) => entry.goal_id === goal.id && entry.entry_date >= startKey)
               .reduce((sum, entry) => sum + Number(entry.value), 0);

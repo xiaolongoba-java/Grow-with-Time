@@ -143,7 +143,7 @@ export function ProjectsView() {
                       type="button"
                       className="project-inline-action"
                       onClick={() => {
-                        const goal = window.prompt("项目目标");
+                        const goal = window.prompt("项目成果");
                         if (goal?.trim()) {
                           void updateProject(project.id, {
                             goal: goal.trim(),
@@ -151,7 +151,7 @@ export function ProjectsView() {
                         }
                       }}
                     >
-                      ＋ 添加项目目标
+                      ＋ 添加项目成果
                     </button>
                   )}
                   <div className="progress-bar">
@@ -274,8 +274,8 @@ export function ProjectsView() {
               </div>
             </label>
             <label>
-              项目目标
-              <textarea value={editGoal} placeholder="这个项目最终要实现什么？" onChange={(event) => setEditGoal(event.target.value)} />
+              项目成果
+              <textarea value={editGoal} placeholder="这个项目最终要交付什么成果？" onChange={(event) => setEditGoal(event.target.value)} />
             </label>
             <label>
               成功标准

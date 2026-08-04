@@ -110,6 +110,9 @@ export function DetailDrawer() {
   const [blockedById, setBlockedById] = useState("");
   const [history, setHistory] = useState<TaskEvent[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const linkedGoal = task?.goal_id
+    ? goals.find((goal) => goal.id === task.goal_id) ?? null
+    : null;
   const [repeat, setRepeat] = useState<RepeatRule | null>(null);
   const [subTitle, setSubTitle] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -690,16 +693,22 @@ export function DetailDrawer() {
                 }
               >
                 <option value="">不关联目标</option>
-                {goals.filter((goal) => goal.status === "active").map((goal) => (
+                {goals.filter((goal) =>
+                  goal.status === "active" &&
+                  ["quantity", "frequency", "time", "custom"].includes(goal.goal_type)
+                ).map((goal) => (
                   <option key={goal.id} value={goal.id}>{goal.title}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="field-label">完成贡献值</label>
+              <label className="field-label">
+                {linkedGoal?.goal_type === "time" ? "计入方式" : "完成贡献值"}
+              </label>
               <input
                 className="field"
                 type="number"
+                disabled={linkedGoal?.goal_type === "time"}
                 min={0.1}
                 step={0.1}
                 value={task.goal_contribution}
@@ -709,6 +718,9 @@ export function DetailDrawer() {
                   })
                 }
               />
+              {linkedGoal?.goal_type === "time" ? (
+                <small className="field-hint">按专注会话分钟自动计入，完成任务不会重复增加。</small>
+              ) : null}
             </div>
           </div>
           <div className="lifecycle-grid">

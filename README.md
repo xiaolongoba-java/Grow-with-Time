@@ -99,14 +99,25 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-### v1.4.1
+### v1.4.2
 
 | 平台 | 文件 | 下载 |
 |------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.4.1_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.1/Grow.with.Time_1.4.1_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.4.1_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.1/Grow.with.Time_1.4.1_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.4.2_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.2/Grow.with.Time_1.4.2_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.4.2_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.4.2/Grow.with.Time_1.4.2_x64-setup.exe) |
 
 > macOS 版本使用 ad-hoc 签名并经过构建完整性验证。由于尚未使用 Apple Developer ID 公证，首次打开时可能仍需在“系统设置 → 隐私与安全性”中选择允许打开。请直接从 GitHub Releases 下载，不要通过微信等工具二次转存。
+
+#### v1.4.2 成长数据可信度
+
+- 成长贡献按目标类型分流，避免任务完成与专注时长重复计入
+- 数量与频率目标接受任务/习惯，时间目标只接受专注，数值变化只接受手动记录
+- 数值变化目标改为录入“当前值”，支持体重等上升或下降目标
+- 暂停、完成、放弃和归档目标不再接受自动贡献
+- 目标详情支持编辑、完成、放弃、归档及不兼容贡献检查清理
+- 频率目标按照本周目标次数计算，项目目标按照关联项目完成率计算
+- 修复东八区周起点偏移，并让今日未记录时延续昨日连续天数
+- 区分“今日任务完成率”和“长期成长目标”的内部命名，项目文案改为“项目成果”
 
 #### v1.4.1 修复
 
