@@ -568,6 +568,50 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 13,
+            description: "moments_reflections_inspirations_and_future_letters",
+            sql: r#"
+CREATE TABLE IF NOT EXISTS daily_reflections (
+  id TEXT PRIMARY KEY,
+  reflection_date TEXT NOT NULL UNIQUE,
+  harvest TEXT NOT NULL DEFAULT '',
+  highlight TEXT NOT NULL DEFAULT '',
+  mood TEXT NOT NULL DEFAULT '',
+  tomorrow_note TEXT NOT NULL DEFAULT '',
+  auto_summary TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS inspirations (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  destination TEXT NOT NULL DEFAULT 'inbox',
+  status TEXT NOT NULL DEFAULT 'inbox',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_inspirations_status_created
+  ON inspirations(status, created_at DESC);
+CREATE TABLE IF NOT EXISTS future_letters (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  deliver_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'waiting',
+  delivered_at TEXT,
+  opened_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_future_letters_delivery
+  ON future_letters(status, deliver_at);
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '13');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -579,6 +623,16 @@ fn show_quick_add(app: AppHandle) -> Result<(), String> {
         window
             .emit("quick-add:focus", ())
             .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn show_inspiration(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("inspiration") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        window.emit("inspiration:focus", ()).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -771,7 +825,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let _tray = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
-        .tooltip("Grow with Time")
+        .tooltip("日进·拾光")
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
             "show" => {
@@ -843,6 +897,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             show_quick_add,
+            show_inspiration,
             show_float,
             start_timer_ui,
             hide_float,
@@ -862,7 +917,7 @@ pub fn run() {
             start_notification_scheduler(app.handle().clone(), scheduler);
             setup_tray(app.handle())?;
             if let Some(main) = app.get_webview_window("main") {
-                let _ = main.set_title("Grow with Time");
+                let _ = main.set_title("日进·拾光 · Grow with Time");
                 let _ = main.show();
                 let _ = main.set_focus();
                 let app_handle = app.handle().clone();
@@ -885,6 +940,20 @@ pub fn run() {
                         }
                     }
                 });
+            }
+            for label in ["quick-add", "inspiration"] {
+                if let Some(window) = app.get_webview_window(label) {
+                    let app_handle = app.handle().clone();
+                    let window_label = label.to_string();
+                    window.on_window_event(move |event| {
+                        if let WindowEvent::CloseRequested { api, .. } = event {
+                            api.prevent_close();
+                            if let Some(w) = app_handle.get_webview_window(&window_label) {
+                                let _ = w.hide();
+                            }
+                        }
+                    });
+                }
             }
             Ok(())
         })

@@ -3,16 +3,19 @@ import type {
   AiSettings,
   AppNotification,
   DaySnapshot,
+  DailyReflection,
   AppSettings,
   Attachment,
   BackupPayload,
   Habit,
   HabitCheck,
   FocusSession,
+  FutureLetter,
   Goal,
   GoalEntry,
   GoalMilestone,
   Achievement,
+  Inspiration,
   Memo,
   Milestone,
   Project,
@@ -27,6 +30,7 @@ import type {
   Timer,
   TimerDraft,
 } from "@/types";
+import { extractMomentTags } from "@/lib/moments";
 import { createId, DB_URL, nowIso, nowTimeString, addMinutesToTime, ensureEndAfterStart, todayDateString } from "@/lib/dates";
 import { nextRepeatTaskDraft, parseRepeatRule } from "@/lib/repeat";
 import { goalAcceptsSource, localDateKey, localWeekStartKey } from "@/lib/growth";
@@ -1713,6 +1717,119 @@ export async function toggleAchievementPinned(id: string): Promise<void> {
   );
 }
 
+/* 拾光：每日日志、灵感与未来信件 */
+export async function fetchDailyReflections(): Promise<DailyReflection[]> {
+  const db = await getDb();
+  return db.select<DailyReflection[]>(
+    "SELECT * FROM daily_reflections ORDER BY reflection_date DESC",
+  );
+}
+
+export async function saveDailyReflection(
+  reflectionDate: string,
+  input: Partial<Pick<DailyReflection, "harvest" | "highlight" | "mood" | "tomorrow_note" | "auto_summary">>,
+): Promise<void> {
+  const db = await getDb();
+  const stamp = nowIso();
+  await db.execute(
+    `INSERT INTO daily_reflections
+     (id,reflection_date,harvest,highlight,mood,tomorrow_note,auto_summary,created_at,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)
+     ON CONFLICT(reflection_date) DO UPDATE SET
+       harvest=excluded.harvest,highlight=excluded.highlight,mood=excluded.mood,
+       tomorrow_note=excluded.tomorrow_note,auto_summary=excluded.auto_summary,
+       updated_at=excluded.updated_at`,
+    [createId(), reflectionDate, input.harvest ?? "", input.highlight ?? "", input.mood ?? "", input.tomorrow_note ?? "", input.auto_summary ?? "", stamp],
+  );
+}
+
+export async function fetchInspirations(includeArchived = false): Promise<Inspiration[]> {
+  const db = await getDb();
+  return db.select<Inspiration[]>(
+    `SELECT * FROM inspirations ${includeArchived ? "" : "WHERE status != 'archived'"}
+     ORDER BY created_at DESC`,
+  );
+}
+
+export async function createInspiration(
+  content: string,
+  destination: Inspiration["destination"] = "inbox",
+): Promise<Inspiration> {
+  const db = await getDb();
+  const stamp = nowIso();
+  const tags = extractMomentTags(content);
+  const item: Inspiration = {
+    id: createId(), content: content.trim(), tags_json: JSON.stringify(tags),
+    destination, status: "inbox", created_at: stamp, updated_at: stamp,
+  };
+  await db.execute(
+    `INSERT INTO inspirations
+     (id,content,tags_json,destination,status,created_at,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [item.id,item.content,item.tags_json,item.destination,item.status,item.created_at,item.updated_at],
+  );
+  return item;
+}
+
+export async function updateInspirationStatus(
+  id: string,
+  status: Inspiration["status"],
+): Promise<void> {
+  const db = await getDb();
+  await db.execute("UPDATE inspirations SET status=$1,updated_at=$2 WHERE id=$3", [status, nowIso(), id]);
+}
+
+export async function fetchFutureLetters(): Promise<FutureLetter[]> {
+  const db = await getDb();
+  return db.select<FutureLetter[]>("SELECT * FROM future_letters ORDER BY deliver_at DESC");
+}
+
+export async function createFutureLetter(
+  title: string,
+  content: string,
+  deliverAt: string,
+): Promise<FutureLetter> {
+  const db = await getDb();
+  const stamp = nowIso();
+  const letter: FutureLetter = {
+    id: createId(), title: title.trim(), content: content.trim(), deliver_at: deliverAt,
+    status: "waiting", delivered_at: null, opened_at: null, created_at: stamp, updated_at: stamp,
+  };
+  await db.execute(
+    `INSERT INTO future_letters
+     (id,title,content,deliver_at,status,delivered_at,opened_at,created_at,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [letter.id,letter.title,letter.content,letter.deliver_at,letter.status,null,null,stamp,stamp],
+  );
+  return letter;
+}
+
+export async function fetchDueFutureLetters(now = nowIso()): Promise<FutureLetter[]> {
+  const db = await getDb();
+  return db.select<FutureLetter[]>(
+    "SELECT * FROM future_letters WHERE status='waiting' AND deliver_at <= $1 ORDER BY deliver_at",
+    [now],
+  );
+}
+
+export async function markFutureLetterDelivered(id: string): Promise<void> {
+  const db = await getDb();
+  const stamp = nowIso();
+  await db.execute(
+    "UPDATE future_letters SET status='delivered',delivered_at=$1,updated_at=$1 WHERE id=$2 AND status='waiting'",
+    [stamp,id],
+  );
+}
+
+export async function openFutureLetter(id: string): Promise<void> {
+  const db = await getDb();
+  const stamp = nowIso();
+  await db.execute(
+    "UPDATE future_letters SET status='opened',opened_at=COALESCE(opened_at,$1),updated_at=$1 WHERE id=$2",
+    [stamp,id],
+  );
+}
+
 /* Backup */
 export async function exportBackup(): Promise<BackupPayload> {
   const db = await getDb();
@@ -1744,10 +1861,13 @@ export async function exportBackup(): Promise<BackupPayload> {
   const goalMilestones = await fetchGoalMilestones();
   const achievements = await fetchAchievements();
   const timers = await fetchTimers();
+  const dailyReflections = await fetchDailyReflections();
+  const inspirations = await fetchInspirations(true);
+  const futureLetters = await fetchFutureLetters();
   const settings = await getAllSettings();
 
   return {
-    version: 5,
+    version: 6,
     exportedAt: nowIso(),
     tasks,
     tags,
@@ -1769,12 +1889,18 @@ export async function exportBackup(): Promise<BackupPayload> {
     goalMilestones,
     achievements,
     timers,
+    dailyReflections,
+    inspirations,
+    futureLetters,
     settings,
   };
 }
 
 export async function importBackup(payload: BackupPayload): Promise<void> {
   const db = await getDb();
+  await db.execute("DELETE FROM future_letters");
+  await db.execute("DELETE FROM inspirations");
+  await db.execute("DELETE FROM daily_reflections");
   await db.execute("DELETE FROM timers");
   await db.execute("DELETE FROM achievements");
   await db.execute("DELETE FROM goal_milestones");
@@ -2059,6 +2185,29 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         timer.remaining_sec, timer.running, timer.enabled, timer.task_id,
         timer.ends_at, timer.last_fired_at, timer.created_at, timer.updated_at,
       ],
+    );
+  }
+  for (const item of payload.dailyReflections ?? []) {
+    await db.execute(
+      `INSERT INTO daily_reflections
+       (id,reflection_date,harvest,highlight,mood,tomorrow_note,auto_summary,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [item.id,item.reflection_date,item.harvest,item.highlight,item.mood,item.tomorrow_note,item.auto_summary,item.created_at,item.updated_at],
+    );
+  }
+  for (const item of payload.inspirations ?? []) {
+    await db.execute(
+      `INSERT INTO inspirations (id,content,tags_json,destination,status,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [item.id,item.content,item.tags_json,item.destination,item.status,item.created_at,item.updated_at],
+    );
+  }
+  for (const item of payload.futureLetters ?? []) {
+    await db.execute(
+      `INSERT INTO future_letters
+       (id,title,content,deliver_at,status,delivered_at,opened_at,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [item.id,item.title,item.content,item.deliver_at,item.status,item.delivered_at,item.opened_at,item.created_at,item.updated_at],
     );
   }
   for (const [key, value] of Object.entries(payload.settings)) {

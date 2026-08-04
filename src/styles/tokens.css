@@ -31,7 +31,7 @@
   --shadow-soft: 0 6px 20px rgba(36, 64, 112, 0.06);
   --radius: 16px;
   --radius-sm: 10px;
-  --rail-w: 58px;
+  --rail-w: 0px;
   --side-w: 272px;
   --timeline-w: 300px;
   --transition: 160ms ease;

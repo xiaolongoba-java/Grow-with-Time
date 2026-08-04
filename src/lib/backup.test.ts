@@ -14,6 +14,9 @@ describe("backup coverage", () => {
       "goal_milestones",
       "achievements",
       "timers",
+      "daily_reflections",
+      "inspirations",
+      "future_letters",
     ]) {
       expect(source).toContain(`SELECT * FROM ${table}`);
       expect(source).toContain(`INSERT INTO ${table}`);
@@ -24,6 +27,10 @@ describe("backup coverage", () => {
     expect(source).toContain("goal_contribution");
     expect(source).toContain("task.flexible ?? 1");
     expect(source).toContain("schedule_locked");
+    expect(source).toContain("version: 6");
+    expect(source).toContain("payload.dailyReflections");
+    expect(source).toContain("payload.inspirations");
+    expect(source).toContain("payload.futureLetters");
     expect(source).toContain("saveTaskPlanningMetadata(task)");
     expect(source).not.toContain("saveTaskPlanningMetadata(mapTask(task))");
   });

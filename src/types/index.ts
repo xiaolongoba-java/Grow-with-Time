@@ -24,6 +24,9 @@ export type NavId =
   | "reminders"
   | "review"
   | "growth"
+  | "daily-reflection"
+  | "inspirations"
+  | "future-letters"
   | "memos"
   | "trash"
   | "settings"
@@ -277,6 +280,40 @@ export interface DaySnapshot {
   updated_at: string;
 }
 
+export interface DailyReflection {
+  id: string;
+  reflection_date: string;
+  harvest: string;
+  highlight: string;
+  mood: string;
+  tomorrow_note: string;
+  auto_summary: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Inspiration {
+  id: string;
+  content: string;
+  tags_json: string;
+  destination: "inbox" | "task" | "memo" | "reflection";
+  status: "inbox" | "processed" | "archived";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FutureLetter {
+  id: string;
+  title: string;
+  content: string;
+  deliver_at: string;
+  status: "waiting" | "delivered" | "opened" | "archived";
+  delivered_at: string | null;
+  opened_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Milestone {
   id: string;
   project_id: string;
@@ -378,7 +415,7 @@ export interface AppNotification {
 }
 
 export interface BackupPayload {
-  version: 2 | 3 | 4 | 5;
+  version: 2 | 3 | 4 | 5 | 6;
   exportedAt: string;
   tasks: Task[];
   tags: Tag[];
@@ -400,5 +437,8 @@ export interface BackupPayload {
   goalMilestones?: GoalMilestone[];
   achievements?: Achievement[];
   timers?: Timer[];
+  dailyReflections?: DailyReflection[];
+  inspirations?: Inspiration[];
+  futureLetters?: FutureLetter[];
   settings: Record<string, string>;
 }

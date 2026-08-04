@@ -1,12 +1,13 @@
 {
   "name": "minimal-todo",
   "private": true,
-  "version": "1.4.3",
+  "version": "1.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "release:check": "node scripts/release-check.mjs && npm test && npm run build",
     "preview": "vite preview",
     "tauri": "tauri"
   },

@@ -7,7 +7,6 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
-import { IconRail } from "@/components/IconRail";
 import { NavSidebar } from "@/components/NavSidebar";
 import { MainWorkspace } from "@/components/MainWorkspace";
 import { TodayTimeline } from "@/components/TodayTimeline";
@@ -19,10 +18,12 @@ import {
   createNotificationRecord,
   ensureReminderRecord,
   ensureMissedNotification,
+  fetchDueFutureLetters,
   fetchDueNotifications,
   getSetting,
   setSetting,
   setNotificationStatus,
+  markFutureLetterDelivered,
 } from "@/lib/db";
 import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
@@ -100,12 +101,16 @@ export function MainApp() {
 
   useEffect(() => {
     const shortcut = "CommandOrControl+Shift+N";
+    const inspirationShortcut = "CommandOrControl+Shift+Space";
     void (async () => {
       try {
         if (!(await isRegistered(shortcut))) {
           await register(shortcut, () => {
             void invoke("show_quick_add");
           });
+        }
+        if (!(await isRegistered(inspirationShortcut))) {
+          await register(inspirationShortcut, () => { void invoke("show_inspiration"); });
         }
       } catch {
         /* ignore */
@@ -258,6 +263,22 @@ export function MainApp() {
   }, []);
 
   useEffect(() => {
+    if (!ready) return;
+    const deliverLetters = async () => {
+      const letters = await fetchDueFutureLetters();
+      for (const letter of letters) {
+        sendNotification({ title: `一封来自过去的信：${letter.title}`, body: "打开日进·拾光，在“拾光变迁”中查看。" });
+        await createNotificationRecord({ title: `拾光变迁 · ${letter.title}`, body: "这封写给未来的信已经抵达。", scheduledAt: letter.deliver_at });
+        await markFutureLetterDelivered(letter.id);
+      }
+      if (letters.length) window.dispatchEvent(new Event("notifications:changed"));
+    };
+    void deliverLetters().catch(() => undefined);
+    const timer = window.setInterval(() => void deliverLetters().catch(() => undefined), 60_000);
+    return () => window.clearInterval(timer);
+  }, [ready]);
+
+  useEffect(() => {
     const settleSnoozed = async () => {
       try {
         const due = await fetchDueNotifications();
@@ -380,7 +401,6 @@ export function MainApp() {
       <div
         className={`app-body ${detailOpen ? "detail-open" : ""} ${navCollapsed ? "nav-collapsed" : ""}`}
       >
-        <IconRail />
         <NavSidebar onCollapse={() => setNavCollapsed(true)} />
         <MainWorkspace />
         {detailOpen ? <DetailDrawer /> : null}
@@ -401,7 +421,7 @@ export function MainApp() {
       <NotificationCenter />
       <OnboardingGuide />
       {toast ? (
-        <div className="toast">
+        <div className="toast" role="status" aria-live="polite">
           <span>{toast}</span>
           {canUndo ? (
             <button type="button" className="toast-undo" onClick={() => void undo()}>
@@ -411,7 +431,7 @@ export function MainApp() {
         </div>
       ) : null}
       {error ? (
-        <div className="toast" style={{ background: "var(--text-overdue)" }}>
+        <div className="toast" role="alert" aria-live="assertive" style={{ background: "var(--text-overdue)" }}>
           {error}
         </div>
       ) : null}

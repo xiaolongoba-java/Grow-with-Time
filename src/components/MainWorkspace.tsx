@@ -31,7 +31,7 @@ import {
   findTimeConflictIds,
   suggestDaySchedule,
 } from "@/lib/planning";
-import { saveDaySnapshot } from "@/lib/db";
+import { saveDailyReflection, saveDaySnapshot } from "@/lib/db";
 
 const MemosView = lazy(() =>
   import("@/components/MemosView").then((module) => ({
@@ -42,6 +42,9 @@ const GrowthView = lazy(() =>
   import("@/components/GrowthView").then((module) => ({
     default: module.GrowthView,
   })),
+);
+const MomentsView = lazy(() =>
+  import("@/components/MomentsView").then((module) => ({ default: module.MomentsView })),
 );
 
 function BoardView({ tasks }: { tasks: Task[] }) {
@@ -97,6 +100,7 @@ function BoardView({ tasks }: { tasks: Task[] }) {
 function DayBoard() {
   const allTasks = useAppStore((s) => s.tasks);
   const nav = useAppStore((s) => s.nav);
+  const setNav = useAppStore((s) => s.setNav);
   const saveTask = useAppStore((s) => s.saveTask);
   const cursor = useAppStore((s) => s.calendarCursor);
   const setCalendarCursor = useAppStore((s) => s.setCalendarCursor);
@@ -261,6 +265,10 @@ function DayBoard() {
     setSettlingDay(true);
     try {
       await saveDaySnapshot(cursor, dayTasks, "evening", reflection);
+      await saveDailyReflection(cursor, {
+        harvest: reflection,
+        auto_summary: `完成 ${done} 项任务，还有 ${pending} 项完成了今日安排。`,
+      });
       for (const task of activeTasks) {
         const choice = dispositions[task.id] ?? "tomorrow";
         if (choice === "cancel") {
@@ -273,7 +281,8 @@ function DayBoard() {
       }
       setClosingDay(false);
       setReflection("");
-      useAppStore.getState().setToast("今日收尾已完成");
+      useAppStore.getState().setToast("今日收尾已完成，今天的行动已带入拾光");
+      setNav("daily-reflection");
     } finally {
       setSettlingDay(false);
     }
@@ -1151,6 +1160,9 @@ export function MainWorkspace() {
   }
   if (nav === "review") return <ReviewView />;
   if (nav === "growth") return <Suspense fallback={<div className="empty-state">正在加载成长数据…</div>}><GrowthView /></Suspense>;
+  if (nav === "daily-reflection") return <Suspense fallback={<div className="empty-state">正在打开今日拾光…</div>}><MomentsView mode="today" /></Suspense>;
+  if (nav === "inspirations") return <Suspense fallback={<div className="empty-state">正在打开拾念箱…</div>}><MomentsView mode="ideas" /></Suspense>;
+  if (nav === "future-letters") return <Suspense fallback={<div className="empty-state">正在打开拾光变迁…</div>}><MomentsView mode="letters" /></Suspense>;
   if (nav === "memos") {
     return (
       <Suspense fallback={<div className="empty-state">正在加载备忘录…</div>}>

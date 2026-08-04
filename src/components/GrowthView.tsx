@@ -86,6 +86,7 @@ export function GrowthView() {
   const [weeklyTarget, setWeeklyTarget] = useState("3");
   const [projectId, setProjectId] = useState("");
   const projects = useAppStore((state) => state.projects);
+  const addTask = useAppStore((state) => state.addTask);
 
   const refresh = async () => {
     const [nextGoals, nextEntries, nextMilestones, nextAchievements] = await Promise.all([
@@ -297,6 +298,7 @@ export function GrowthView() {
                     ? "项目自动计算"
                   : `记录 +${entryValue}${selectedGoal.unit}`}
               </button>
+              {selectedGoal.status === "active" ? <button className="btn-ghost" onClick={() => void addTask({ title: `推进：${selectedGoal.title}`, due_date: todayDateString(), my_day_date: todayDateString(), goal_id: selectedGoal.id, goal_contribution: 1 }).then(() => useAppStore.getState().setToast("下一步行动已加入我的一天"))}>加入今日行动</button> : null}
               {["active", "paused"].includes(selectedGoal.status) ? <button className="btn-ghost" onClick={() => void updateGoal(selectedGoal.id, { status: selectedGoal.status === "paused" ? "active" : "paused" }).then(refresh)}>{selectedGoal.status === "paused" ? "继续目标" : "暂停"}</button> : null}
               <button className="btn-ghost" onClick={() => openGoalEditor(selectedGoal)}>编辑</button>
               <button className="btn-ghost" onClick={() => void reconcileGoalEntries(selectedGoal.id).then((count) => { useAppStore.getState().setToast(count ? `已清理 ${count} 条不兼容贡献` : "贡献记录无需清理"); return refresh(); })}>检查贡献</button>

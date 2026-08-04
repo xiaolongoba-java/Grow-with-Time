@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Grow with Time",
-  "version": "1.4.3",
+  "productName": "日进·拾光",
+  "version": "1.5.0",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Grow with Time",
+        "title": "日进·拾光 · Grow with Time",
         "width": 1080,
         "height": 720,
         "minWidth": 800,
@@ -32,6 +32,20 @@
         "alwaysOnTop": true,
         "resizable": false,
         "decorations": true,
+        "skipTaskbar": true
+      },
+      {
+        "label": "inspiration",
+        "title": "拾念",
+        "width": 520,
+        "height": 250,
+        "center": true,
+        "visible": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
         "skipTaskbar": true
       },
       {
@@ -113,8 +127,8 @@
     "active": true,
     "targets": "all",
     "shortDescription": "本地优先的待办与时间管理",
-    "longDescription": "Grow with Time — 支持今日视图、看板、日历、番茄钟、习惯与复盘，数据存本机，无需账号。",
-    "copyright": "Copyright © 2026 Grow with Time",
+    "longDescription": "日进·拾光（Grow with Time）— 让每日进步与灵感回忆都被看见的本地个人成长工具。",
+    "copyright": "Copyright © 2026 日进·拾光",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -130,7 +144,7 @@
         "sidebarImage": "windows/nsis/sidebar.bmp",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
-        "startMenuFolder": "Grow with Time"
+        "startMenuFolder": "日进·拾光"
       }
     },
     "macOS": {

@@ -152,7 +152,7 @@ export function getViewTitle(view: string): string {
     settings: "设置",
     smart: "智能列表",
   };
-  return map[view] ?? "Grow with Time";
+  return map[view] ?? "日进·拾光";
 }
 
 export function taskRowClassName(task: Task, selected: boolean): string {

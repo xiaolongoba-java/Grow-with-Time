@@ -29,6 +29,8 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const [draft, setDraft] = useState("");
   const [tagName, setTagName] = useState("");
   const [hints, setHints] = useState<string[]>([]);
+  const [momentsOpen, setMomentsOpen] = useState(["daily-reflection", "inspirations", "future-letters"].includes(nav));
+  const [moreOpen, setMoreOpen] = useState(["completed", "all", "habits", "reminders", "review", "memos", "projects"].includes(nav));
   const draftRef = useRef<HTMLInputElement>(null);
 
   const counts = useMemo(() => {
@@ -81,8 +83,8 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden><AppIcon name="sparkle" size={19} /></span>
           <div>
-            <h1>Grow with Time</h1>
-            <span className="brand-caption">让每一天都有生长</span>
+            <h1>日进·拾光</h1>
+            <span className="brand-caption">Grow with Time · 日有所进，时有所拾</span>
           </div>
         </div>
       </div>
@@ -128,14 +130,12 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         </div>
       )}
 
-      <div className="nav-section-label">视图</div>
+      <div className="nav-section-label">日进</div>
       {(
         [
           ["today", "今日", counts.today, "today"],
           ["myday", "我的一天", counts.myday, "sparkle"],
           ["inbox", "待办箱", counts.inbox, "inbox"],
-          ["completed", "已完成", counts.completed, "check"],
-          ["all", "全部", counts.all, "layers"],
         ] as const
       ).map(([id, label, count, icon]) => (
         <button
@@ -149,7 +149,6 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         </button>
       ))}
 
-      <div className="nav-section-label">工具</div>
       <button
         type="button"
         className={`nav-item ${nav === "growth" ? "active" : ""}`}
@@ -157,6 +156,47 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       >
         <span className="nav-item-label"><AppIcon name="sparkle" size={17} />成长</span>
       </button>
+      <div className="nav-section-label">拾光</div>
+      <button type="button" className={`nav-item nav-group-trigger ${["daily-reflection", "inspirations", "future-letters"].includes(nav) ? "active" : ""}`} aria-expanded={momentsOpen} onClick={() => { setMomentsOpen((value) => !value); if (!["daily-reflection", "inspirations", "future-letters"].includes(nav)) setNav("daily-reflection"); }}>
+        <span className="nav-item-label"><AppIcon name="sparkle" size={17} />拾光</span><span className="nav-group-chevron">{momentsOpen ? "−" : "+"}</span>
+      </button>
+      {momentsOpen ? <div className="nav-subgroup">
+      {(
+        [
+          ["daily-reflection", "今日拾光", "today"],
+          ["inspirations", "拾念箱", "memo"],
+          ["future-letters", "拾光变迁", "review"],
+        ] as const
+      ).map(([id, label, icon]) => (
+        <button key={id} type="button" className={`nav-item ${nav === id ? "active" : ""}`} onClick={() => setNav(id)}>
+          <span className="nav-item-label"><AppIcon name={icon} size={17} />{label}</span>
+        </button>
+      ))}
+      </div> : null}
+
+      <button type="button" className="nav-more-trigger" aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)}><span>更多</span><span>{moreOpen ? "收起" : "展开"}</span></button>
+      {moreOpen ? <div className="nav-more-content">
+      {(
+        [
+          ["completed", "已完成", counts.completed, "check"],
+          ["all", "全部任务", counts.all, "layers"],
+        ] as const
+      ).map(([id, label, count, icon]) => (
+        <button key={id} type="button" className={`nav-item ${nav === id ? "active" : ""}`} onClick={() => setNav(id)}>
+          <span className="nav-item-label"><AppIcon name={icon} size={17} />{label}</span><span className="nav-count">{count}</span>
+        </button>
+      ))}
+      {(
+        [
+          ["habits", "习惯", "heart"],
+          ["reminders", "提醒", "timer"],
+          ["review", "复盘", "review"],
+        ] as const
+      ).map(([id, label, icon]) => (
+        <button key={id} type="button" className={`nav-item ${nav === id ? "active" : ""}`} onClick={() => setNav(id)}>
+          <span className="nav-item-label"><AppIcon name={icon} size={17} />{label}</span>
+        </button>
+      ))}
       <button
         type="button"
         className={`nav-item ${nav === "memos" ? "active" : ""}`}
@@ -175,7 +215,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         </span>
       </button>
 
-      <div className="nav-section-label">标签</div>
+      <div className="nav-section-label">标签与筛选</div>
       <div style={{ display: "flex", gap: 6 }}>
         <input
           className="field"
@@ -230,7 +270,13 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
           <span>{list.name}</span>
         </button>
       ))}
+      </div> : null}
       </div>
+      <footer className="nav-side-footer" aria-label="全局工具">
+        <button type="button" className={nav === "settings" ? "active" : ""} onClick={() => setNav("settings")}><AppIcon name="settings" size={17} />设置</button>
+        <button type="button" className={nav === "trash" ? "active" : ""} onClick={() => setNav("trash")}><AppIcon name="trash" size={17} />回收站</button>
+        <button type="button" onClick={() => { void import("@tauri-apps/api/core").then(({ invoke }) => invoke("show_desktop_widgets")); }}><AppIcon name="panel" size={17} />桌面组件</button>
+      </footer>
       {onCollapse ? (
         <button
           type="button"

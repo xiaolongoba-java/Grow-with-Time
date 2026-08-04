@@ -9,28 +9,16 @@ const steps: {
   hint: string;
 }[] = [
   {
+    icon: "today",
+    title: "日进：把今天过好",
+    body: "先收集，再从「我的一天」挑出真正要做的事；安排、专注、完成和收尾都在这一条线上。",
+    hint: "每天从「我的一天」开始，只关注下一步",
+  },
+  {
     icon: "sparkle",
-    title: "欢迎来到 Grow with Time",
-    body: "先把所有想法放进待办箱，再从中挑选今天真正要完成的事项。",
-    hint: "左侧「我的一天」是每日计划入口",
-  },
-  {
-    icon: "search",
-    title: "快速找到任何内容",
-    body: "使用命令面板搜索任务、切换页面，也可以直接创建新任务。",
-    hint: "快捷键 Ctrl / Cmd + K",
-  },
-  {
-    icon: "timer",
-    title: "安排时间，而不只是列清单",
-    body: "为任务设置预计耗时和多个提醒，时间冲突与计划过载会自动提示。",
-    hint: "在任务详情中编辑时间与提醒",
-  },
-  {
-    icon: "layers",
-    title: "建立可复用的工作流",
-    body: "用项目组织长期目标，把重复出现的任务保存为模板。",
-    hint: "从左侧进入「项目与模板」",
+    title: "拾光：把时间留下",
+    body: "拾念记瞬间，今日拾光记今天，备忘录存长期，拾光变迁寄未来。它们各自保存不同时间尺度的内容。",
+    hint: "快捷键 Ctrl / Cmd + Shift + Space 随时拾起灵感",
   },
 ];
 
@@ -78,7 +66,7 @@ export function OnboardingGuide() {
               }
             }}
           >
-            {step === steps.length - 1 ? "开始使用" : "下一步"}
+            {step === steps.length - 1 ? "开始日进·拾光" : "认识拾光"}
           </button>
         </footer>
       </section>
