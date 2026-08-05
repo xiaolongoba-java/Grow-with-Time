@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  findFirstAvailableTimeSlot,
   buildDeferredDateUpdate,
   findTimeConflictIds,
   parseReminderMinutes,
@@ -31,6 +32,29 @@ describe("planning helpers", () => {
         task({ status: "completed", estimated_minutes: 90 }),
       ]),
     ).toBe(75);
+  });
+
+  it("chooses the first gap between existing tasks", () => {
+    const slot = findFirstAvailableTimeSlot(
+      [
+        task({ due_date: "2026-08-05", due_time: "09:00", end_time: "10:00" }),
+        task({ due_date: "2026-08-05", due_time: "11:00", end_time: "12:00" }),
+      ],
+      "2026-08-05",
+      60,
+      9 * 60,
+    );
+    expect(slot).toEqual({ start: "10:00", end: "11:00" });
+  });
+
+  it("ignores completed tasks when choosing a free time", () => {
+    const slot = findFirstAvailableTimeSlot(
+      [task({ status: "completed", due_date: "2026-08-05", due_time: "09:00", end_time: "10:00" })],
+      "2026-08-05",
+      60,
+      9 * 60,
+    );
+    expect(slot).toEqual({ start: "09:00", end: "10:00" });
   });
 
   it("keeps My Day planning separate from the task due date", () => {

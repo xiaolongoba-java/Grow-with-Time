@@ -54,6 +54,7 @@ interface AppStore {
   calendarCursor: string;
   selectedTaskId: string | null;
   detailPreferEdit: boolean;
+  createTaskOpen: boolean;
   activeTagId: string | null;
   activeSmartListId: string | null;
   filter: FilterState;
@@ -75,6 +76,8 @@ interface AppStore {
   setDateScope: (scope: DateScope) => void;
   setCalendarCursor: (date: string) => void;
   selectTask: (id: string | null, opts?: { edit?: boolean }) => void;
+  openCreateTask: () => void;
+  closeCreateTask: () => void;
   setActiveTag: (id: string | null) => void;
   setFilter: (patch: Partial<FilterState>) => void;
   setToast: (msg: string | null) => void;
@@ -168,6 +171,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   calendarCursor: todayDateString(),
   selectedTaskId: null,
   detailPreferEdit: false,
+  createTaskOpen: false,
   activeTagId: null,
   activeSmartListId: null,
   filter: emptyFilter(),
@@ -297,6 +301,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       selectedTaskId,
       detailPreferEdit: Boolean(opts?.edit),
     }),
+  openCreateTask: () => set({ createTaskOpen: true, selectedTaskId: null }),
+  closeCreateTask: () => set({ createTaskOpen: false }),
   setActiveTag: (activeTagId) => {
     const guard = get().navigationGuard;
     if (get().nav !== "tags" && guard && !guard()) return;

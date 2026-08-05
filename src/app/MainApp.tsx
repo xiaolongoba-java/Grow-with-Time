@@ -13,6 +13,7 @@ import { TodayTimeline } from "@/components/TodayTimeline";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import { CommandPalette } from "@/components/CommandPalette";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
+import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import {
   createNotificationRecord,
   ensureReminderRecord,
@@ -40,6 +41,7 @@ export function MainApp() {
   const ready = useAppStore((s) => s.ready);
   const error = useAppStore((s) => s.error);
   const selectedTaskId = useAppStore((s) => s.selectedTaskId);
+  const createTaskOpen = useAppStore((s) => s.createTaskOpen);
   const selectTask = useAppStore((s) => s.selectTask);
   const deleteTask = useAppStore((s) => s.deleteTask);
   const toast = useAppStore((s) => s.toast);
@@ -417,6 +419,7 @@ export function MainApp() {
       </div>
       {!detailOpen ? <TodayTimeline /> : null}
       <CommandPalette />
+      {createTaskOpen ? <CreateTaskDialog /> : null}
       <OnboardingGuide />
       {toast ? (
         <div className="toast" role="status" aria-live="polite">

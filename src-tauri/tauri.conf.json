@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "日进·拾光",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",

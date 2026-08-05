@@ -20,6 +20,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const setFilter = useAppStore((s) => s.setFilter);
   const addTask = useAppStore((s) => s.addTask);
   const selectTask = useAppStore((s) => s.selectTask);
+  const openCreateTask = useAppStore((s) => s.openCreateTask);
   const addTag = useAppStore((s) => s.addTag);
   const removeTag = useAppStore((s) => s.removeTag);
   const setActiveTag = useAppStore((s) => s.setActiveTag);
@@ -73,10 +74,6 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
     if (task) selectTask(task.id, { edit: true });
   };
 
-  const beginCreate = () => {
-    draftRef.current?.focus();
-  };
-
   return (
     <aside className="nav-side">
       <div className="nav-side-scroll">
@@ -97,7 +94,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         onChange={(e) => setFilter({ keyword: e.target.value })}
       />
 
-      <button type="button" className="btn-primary" onClick={beginCreate}>
+      <button type="button" className="btn-primary" onClick={openCreateTask}>
         + 新建任务
       </button>
 
