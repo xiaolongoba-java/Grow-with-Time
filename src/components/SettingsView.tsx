@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { exportBackup, importBackup } from "@/lib/db";
-import type { BackupPayload, ThemeMode } from "@/types";
+import type { BackupPayload } from "@/types";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { invoke } from "@tauri-apps/api/core";
+import { themeMeta, type VisualTheme } from "@/lib/themes";
 
 type DatabaseHealth = {
   healthy: boolean;
@@ -147,19 +148,31 @@ export function SettingsView() {
       </h2>
 
       <section className="settings-card" style={{ marginTop: 16 }}>
-        <h3>外观</h3>
-        <div className="seg" style={{ marginTop: 8, width: "fit-content" }}>
-          {(["light", "dark", "system"] as ThemeMode[]).map((t) => (
+        <div className="theme-section-heading">
+          <div><h3>外观</h3><p>选择一天工作时想进入的光线。</p></div>
+          <span>清晰，也要有氛围</span>
+        </div>
+        <div className="theme-gallery">
+          {(Object.entries(themeMeta) as [VisualTheme, (typeof themeMeta)[VisualTheme]][]).map(([t, meta]) => (
             <button
               key={t}
               type="button"
-              className={settings.theme === t ? "active" : ""}
+              className={`theme-preview theme-preview-${t} ${settings.theme === t ? "active" : ""}`}
               onClick={() => void setTheme(t)}
+              aria-pressed={settings.theme === t}
             >
-              {t === "light" ? "浅色" : t === "dark" ? "深色" : "跟随系统"}
+              <span className="theme-preview-canvas" style={{ "--preview-bg": meta.preview[0], "--preview-card": meta.preview[1], "--preview-accent": meta.preview[2] } as React.CSSProperties}>
+                <i /><i /><i /><b />
+              </span>
+              <span className="theme-preview-copy"><strong>{meta.name}</strong><small>{meta.mood}</small><em>{meta.description}</em></span>
+              <span className="theme-preview-check" aria-hidden>{settings.theme === t ? "✓" : ""}</span>
             </button>
           ))}
         </div>
+        <label className="theme-system-toggle">
+          <input type="checkbox" checked={settings.theme === "system"} onChange={(event) => void setTheme(event.target.checked ? "system" : "light")} />
+          <span><strong>跟随系统</strong><small>随 Windows 在清昼与静夜之间自动切换</small></span>
+        </label>
       </section>
 
       <section className="settings-card" style={{ marginTop: 12 }}>

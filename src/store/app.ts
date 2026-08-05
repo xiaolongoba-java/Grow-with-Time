@@ -64,11 +64,13 @@ interface AppStore {
   toast: string | null;
   canUndo: boolean;
   _undoAction: (() => Promise<void>) | null;
+  navigationGuard: (() => boolean) | null;
 
   bootstrap: () => Promise<void>;
   maybeRollover: () => Promise<void>;
   refreshAll: () => Promise<void>;
   setNav: (nav: NavId) => void;
+  setNavigationGuard: (guard: (() => boolean) | null) => void;
   setViewMode: (mode: ViewMode) => void;
   setDateScope: (scope: DateScope) => void;
   setCalendarCursor: (date: string) => void;
@@ -176,6 +178,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   toast: null,
   canUndo: false,
   _undoAction: null,
+  navigationGuard: null,
 
   bootstrap: async () => {
     try {
@@ -260,7 +263,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
     });
   },
 
-  setNav: (nav) =>
+  setNavigationGuard: (navigationGuard) => set({ navigationGuard }),
+  setNav: (nav) => {
+    if (nav === get().nav) return;
+    const guard = get().navigationGuard;
+    if (guard && !guard()) return;
     set({
       nav,
       selectedTaskId: null,
@@ -280,7 +287,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
           : nav === "calendar"
             ? "calendar"
             : get().viewMode,
-    }),
+    });
+  },
   setViewMode: (viewMode) => set({ viewMode }),
   setDateScope: (dateScope) => set({ dateScope }),
   setCalendarCursor: (calendarCursor) => set({ calendarCursor }),
@@ -289,7 +297,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
       selectedTaskId,
       detailPreferEdit: Boolean(opts?.edit),
     }),
-  setActiveTag: (activeTagId) => set({ activeTagId, nav: "tags" }),
+  setActiveTag: (activeTagId) => {
+    const guard = get().navigationGuard;
+    if (get().nav !== "tags" && guard && !guard()) return;
+    set({ activeTagId, nav: "tags" });
+  },
   setFilter: (patch) => set({ filter: { ...get().filter, ...patch } }),
   setToast: (toast) =>
     set({
@@ -507,6 +519,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   applySmartList: (id) => {
     const list = get().smartLists.find((s) => s.id === id);
     if (!list) return;
+    const guard = get().navigationGuard;
+    if (get().nav !== "all" && guard && !guard()) return;
     try {
       const filter = JSON.parse(list.filter_json) as FilterState;
       set({ filter, activeSmartListId: id, nav: "all" });

@@ -15,6 +15,11 @@
   --text-muted: #8d99ab;
   --text-overdue: #d95964;
   --text-on-accent: #ffffff;
+  --text-heading: #101b31;
+  --text-label: #41526b;
+  --surface-elevated: #ffffff;
+  --surface-soft: #f0f4fa;
+  --focus-ring: rgba(47, 111, 237, 0.28);
 
   --accent: #2f6fed;
   --accent-hover: #245fd2;
@@ -49,6 +54,11 @@
   --text-secondary: #c2ccda;
   --text-muted: #94a1b4;
   --text-overdue: #f0888d;
+  --text-heading: #ffffff;
+  --text-label: #d5deeb;
+  --surface-elevated: #1c2839;
+  --surface-soft: #202d40;
+  --focus-ring: rgba(112, 161, 255, 0.38);
   --accent: #70a1ff;
   --accent-hover: #8bb2ff;
   --accent-soft: rgba(112, 161, 255, 0.14);
@@ -58,6 +68,38 @@
   --border-strong: rgba(220, 232, 250, 0.18);
   --shadow: 0 14px 40px rgba(0, 0, 0, 0.34);
   --shadow-soft: 0 7px 24px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="dawn"] {
+  color-scheme: light;
+  --bg-root: #dfeafe;
+  --bg-panel: rgba(255, 255, 255, 0.42);
+  --bg-rail: rgba(218, 232, 255, 0.38);
+  --bg-hover: rgba(47, 111, 237, 0.1);
+  --bg-selected: rgba(47, 111, 237, 0.15);
+  --bg-input: rgba(255, 255, 255, 0.46);
+  --text-primary: #111b31;
+  --text-secondary: #40516d;
+  --text-muted: #71809a;
+  --text-overdue: #c5485c;
+  --text-heading: #0c172c;
+  --text-label: #30435f;
+  --surface-elevated: rgba(246, 250, 255, 0.46);
+  --surface-soft: rgba(231, 240, 253, 0.36);
+  --focus-ring: rgba(52, 120, 238, 0.34);
+  --accent: #3478ee;
+  --accent-hover: #2567d8;
+  --accent-soft: rgba(52, 120, 238, 0.14);
+  --accent-faint: rgba(235, 243, 255, 0.82);
+  --accent-strong: #1f59b8;
+  --success: #247c68;
+  --warning: #b96a31;
+  --danger: #cf4e61;
+  --vip: #b96a31;
+  --border: rgba(54, 82, 129, 0.12);
+  --border-strong: rgba(54, 82, 129, 0.2);
+  --shadow: 0 22px 55px rgba(55, 83, 132, 0.16);
+  --shadow-soft: 0 8px 24px rgba(55, 83, 132, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -73,6 +115,11 @@
     --text-secondary: #c2ccda;
     --text-muted: #94a1b4;
     --text-overdue: #f0888d;
+    --text-heading: #ffffff;
+    --text-label: #d5deeb;
+    --surface-elevated: #1c2839;
+    --surface-soft: #202d40;
+    --focus-ring: rgba(112, 161, 255, 0.38);
     --accent: #70a1ff;
     --accent-hover: #8bb2ff;
     --accent-soft: rgba(112, 161, 255, 0.14);

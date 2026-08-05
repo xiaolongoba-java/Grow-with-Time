@@ -33,6 +33,7 @@ export function NotificationCenter() {
         type="button"
         className="notification-trigger"
         title="通知中心"
+        aria-expanded={open}
         onClick={() => {
           const next = !open;
           setOpen(next);
@@ -40,7 +41,8 @@ export function NotificationCenter() {
         }}
       >
         <AppIcon name="timer" size={18} />
-        {unread ? <span>{unread}</span> : null}
+        <span className="notification-trigger-label">通知中心</span>
+        {unread ? <span className="notification-unread">{unread}</span> : null}
       </button>
 
       {open ? (

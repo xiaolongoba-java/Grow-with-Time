@@ -509,7 +509,7 @@ export async function saveDaySnapshot(
   planDate: string,
   tasks: Task[],
   phase: "morning" | "evening",
-  reflection = "",
+  reflection?: string,
 ): Promise<DaySnapshot> {
   const db = await getDb();
   const existing = await db.select<DaySnapshot[]>(
@@ -542,14 +542,15 @@ export async function saveDaySnapshot(
       `UPDATE day_snapshots SET
        evening_json = CASE WHEN $1 = 'evening' THEN $2 ELSE evening_json END,
        morning_json = CASE WHEN $1 = 'morning' THEN $2 ELSE morning_json END,
-       planned_minutes = $3, completed_minutes = $4, reflection = $5,
+       planned_minutes = $3, completed_minutes = $4,
+       reflection = COALESCE($5, reflection),
        updated_at = $6 WHERE plan_date = $7`,
       [
         phase,
         serialized,
         plannedMinutes,
         completedMinutes,
-        reflection,
+        reflection ?? null,
         stamp,
         planDate,
       ],
@@ -567,7 +568,7 @@ export async function saveDaySnapshot(
         phase === "evening" ? serialized : null,
         plannedMinutes,
         completedMinutes,
-        reflection,
+        reflection ?? "",
         stamp,
         stamp,
       ],
@@ -1734,12 +1735,45 @@ export async function saveDailyReflection(
   await db.execute(
     `INSERT INTO daily_reflections
      (id,reflection_date,harvest,highlight,mood,tomorrow_note,auto_summary,created_at,updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)
+     VALUES ($1,$2,COALESCE($3,''),COALESCE($4,''),COALESCE($5,''),COALESCE($6,''),COALESCE($7,''),$8,$8)
      ON CONFLICT(reflection_date) DO UPDATE SET
-       harvest=excluded.harvest,highlight=excluded.highlight,mood=excluded.mood,
-       tomorrow_note=excluded.tomorrow_note,auto_summary=excluded.auto_summary,
+       harvest=COALESCE($3,daily_reflections.harvest),
+       highlight=COALESCE($4,daily_reflections.highlight),
+       mood=COALESCE($5,daily_reflections.mood),
+       tomorrow_note=COALESCE($6,daily_reflections.tomorrow_note),
+       auto_summary=COALESCE($7,daily_reflections.auto_summary),
        updated_at=excluded.updated_at`,
-    [createId(), reflectionDate, input.harvest ?? "", input.highlight ?? "", input.mood ?? "", input.tomorrow_note ?? "", input.auto_summary ?? "", stamp],
+    [
+      createId(), reflectionDate,
+      input.harvest === undefined ? null : input.harvest,
+      input.highlight === undefined ? null : input.highlight,
+      input.mood === undefined ? null : input.mood,
+      input.tomorrow_note === undefined ? null : input.tomorrow_note,
+      input.auto_summary === undefined ? null : input.auto_summary,
+      stamp,
+    ],
+  );
+}
+
+export async function saveDayCloseReflection(
+  reflectionDate: string,
+  reflection: string,
+  autoSummary: string,
+): Promise<void> {
+  const db = await getDb();
+  const stamp = nowIso();
+  await db.execute(
+    `INSERT INTO daily_reflections
+     (id,reflection_date,harvest,highlight,mood,tomorrow_note,auto_summary,created_at,updated_at)
+     VALUES ($1,$2,$3,'','','',$4,$5,$5)
+     ON CONFLICT(reflection_date) DO UPDATE SET
+       harvest=CASE
+         WHEN TRIM(daily_reflections.harvest)='' AND TRIM(excluded.harvest)!='' THEN excluded.harvest
+         ELSE daily_reflections.harvest
+       END,
+       auto_summary=excluded.auto_summary,
+       updated_at=excluded.updated_at`,
+    [createId(), reflectionDate, reflection.trim(), autoSummary, stamp],
   );
 }
 

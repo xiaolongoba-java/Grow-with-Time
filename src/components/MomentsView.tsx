@@ -26,6 +26,7 @@ export function MomentsView({ mode }: { mode: MomentMode }) {
   const tasks = useAppStore((state) => state.tasks);
   const addTask = useAppStore((state) => state.addTask);
   const setToast = useAppStore((state) => state.setToast);
+  const setNavigationGuard = useAppStore((state) => state.setNavigationGuard);
   const [reflections, setReflections] = useState<DailyReflection[]>([]);
   const [ideas, setIdeas] = useState<Inspiration[]>([]);
   const [letters, setLetters] = useState<FutureLetter[]>([]);
@@ -68,6 +69,26 @@ export function MomentsView({ mode }: { mode: MomentMode }) {
     return buildDailyMomentSummary(tasks, today);
   }, [tasks, today]);
   const reflectionDirty = harvest !== (current?.harvest ?? "") || highlight !== (current?.highlight ?? "") || mood !== (current?.mood || "平静") || tomorrow !== (current?.tomorrow_note ?? "");
+
+  useEffect(() => {
+    if (mode !== "today" || !reflectionDirty) {
+      setNavigationGuard(null);
+      return;
+    }
+    const confirmLeave = () => window.confirm("今日拾光还有未保存的内容，确定离开吗？");
+    const warnBeforeClose = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    setNavigationGuard(confirmLeave);
+    window.addEventListener("beforeunload", warnBeforeClose);
+    return () => {
+      window.removeEventListener("beforeunload", warnBeforeClose);
+      if (useAppStore.getState().navigationGuard === confirmLeave) {
+        useAppStore.getState().setNavigationGuard(null);
+      }
+    };
+  }, [mode, reflectionDirty, setNavigationGuard]);
 
   const saveReflection = async () => {
     if (busy) return;

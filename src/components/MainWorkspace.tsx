@@ -31,7 +31,7 @@ import {
   findTimeConflictIds,
   suggestDaySchedule,
 } from "@/lib/planning";
-import { saveDailyReflection, saveDaySnapshot } from "@/lib/db";
+import { saveDayCloseReflection, saveDaySnapshot } from "@/lib/db";
 
 const MemosView = lazy(() =>
   import("@/components/MemosView").then((module) => ({
@@ -264,11 +264,12 @@ function DayBoard() {
     }
     setSettlingDay(true);
     try {
-      await saveDaySnapshot(cursor, dayTasks, "evening", reflection);
-      await saveDailyReflection(cursor, {
-        harvest: reflection,
-        auto_summary: `完成 ${done} 项任务，还有 ${pending} 项完成了今日安排。`,
-      });
+      await saveDaySnapshot(cursor, dayTasks, "evening");
+      await saveDayCloseReflection(
+        cursor,
+        reflection,
+        `完成 ${done} 项任务，还有 ${pending} 项完成了今日安排。`,
+      );
       for (const task of activeTasks) {
         const choice = dispositions[task.id] ?? "tomorrow";
         if (choice === "cancel") {

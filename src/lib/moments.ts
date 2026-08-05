@@ -1,4 +1,5 @@
 import type { Task } from "@/types";
+import { localDateKey } from "@/lib/growth";
 
 export function parseMomentTags(value: string): string[] {
   try {
@@ -14,7 +15,9 @@ export function extractMomentTags(content: string): string[] {
 }
 
 export function buildDailyMomentSummary(tasks: Task[], date: string): string {
-  const completed = tasks.filter((task) => task.completed_at?.slice(0, 10) === date);
+  const completed = tasks.filter(
+    (task) => task.completed_at && localDateKey(new Date(task.completed_at)) === date,
+  );
   const minutes = completed.reduce(
     (sum, task) => sum + (task.actual_minutes || task.estimated_minutes || 0),
     0,

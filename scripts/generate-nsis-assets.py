@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "src-tauri" / "windows" / "nsis"
@@ -25,12 +25,12 @@ SCALE = 3
 SIDEBAR = (164 * SCALE, 314 * SCALE)  # 492 × 942
 HEADER = (150 * SCALE, 57 * SCALE)  # 450 × 171
 
-ACCENT = (91, 143, 249)
-ACCENT_DARK = (61, 120, 245)
-BG_TOP = (248, 250, 253)
-BG_BOTTOM = (226, 235, 248)
-TEXT = (31, 42, 55)
-TEXT_MUTED = (91, 107, 124)
+ACCENT = (52, 120, 238)
+ACCENT_DARK = (35, 91, 198)
+BG_TOP = (204, 222, 251)
+BG_BOTTOM = (248, 216, 224)
+TEXT = (17, 27, 49)
+TEXT_MUTED = (72, 88, 113)
 WHITE = (255, 255, 255)
 
 
@@ -67,6 +67,18 @@ def draw_gradient(size: tuple[int, int], top: tuple[int, int, int], bottom: tupl
     return img
 
 
+def dawn_background(size: tuple[int, int]) -> Image.Image:
+    img = draw_gradient(size, BG_TOP, BG_BOTTOM).convert("RGBA")
+    w, h = size
+    glow = Image.new("RGBA", size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse((-w * .22, h * .62, w * .72, h * 1.22), fill=(238, 31, 83, 190))
+    gd.ellipse((w * .28, h * .72, w * 1.22, h * 1.24), fill=(255, 111, 105, 145))
+    gd.ellipse((-w * .08, -h * .15, w * .82, h * .42), fill=(255, 255, 255, 90))
+    glow = glow.filter(ImageFilter.GaussianBlur(max(8, int(w * .045))))
+    return Image.alpha_composite(img, glow).convert("RGB")
+
+
 def load_icon() -> Image.Image | None:
     for path in ICON_CANDIDATES:
         if path.exists():
@@ -91,7 +103,7 @@ def save_bmp(img: Image.Image, path: Path) -> None:
 
 def make_header() -> None:
     w, h = HEADER
-    img = draw_gradient((w, h), ACCENT, ACCENT_DARK)
+    img = dawn_background((w, h))
     draw = ImageDraw.Draw(img)
 
     pad = 18
@@ -112,39 +124,40 @@ def make_header() -> None:
     )
 
     text_x = pad + icon_box + 20
-    draw.text((text_x, 42), "Grow with Time", fill=WHITE, font=load_font(42, bold=True))
-    draw.text((text_x, 100), "与时间一起成长", fill=(230, 240, 255), font=load_font(28))
+    draw.text((text_x, 42), "日进 · 拾光", fill=TEXT, font=load_font(42, bold=True))
+    draw.text((text_x, 100), "Grow with Time", fill=TEXT_MUTED, font=load_font(27))
     save_bmp(img, OUT / "header.bmp")
 
 
 def make_sidebar() -> None:
     w, h = SIDEBAR
-    img = draw_gradient((w, h), BG_TOP, BG_BOTTOM)
+    img = dawn_background((w, h))
     draw = ImageDraw.Draw(img)
 
     # Soft accent blob behind icon
     overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
-    od.ellipse((60, 40, 430, 420), fill=(*ACCENT, 28))
+    od.ellipse((55, 38, 435, 418), fill=(255, 255, 255, 90))
     img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
     draw = ImageDraw.Draw(img)
 
     # Icon card
     card = (126, 110, 366, 350)
-    draw.rounded_rectangle(card, radius=48, fill=WHITE)
-    draw.rounded_rectangle(card, radius=48, outline=ACCENT, width=4)
+    draw.rounded_rectangle(card, radius=48, fill=(248, 252, 255))
+    draw.rounded_rectangle(card, radius=48, outline=(255, 255, 255), width=5)
     paste_icon(img, (150, 134, 342, 326))
 
     # Titles
-    draw.text((w // 2, 400), "Grow with Time", fill=TEXT, font=load_font(36, bold=True), anchor="mm")
-    draw.text((w // 2, 456), "本地优先的待办与时间管理", fill=TEXT_MUTED, font=load_font(26), anchor="mm")
+    draw.text((w // 2, 400), "日进 · 拾光", fill=TEXT, font=load_font(38, bold=True), anchor="mm")
+    draw.text((w // 2, 454), "Grow with Time", fill=TEXT_MUTED, font=load_font(26), anchor="mm")
 
     # Pill
     pill = (90, 520, 402, 590)
-    draw.rounded_rectangle(pill, radius=35, fill=ACCENT)
-    draw.text((w // 2, 555), "专注 · 计划 · 复盘", fill=WHITE, font=load_font(28, bold=True), anchor="mm")
+    draw.rounded_rectangle(pill, radius=35, fill=WHITE)
+    draw.rounded_rectangle(pill, radius=35, outline=(255, 255, 255), width=3)
+    draw.text((w // 2, 555), "日进有迹 · 拾光有声", fill=ACCENT_DARK, font=load_font(28, bold=True), anchor="mm")
 
-    draw.line([(80, 680), (w - 80, 680)], fill=(200, 214, 232), width=2)
+    draw.line([(80, 680), (w - 80, 680)], fill=(255, 255, 255), width=3)
     draw.text((w // 2, 760), f"v{app_version()}", fill=TEXT_MUTED, font=load_font(26), anchor="mm")
 
     save_bmp(img, OUT / "sidebar.bmp")

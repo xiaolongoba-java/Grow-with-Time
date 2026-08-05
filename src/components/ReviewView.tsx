@@ -1,24 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app";
-import { fetchDaySnapshots, fetchGoalEntries, fetchGoals } from "@/lib/db";
-import type { DaySnapshot, Goal, GoalEntry } from "@/types";
-import { localWeekStartKey } from "@/lib/growth";
-
-function dayKey(iso: string) {
-  return iso.slice(0, 10);
-}
+import { fetchDailyReflections, fetchDaySnapshots, fetchGoalEntries, fetchGoals } from "@/lib/db";
+import type { DailyReflection, DaySnapshot, Goal, GoalEntry } from "@/types";
+import { localDateKey, localWeekStartKey } from "@/lib/growth";
 
 export function ReviewView() {
   const tasks = useAppStore((s) => s.tasks);
   const settings = useAppStore((s) => s.settings);
   const [snapshots, setSnapshots] = useState<DaySnapshot[]>([]);
+  const [reflections, setReflections] = useState<DailyReflection[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [goalEntries, setGoalEntries] = useState<GoalEntry[]>([]);
 
   useEffect(() => {
-    void Promise.all([fetchDaySnapshots(), fetchGoals(), fetchGoalEntries()]).then(
-      ([nextSnapshots, nextGoals, nextEntries]) => {
+    void Promise.all([fetchDaySnapshots(), fetchDailyReflections(), fetchGoals(), fetchGoalEntries()]).then(
+      ([nextSnapshots, nextReflections, nextGoals, nextEntries]) => {
         setSnapshots(nextSnapshots);
+        setReflections(nextReflections);
         setGoals(nextGoals);
         setGoalEntries(nextEntries);
       },
@@ -39,12 +37,12 @@ export function ReviewView() {
     }
 
     const created = days.map(
-      (d) => tasks.filter((t) => !t.parent_id && dayKey(t.created_at) === d).length,
+      (d) => tasks.filter((t) => !t.parent_id && localDateKey(new Date(t.created_at)) === d).length,
     );
     const completed = days.map(
       (d) =>
         tasks.filter(
-          (t) => !t.parent_id && t.completed_at && dayKey(t.completed_at) === d,
+          (t) => !t.parent_id && t.completed_at && localDateKey(new Date(t.completed_at)) === d,
         ).length,
     );
     const roots = tasks.filter((t) => !t.parent_id);
@@ -55,7 +53,7 @@ export function ReviewView() {
         t.status === "completed" &&
         t.due_date &&
         t.completed_at &&
-        dayKey(t.completed_at) > t.due_date,
+        localDateKey(new Date(t.completed_at)) > t.due_date,
     ).length;
     const delayRate = done ? Math.round((delayed / done) * 100) : 0;
 
@@ -69,6 +67,32 @@ export function ReviewView() {
 
     return { days, created, completed, rate, delayRate, peak, max: Math.max(1, ...created, ...completed) };
   }, [tasks]);
+
+  const reflectionEntries = useMemo(() => {
+    const snapshotMap = new Map(snapshots.map((item) => [item.plan_date, item]));
+    const entries = reflections
+      .map((item) => ({
+        date: item.reflection_date,
+        text: item.harvest.trim() || item.highlight.trim() || item.tomorrow_note.trim(),
+        summary: item.auto_summary,
+        snapshot: snapshotMap.get(item.reflection_date),
+        legacy: false,
+      }))
+      .filter((item) => item.text);
+    const existingDates = new Set(entries.map((item) => item.date));
+    for (const snapshot of snapshots) {
+      if (snapshot.reflection.trim() && !existingDates.has(snapshot.plan_date)) {
+        entries.push({
+          date: snapshot.plan_date,
+          text: snapshot.reflection.trim(),
+          summary: "历史晚间收尾记录",
+          snapshot,
+          legacy: true,
+        });
+      }
+    }
+    return entries.sort((a, b) => b.date.localeCompare(a.date));
+  }, [reflections, snapshots]);
 
   return (
     <main className="main-workspace" style={{ padding: 22, overflow: "auto" }}>
@@ -137,29 +161,31 @@ export function ReviewView() {
       <section className="review-card review-reflections" style={{ marginTop: 12 }}>
         <div className="review-reflections-head">
           <div>
-            <h3>每日一句</h3>
-            <p>来自“我的一天”晚间收尾</p>
+            <h3>拾光回望</h3>
+            <p>以“今日拾光”为正式记录，旧版晚间一句自动兼容</p>
           </div>
-          <span>{snapshots.filter((item) => item.reflection.trim()).length} 条记录</span>
+          <span>{reflectionEntries.length} 条记录</span>
         </div>
-        {snapshots.some((item) => item.reflection.trim()) ? (
+        {reflectionEntries.length ? (
           <div className="review-reflection-list">
-            {snapshots
-              .filter((item) => item.reflection.trim())
+            {reflectionEntries
               .slice(0, 7)
               .map((item) => (
-                <article key={item.id}>
-                  <time>{item.plan_date}</time>
-                  <p>{item.reflection}</p>
+                <article key={`${item.date}-${item.legacy ? "legacy" : "moment"}`}>
+                  <time>{item.date}</time>
+                  <p>{item.text}</p>
                   <span>
-                    完成 {item.completed_minutes} / 计划 {item.planned_minutes} 分钟
+                    {item.snapshot
+                      ? `完成 ${item.snapshot.completed_minutes} / 计划 ${item.snapshot.planned_minutes} 分钟`
+                      : item.summary || "今日拾光"}
+                    {item.legacy ? " · 旧版记录" : ""}
                   </span>
                 </article>
               ))}
           </div>
         ) : (
           <p className="review-reflection-empty">
-            完成一次“今日收尾”后，你记录的一句话会出现在这里。
+            完成“今日收尾”或保存一条“今日拾光”后，回望会出现在这里。
           </p>
         )}
       </section>

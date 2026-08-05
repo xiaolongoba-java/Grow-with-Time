@@ -12,7 +12,6 @@ import { MainWorkspace } from "@/components/MainWorkspace";
 import { TodayTimeline } from "@/components/TodayTimeline";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import { CommandPalette } from "@/components/CommandPalette";
-import { NotificationCenter } from "@/components/NotificationCenter";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
 import {
   createNotificationRecord,
@@ -418,7 +417,6 @@ export function MainApp() {
       </div>
       {!detailOpen ? <TodayTimeline /> : null}
       <CommandPalette />
-      <NotificationCenter />
       <OnboardingGuide />
       {toast ? (
         <div className="toast" role="status" aria-live="polite">

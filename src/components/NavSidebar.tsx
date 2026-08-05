@@ -4,6 +4,7 @@ import { todayDateString } from "@/lib/dates";
 import { parseNaturalInput } from "@/lib/nlp";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { isActiveTask } from "@/lib/tasks";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 type NavSidebarProps = {
   onCollapse?: () => void;
@@ -176,6 +177,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
 
       <button type="button" className="nav-more-trigger" aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)}><span>更多</span><span>{moreOpen ? "收起" : "展开"}</span></button>
       {moreOpen ? <div className="nav-more-content">
+      <NotificationCenter />
       {(
         [
           ["completed", "已完成", counts.completed, "check"],
