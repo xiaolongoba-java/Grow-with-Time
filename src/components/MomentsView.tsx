@@ -10,8 +10,9 @@ import {
   saveDailyReflection,
   updateInspirationStatus,
 } from "@/lib/db";
-import { todayDateString } from "@/lib/dates";
+import { todayDateString, nowTimeString, parseTimeToMinutes } from "@/lib/dates";
 import { buildDailyMomentSummary, daysUntilMoment, parseMomentTags } from "@/lib/moments";
+import { findFirstAvailableTimeSlot } from "@/lib/planning";
 import type { DailyReflection, FutureLetter, Inspiration } from "@/types";
 
 type MomentMode = "today" | "ideas" | "letters";
@@ -107,9 +108,20 @@ export function MomentsView({ mode }: { mode: MomentMode }) {
   };
 
   const turnIntoTask = async (item: Inspiration) => {
-    await addTask({ title: item.content, due_date: null });
+    const today = todayDateString();
+    const now = parseTimeToMinutes(nowTimeString(false)) ?? 9 * 60;
+    const slot = findFirstAvailableTimeSlot(tasks, today, 30, Math.max(9 * 60, now));
+    await addTask({
+      title: item.content.replace(/#[^\s#]+/g, "").trim() || item.content,
+      due_date: today,
+      my_day_date: today,
+      due_time: slot?.start ?? null,
+      end_time: slot?.end ?? null,
+      estimated_minutes: 30,
+    });
     await updateInspirationStatus(item.id, "processed");
-    await refresh(); setToast("已转为待办任务");
+    await refresh();
+    setToast(slot ? `已加入我的一天 · ${slot.start}` : "已加入我的一天");
   };
 
   const saveLetter = async () => {

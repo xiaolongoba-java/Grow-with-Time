@@ -110,7 +110,7 @@
   align-items: center;
   gap: 8px;
   min-height: 38px;
-  margin-top: 16px;
+  margin-top: 0;
   padding: 0 16px;
   color: var(--text-on-accent);
   font: 650 13px var(--font-body);
@@ -121,6 +121,20 @@
   cursor: pointer;
   transition: transform var(--transition), background var(--transition);
   max-width: min(430px, 100%);
+}
+
+.today-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.today-moment-action {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 11px;
 }
 
 .today-focus-label {

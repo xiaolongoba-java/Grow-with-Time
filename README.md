@@ -108,6 +108,24 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.4 发布门面与日进拾光衔接
+
+- 安装包 `productName` 恢复为 ASCII 的 `Grow with Time`，修复中文产品名导致产物变成 `_1.5.4_...` 的问题；窗口标题仍展示「日进·拾光 · Grow with Time」。
+- README 补充当前版本下载表，并与 GitHub Releases 真实文件名对齐。
+- 今日页增加「今日拾光」入口，方便从执行切到沉淀。
+- 拾念「转为任务」会加入我的一天，并自动推荐当天第一个空闲时段。
+- 发布检查增加 `productName` ASCII 约束，避免以后再次踩包名坑。
+- 移除未引用的 Windows 安装器背景草稿资源。
+
+### v1.5.4
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.4_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.4/Grow.with.Time_1.5.4_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.4_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.4/Grow.with.Time_1.5.4_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.4) 或 Actions Artifacts 下载。
+
 #### v1.5.3 新建任务体验
 
 - “+ 新建任务”现在会立即打开完整创建弹窗，不再只聚焦侧栏快速输入框；自然语言快速录入仍作为独立的轻量入口保留。

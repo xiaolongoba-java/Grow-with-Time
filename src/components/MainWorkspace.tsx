@@ -311,21 +311,32 @@ function DayBoard() {
               {conflictIds.size} 项任务存在时间冲突
             </span>
           ) : null}
-          <button
-            type="button"
-            className="today-focus-action"
-            onClick={startNextTask}
-            disabled={!nextTask}
-          >
-            <span aria-hidden="true">▶</span>
-            <span className="today-focus-label">
-              {focusRunning
-                ? "继续专注"
-                : nextTask
-                  ? `开始：${nextTask.title}`
-                  : "今天已完成"}
-            </span>
-          </button>
+          <div className="today-hero-actions">
+            <button
+              type="button"
+              className="today-focus-action"
+              onClick={startNextTask}
+              disabled={!nextTask}
+            >
+              <span aria-hidden="true">▶</span>
+              <span className="today-focus-label">
+                {focusRunning
+                  ? "继续专注"
+                  : nextTask
+                    ? `开始：${nextTask.title}`
+                    : "今天已完成"}
+              </span>
+            </button>
+            {cursor === today ? (
+              <button
+                type="button"
+                className="btn-ghost today-moment-action"
+                onClick={() => setNav("daily-reflection")}
+              >
+                今日拾光
+              </button>
+            ) : null}
+          </div>
         </div>
         <div
           className="today-progress-ring"
