@@ -1932,30 +1932,42 @@ export async function exportBackup(): Promise<BackupPayload> {
 
 export async function importBackup(payload: BackupPayload): Promise<void> {
   const db = await getDb();
-  await db.execute("DELETE FROM future_letters");
-  await db.execute("DELETE FROM inspirations");
-  await db.execute("DELETE FROM daily_reflections");
-  await db.execute("DELETE FROM timers");
-  await db.execute("DELETE FROM achievements");
-  await db.execute("DELETE FROM goal_milestones");
-  await db.execute("DELETE FROM goal_entries");
-  await db.execute("DELETE FROM goals");
-  await db.execute("DELETE FROM focus_sessions");
-  await db.execute("DELETE FROM task_events");
-  await db.execute("DELETE FROM day_snapshots");
-  await db.execute("DELETE FROM milestones");
-  await db.execute("DELETE FROM habit_checks");
-  await db.execute("DELETE FROM habits");
-  await db.execute("DELETE FROM attachments");
-  await db.execute("DELETE FROM task_tags");
-  await db.execute("DELETE FROM smart_lists");
-  await db.execute("DELETE FROM tags");
-  await db.execute("DELETE FROM task_planning_metadata");
-  await db.execute("DELETE FROM tasks");
-  await db.execute("DELETE FROM memos");
-  await db.execute("DELETE FROM app_notifications");
-  await db.execute("DELETE FROM task_templates");
-  await db.execute("DELETE FROM projects");
+  const has = (key: keyof BackupPayload) =>
+    Object.prototype.hasOwnProperty.call(payload, key);
+
+  await db.execute("BEGIN IMMEDIATE");
+  try {
+    if (has("futureLetters")) await db.execute("DELETE FROM future_letters");
+    if (has("inspirations")) await db.execute("DELETE FROM inspirations");
+    if (has("dailyReflections")) await db.execute("DELETE FROM daily_reflections");
+    if (has("timers")) await db.execute("DELETE FROM timers");
+    if (
+      has("achievements") ||
+      has("goalMilestones") ||
+      has("goalEntries") ||
+      has("goals")
+    ) {
+      await db.execute("DELETE FROM achievements");
+      await db.execute("DELETE FROM goal_milestones");
+      await db.execute("DELETE FROM goal_entries");
+      await db.execute("DELETE FROM goals");
+    }
+    if (has("focusSessions")) await db.execute("DELETE FROM focus_sessions");
+    if (has("taskEvents")) await db.execute("DELETE FROM task_events");
+    if (has("daySnapshots")) await db.execute("DELETE FROM day_snapshots");
+    if (has("milestones")) await db.execute("DELETE FROM milestones");
+    await db.execute("DELETE FROM habit_checks");
+    await db.execute("DELETE FROM habits");
+    await db.execute("DELETE FROM attachments");
+    await db.execute("DELETE FROM task_tags");
+    await db.execute("DELETE FROM smart_lists");
+    await db.execute("DELETE FROM tags");
+    await db.execute("DELETE FROM task_planning_metadata");
+    await db.execute("DELETE FROM tasks");
+    if (has("memos")) await db.execute("DELETE FROM memos");
+    if (has("notifications")) await db.execute("DELETE FROM app_notifications");
+    if (has("taskTemplates")) await db.execute("DELETE FROM task_templates");
+    if (has("projects")) await db.execute("DELETE FROM projects");
 
   for (const task of payload.tasks) {
     await db.execute(
@@ -2247,6 +2259,42 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
   for (const [key, value] of Object.entries(payload.settings)) {
     await setSetting(key, value);
   }
+    await db.execute("COMMIT");
+  } catch (error) {
+    await db.execute("ROLLBACK");
+    throw error;
+  }
+}
+
+/** Build a human-readable restore summary, including data that would be preserved. */
+export function summarizeBackupRestore(payload: BackupPayload): string {
+  const has = (key: keyof BackupPayload) =>
+    Object.prototype.hasOwnProperty.call(payload, key);
+  const lines = [
+    `备份时间：${new Date(payload.exportedAt).toLocaleString()}`,
+    `任务：${payload.tasks.length} 项`,
+    `标签：${payload.tags.length} 个`,
+    `习惯：${payload.habits.length} 个`,
+  ];
+  if (has("goals")) lines.push(`成长目标：${payload.goals?.length ?? 0} 个`);
+  if (has("dailyReflections") || has("inspirations") || has("futureLetters")) {
+    lines.push(
+      `拾光：回望 ${payload.dailyReflections?.length ?? 0} · 拾念 ${payload.inspirations?.length ?? 0} · 未来信 ${payload.futureLetters?.length ?? 0}`,
+    );
+  }
+  const keep: string[] = [];
+  if (!has("goals") && !has("goalEntries") && !has("achievements")) {
+    keep.push("成长目标");
+  }
+  if (!has("dailyReflections") && !has("inspirations") && !has("futureLetters")) {
+    keep.push("拾光记录");
+  }
+  if (!has("timers")) keep.push("循环提醒");
+  if (keep.length) {
+    lines.push("", `以下数据备份中未包含，将保留当前内容：${keep.join("、")}`);
+  }
+  lines.push("", "恢复会覆盖其余当前数据，是否继续？");
+  return lines.join("\n");
 }
 
 /* Projects and reusable task templates */

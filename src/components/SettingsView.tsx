@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/app";
-import { exportBackup, importBackup } from "@/lib/db";
+import { exportBackup, importBackup, summarizeBackupRestore } from "@/lib/db";
 import type { BackupPayload } from "@/types";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
@@ -115,15 +115,7 @@ export function SettingsView() {
     if (!path || Array.isArray(path)) return;
     const text = await readTextFile(path);
     const payload = JSON.parse(text) as BackupPayload;
-    const summary = [
-      `备份时间：${new Date(payload.exportedAt).toLocaleString()}`,
-      `任务：${payload.tasks.length} 项`,
-      `标签：${payload.tags.length} 个`,
-      `习惯：${payload.habits.length} 个`,
-      "",
-      "恢复会用备份内容覆盖当前数据，是否继续？",
-    ].join("\n");
-    if (!window.confirm(summary)) return;
+    if (!window.confirm(summarizeBackupRestore(payload))) return;
     await importBackup(payload);
     await useAppStore.getState().refreshAll();
     setToast("已从备份恢复");

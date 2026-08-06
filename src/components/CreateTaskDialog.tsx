@@ -24,7 +24,9 @@ export function CreateTaskDialog() {
   const [estimatedMinutes, setEstimatedMinutes] = useState(60);
   const [projectId, setProjectId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [timeManual, setTimeManual] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const autoKeyRef = useRef(`${initialDate}:60`);
 
   const suggestedSlot = useMemo(() => {
     const today = todayDateString();
@@ -34,10 +36,18 @@ export function CreateTaskDialog() {
   }, [tasks, dueDate, estimatedMinutes]);
 
   useEffect(() => {
-    if (!suggestedSlot) return;
+    const key = `${dueDate}:${estimatedMinutes}`;
+    if (key !== autoKeyRef.current) {
+      autoKeyRef.current = key;
+      setTimeManual(false);
+    }
+  }, [dueDate, estimatedMinutes]);
+
+  useEffect(() => {
+    if (timeManual || !suggestedSlot) return;
     setDueTime(suggestedSlot.start);
     setEndTime(suggestedSlot.end);
-  }, [suggestedSlot]);
+  }, [suggestedSlot, timeManual]);
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -92,8 +102,19 @@ export function CreateTaskDialog() {
           <label>所属项目<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">无项目</option>{projects.filter((project) => !project.archived).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
         </div>
         <div className="create-task-time-card">
-          <div><strong>时间安排</strong><span>{suggestedSlot ? "已避开当天已有任务，可继续手动调整" : "当天没有足够的连续空闲时间，请手动调整"}</span></div>
-          <TimeRangeFields start={dueTime} end={endTime} onStartChange={setDueTime} onEndChange={setEndTime} />
+          <div><strong>时间安排</strong><span>{suggestedSlot ? (timeManual ? "已按你的调整保留时间" : "已避开当天已有任务，可继续手动调整") : "当天没有足够的连续空闲时间，请手动调整"}</span></div>
+          <TimeRangeFields
+            start={dueTime}
+            end={endTime}
+            onStartChange={(value) => {
+              setTimeManual(true);
+              setDueTime(value);
+            }}
+            onEndChange={(value) => {
+              setTimeManual(true);
+              setEndTime(value);
+            }}
+          />
         </div>
         <div className="create-task-actions"><button type="button" className="btn-ghost" onClick={close}>取消</button><button type="submit" className="btn-primary" disabled={!title.trim() || !dueTime || !endTime || saving}>{saving ? "创建中…" : "创建任务"}</button></div>
       </form>

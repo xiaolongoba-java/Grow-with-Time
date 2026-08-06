@@ -33,5 +33,9 @@ describe("backup coverage", () => {
     expect(source).toContain("payload.futureLetters");
     expect(source).toContain("saveTaskPlanningMetadata(task)");
     expect(source).not.toContain("saveTaskPlanningMetadata(mapTask(task))");
+    expect(source).toContain("BEGIN IMMEDIATE");
+    expect(source).toContain("ROLLBACK");
+    expect(source).toContain("summarizeBackupRestore");
+    expect(source).toContain('Object.prototype.hasOwnProperty.call(payload, key)');
   });
 });

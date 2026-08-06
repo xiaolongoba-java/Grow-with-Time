@@ -108,20 +108,30 @@ export function MomentsView({ mode }: { mode: MomentMode }) {
   };
 
   const turnIntoTask = async (item: Inspiration) => {
-    const today = todayDateString();
-    const now = parseTimeToMinutes(nowTimeString(false)) ?? 9 * 60;
-    const slot = findFirstAvailableTimeSlot(tasks, today, 30, Math.max(9 * 60, now));
-    await addTask({
-      title: item.content.replace(/#[^\s#]+/g, "").trim() || item.content,
-      due_date: today,
-      my_day_date: today,
-      due_time: slot?.start ?? null,
-      end_time: slot?.end ?? null,
-      estimated_minutes: 30,
-    });
-    await updateInspirationStatus(item.id, "processed");
-    await refresh();
-    setToast(slot ? `已加入我的一天 · ${slot.start}` : "已加入我的一天");
+    if (busy) return;
+    setBusy(true);
+    try {
+      const today = todayDateString();
+      const now = parseTimeToMinutes(nowTimeString(false)) ?? 9 * 60;
+      const slot = findFirstAvailableTimeSlot(tasks, today, 30, Math.max(9 * 60, now));
+      const task = await addTask({
+        title: item.content.replace(/#[^\s#]+/g, "").trim() || item.content,
+        due_date: today,
+        my_day_date: today,
+        due_time: slot?.start ?? null,
+        end_time: slot?.end ?? null,
+        estimated_minutes: 30,
+      });
+      if (!task) {
+        setToast("创建任务失败，灵感仍保留在拾念箱");
+        return;
+      }
+      await updateInspirationStatus(item.id, "processed");
+      await refresh();
+      setToast(slot ? `已加入我的一天 · ${slot.start}` : "已加入我的一天");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const saveLetter = async () => {
@@ -142,7 +152,7 @@ export function MomentsView({ mode }: { mode: MomentMode }) {
     <PageHeading eyebrow="拾光 · 灵感" title="拾念箱" description="先把念头留下，再决定它要去哪里。" />
     <section className="idea-capture" aria-label="快速记录灵感"><textarea aria-label="灵感内容" value={idea} onChange={(event) => setIdea(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void saveIdea(); } }} placeholder="现在想到了什么？可以用 #标签 随手分类" /><button disabled={!idea.trim() || busy} onClick={() => void saveIdea()}>{busy ? "拾取中…" : "拾起"}</button><span>Enter 保存 · Shift+Enter 换行</span></section>
     <nav className="idea-filters" aria-label="拾念筛选">{([['inbox','未整理'],['processed','已转任务'],['all','全部']] as const).map(([id,label]) => <button key={id} className={ideaFilter === id ? "active" : ""} onClick={() => setIdeaFilter(id)}>{label}</button>)}</nav>
-      {visibleIdeas.length ? <section className="idea-masonry">{visibleIdeas.map((item) => <article className="idea-note" key={item.id}><div className="idea-tags">{parseMomentTags(item.tags_json).map((tag) => <span key={tag}>#{tag}</span>)}</div><p>{item.content}</p><time>{new Date(item.created_at).toLocaleString()}</time><footer><button onClick={() => void turnIntoTask(item)}>转为任务</button><button onClick={() => void updateInspirationStatus(item.id,"archived").then(refresh)}>归档</button></footer></article>)}</section> : <EmptyMoment title="这里还没有待整理的念头" description="按 Ctrl/Cmd + Shift + Space，随时拾起第一条灵感。" action="现在记录" onAction={() => document.querySelector<HTMLTextAreaElement>(".idea-capture textarea")?.focus()} />}
+      {visibleIdeas.length ? <section className="idea-masonry">{visibleIdeas.map((item) => <article className="idea-note" key={item.id}><div className="idea-tags">{parseMomentTags(item.tags_json).map((tag) => <span key={tag}>#{tag}</span>)}</div><p>{item.content}</p><time>{new Date(item.created_at).toLocaleString()}</time><footer><button disabled={busy} onClick={() => void turnIntoTask(item)}>{busy ? "处理中…" : "转为任务"}</button><button disabled={busy} onClick={() => void updateInspirationStatus(item.id,"archived").then(refresh)}>归档</button></footer></article>)}</section> : <EmptyMoment title="这里还没有待整理的念头" description="按 Ctrl/Cmd + Shift + Space，随时拾起第一条灵感。" action="现在记录" onAction={() => document.querySelector<HTMLTextAreaElement>(".idea-capture textarea")?.focus()} />}
   </main>;
 
   const waiting = letters.filter((item) => item.status === "waiting");

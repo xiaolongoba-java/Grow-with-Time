@@ -47,6 +47,23 @@ describe("planning helpers", () => {
     expect(slot).toEqual({ start: "10:00", end: "11:00" });
   });
 
+  it("occupies both due_date and my_day_date when finding free time", () => {
+    const slot = findFirstAvailableTimeSlot(
+      [
+        task({
+          due_date: "2026-08-10",
+          my_day_date: "2026-08-05",
+          due_time: "09:00",
+          end_time: "10:00",
+        }),
+      ],
+      "2026-08-05",
+      60,
+      9 * 60,
+    );
+    expect(slot).toEqual({ start: "10:00", end: "11:00" });
+  });
+
   it("ignores completed tasks when choosing a free time", () => {
     const slot = findFirstAvailableTimeSlot(
       [task({ status: "completed", due_date: "2026-08-05", due_time: "09:00", end_time: "10:00" })],

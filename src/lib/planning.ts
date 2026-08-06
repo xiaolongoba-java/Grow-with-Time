@@ -90,7 +90,7 @@ export function findFirstAvailableTimeSlot(
   const occupied = tasks
     .filter(
       (task) =>
-        task.due_date === date &&
+        (task.due_date === date || task.my_day_date === date) &&
         task.status !== "completed" &&
         task.status !== "cancelled" &&
         task.due_time,
