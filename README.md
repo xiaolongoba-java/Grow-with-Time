@@ -108,6 +108,23 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.5 数据可靠性加固
+
+- 拾念「转为任务」仅在创建成功后才标记为已处理，失败时保留灵感并提示；转换过程增加防连点保护。
+- 完整备份恢复改为事务提交，中途失败会回滚，避免留下空库或半恢复状态。
+- 旧备份缺少成长/拾光/提醒等扩展字段时，不再误删当前对应数据，并在确认框中写明将保留的内容。
+- 空闲时段推荐会同时考虑截止日期与「我的一天」占用，减少撞车。
+- 新建任务弹窗在手动改过时间后不再被自动推荐覆盖；改日期或预计时长时才会重新推荐。
+
+### v1.5.5
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.5_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.5/Grow.with.Time_1.5.5_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.5_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.5/Grow.with.Time_1.5.5_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.5) 或 Actions Artifacts 下载。
+
 #### v1.5.4 发布门面与日进拾光衔接
 
 - 安装包 `productName` 恢复为 ASCII 的 `Grow with Time`，修复中文产品名导致产物变成 `_1.5.4_...` 的问题；窗口标题仍展示「日进·拾光 · Grow with Time」。
