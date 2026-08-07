@@ -7,7 +7,7 @@ export type TaskStatus =
   | "completed"
   | "cancelled";
 export type TaskPriority = 1 | 2 | 3 | 4;
-export type ThemeMode = "light" | "dawn" | "dark" | "system";
+export type ThemeMode = "light" | "dawn" | "glass" | "dark" | "system";
 export type ViewMode = "list" | "board" | "calendar";
 export type DateScope = "day" | "week" | "month";
 

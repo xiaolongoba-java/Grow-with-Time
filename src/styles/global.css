@@ -10,6 +10,7 @@ html,
 body,
 #root {
   height: 100%;
+  background: transparent !important;
 }
 
 body {
@@ -17,7 +18,6 @@ body {
   font-family: var(--font-body);
   font-size: 14.5px;
   color: var(--text-primary);
-  background: var(--bg-root);
   transition: background-color var(--transition), color var(--transition);
 }
 
@@ -437,9 +437,6 @@ select:focus {
 /* 2026 visual refresh — warm, focused, and quietly expressive */
 body {
   letter-spacing: -0.006em;
-  background:
-    radial-gradient(circle at 72% -10%, rgba(219, 188, 126, 0.16), transparent 34%),
-    var(--bg-root);
 }
 
 ::selection {
@@ -536,12 +533,12 @@ button:active:not(:disabled) {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px 11px 11px 5px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   color: #fff;
-  background: linear-gradient(145deg, #8eabe8, #6f8ed5);
-  box-shadow: 0 7px 18px rgba(85, 120, 190, 0.2);
+  background: linear-gradient(145deg, #6f93e8, #3f6fd6);
+  box-shadow: 0 6px 16px rgba(55, 95, 180, 0.22);
   font-size: 18px;
   font-weight: 700;
 }
@@ -932,7 +929,7 @@ html[data-timeline="collapsed"] .app-body {
 
 /* Structural refresh v2 */
 body {
-  background: var(--bg-root);
+  background: transparent;
 }
 
 .brand-mark {
@@ -1246,6 +1243,7 @@ html[data-nav="collapsed"] .timeline-drawer {
 
 .brand-mark {
   color: #6379bb;
+  border-radius: 50%;
   background: #eef1fb;
   box-shadow: none;
 }
@@ -1408,8 +1406,8 @@ select {
 }
 
 .app-root {
-  display: grid;
-  grid-template-rows: 1fr;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
   position: relative;
@@ -1419,8 +1417,9 @@ select {
   display: grid;
   grid-template-columns: var(--side-w) 1fr;
   grid-template-rows: minmax(0, 1fr);
+  flex: 1;
   min-height: 0;
-  height: 100%;
+  height: auto;
   overflow: hidden;
   position: relative;
 }
@@ -5101,12 +5100,12 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px 11px 11px 5px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   color: #fff;
-  background: linear-gradient(145deg, #8eabe8, #6f8ed5);
-  box-shadow: 0 7px 18px rgba(85, 120, 190, 0.2);
+  background: linear-gradient(145deg, #6f93e8, #3f6fd6);
+  box-shadow: 0 6px 16px rgba(55, 95, 180, 0.22);
 }
 
 .brand-caption {

@@ -71,9 +71,9 @@
 
 - Windows 与 macOS 原生桌面应用
 - 托盘常驻、开机自启和全局快速添加快捷键 `Ctrl/Cmd+Shift+N`
-- “清昼、晨曦玻璃、静夜”三套完整视觉主题，并支持跟随系统自动切换
-- 晨曦玻璃使用 Windows 原生 Acrylic，让桌面壁纸透过窗口形成实时氛围
-- 三套主题统一文字、状态、边框与交互色，对关键文字执行 WCAG AA 对比度检查
+- “清昼、晨曦玻璃、璃幕、静夜”四套完整视觉主题，并支持跟随系统自动切换
+- 晨曦玻璃与璃幕以透明整窗外壳呈现氛围；Windows 圆角裁切干净，macOS 保留原生红绿灯
+- 四套主题统一文字、状态、边框与交互色，对关键文字执行 WCAG AA 对比度检查
 - 可拖拽的今日时间轴入口
 - 桌面组件可展示日历、今日任务和备忘内容，并支持透明度与配色调整
 - 命令面板用于快速切换页面和执行常用操作
@@ -107,6 +107,23 @@
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
+
+#### v1.5.6 外观精装：璃幕主题与整窗圆角
+
+- 新增「璃幕」深色磨砂主题，与清昼、晨曦玻璃、静夜并列可选。
+- 四套主题统一为整窗外壳圆角 + 应用内标题栏，去掉系统标题栏割裂感。
+- Windows 使用自定义窗控；macOS 保留红绿灯并采用 Overlay 标题栏留白。
+- 关闭主窗 acrylic/矩形阴影并加强圆角裁切，减轻四角残影。
+- 品牌标改为圆形「朝阳 + 地平线」图标，侧栏与主题预览同步更新。
+
+### v1.5.6
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.6_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.6/Grow.with.Time_1.5.6_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.6_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.6/Grow.with.Time_1.5.6_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.6) 或 Actions Artifacts 下载。
 
 #### v1.5.5 数据可靠性加固
 

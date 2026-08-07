@@ -24,6 +24,7 @@ import * as db from "@/lib/db";
 import { bumpGamification } from "@/lib/db";
 import { addDays, todayDateString } from "@/lib/dates";
 import { invoke } from "@tauri-apps/api/core";
+import { syncWindowChrome } from "@/lib/windowChrome";
 
 const emptyFilter = (): FilterState => ({
   keyword: "",
@@ -137,6 +138,7 @@ interface AppStore {
 
 function applyTheme(theme: ThemeMode) {
   document.documentElement.dataset.theme = theme;
+  void syncWindowChrome(theme);
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({

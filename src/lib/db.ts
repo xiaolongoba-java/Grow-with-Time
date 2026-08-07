@@ -1020,10 +1020,15 @@ export async function getAllSettings(): Promise<Record<string, string>> {
   return map;
 }
 
-export async function getThemeSetting(): Promise<ThemeMode> {
-  const value = await getSetting("theme");
-  if (value === "light" || value === "dark" || value === "system") return value;
+const THEME_MODES: ThemeMode[] = ["light", "dawn", "glass", "dark", "system"];
+
+function parseThemeMode(value: string | null | undefined): ThemeMode {
+  if (value && (THEME_MODES as string[]).includes(value)) return value as ThemeMode;
   return "system";
+}
+
+export async function getThemeSetting(): Promise<ThemeMode> {
+  return parseThemeMode(await getSetting("theme"));
 }
 
 export async function setThemeSetting(theme: ThemeMode): Promise<void> {
@@ -1033,7 +1038,7 @@ export async function setThemeSetting(theme: ThemeMode): Promise<void> {
 export async function loadAppSettings(): Promise<AppSettings> {
   const s = await getAllSettings();
   return {
-    theme: (s.theme as ThemeMode) || "system",
+    theme: parseThemeMode(s.theme),
     notifyAhead: Number(s.notify_ahead ?? 30),
     autostart: s.autostart === "true",
     privacyMode: s.privacy_mode !== "false",

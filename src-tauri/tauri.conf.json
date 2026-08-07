@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -20,10 +20,9 @@
         "minHeight": 560,
         "center": true,
         "transparent": true,
-        "windowEffects": {
-          "effects": ["acrylic"],
-          "color": [230, 240, 255, 78]
-        },
+        "shadow": false,
+        "backgroundColor": [0, 0, 0, 0],
+        "titleBarStyle": "Overlay",
         "visible": true,
         "focus": true
       },

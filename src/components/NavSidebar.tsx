@@ -79,7 +79,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       <div className="nav-side-scroll">
       <div className="brand-row">
         <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden><AppIcon name="sparkle" size={19} /></span>
+          <span className="brand-mark" aria-hidden><AppIcon name="brand" size={18} /></span>
           <div>
             <h1>日进·拾光</h1>
             <span className="brand-caption">Grow with Time · 日有所进，时有所拾</span>

@@ -14,6 +14,7 @@ import { DetailDrawer } from "@/components/DetailDrawer";
 import { CommandPalette } from "@/components/CommandPalette";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
+import { GlassTitlebar } from "@/components/GlassTitlebar";
 import {
   createNotificationRecord,
   ensureReminderRecord,
@@ -48,7 +49,6 @@ export function MainApp() {
   const setToast = useAppStore((s) => s.setToast);
   const canUndo = useAppStore((s) => s.canUndo);
   const undo = useAppStore((s) => s.undo);
-  const theme = useAppStore((s) => s.settings.theme);
   const setNav = useAppStore((s) => s.setNav);
   const tasks = useAppStore((s) => s.tasks);
   const nav = useAppStore((s) => s.nav);
@@ -79,10 +79,6 @@ export function MainApp() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [maybeRollover]);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
 
   useEffect(() => {
     try {
@@ -399,6 +395,7 @@ export function MainApp() {
 
   return (
     <div className="app-root">
+      <GlassTitlebar />
       <div
         className={`app-body ${detailOpen ? "detail-open" : ""} ${navCollapsed ? "nav-collapsed" : ""}`}
       >

@@ -14,6 +14,7 @@ export type AppIconName =
   | "layers"
   | "search"
   | "sparkle"
+  | "brand"
   | "tag";
 
 const paths: Record<AppIconName, ReactNode> = {
@@ -30,6 +31,8 @@ const paths: Record<AppIconName, ReactNode> = {
   layers: <><path d="m10 3 7 4-7 4-7-4z" /><path d="m4.25 10 5.75 3.25L15.75 10M4.25 13l5.75 3.25L15.75 13" /></>,
   search: <><circle cx="8.75" cy="8.75" r="5.25" /><path d="m12.75 12.75 3.75 3.75" /></>,
   sparkle: <><path d="M10 2.5c.35 3.2 1.8 5.1 5 5.5-3.2.4-4.65 2.3-5 5.5-.35-3.2-1.8-5.1-5-5.5 3.2-.4 4.65-2.3 5-5.5Z" /><path d="M15.5 12.5c.15 1.4.8 2.2 2.2 2.4-1.4.2-2.05 1-2.2 2.4-.15-1.4-.8-2.2-2.2-2.4 1.4-.2 2.05-1 2.2-2.4Z" /></>,
+  /** 日进·拾光品牌标：朝阳 + 地平线 */
+  brand: <><circle cx="10" cy="8.2" r="3.1" /><path d="M10 2.6v1.15M4.7 8.2H3.55M16.45 8.2H15.3M5.85 4.05l.82.82M14.15 4.05l-.82.82" /><path d="M3.8 15.2c1.7-2.05 3.8-3.1 6.2-3.1s4.5 1.05 6.2 3.1" /></>,
   tag: <><path d="M3.5 4.5v5l6.5 6.5 6-6-6.5-6.5z" /><circle cx="7.25" cy="7.25" r=".8" fill="currentColor" stroke="none" /></>,
 };
 

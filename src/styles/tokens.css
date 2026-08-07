@@ -102,6 +102,41 @@
   --shadow-soft: 0 8px 24px rgba(55, 83, 132, 0.1);
 }
 
+:root[data-theme="glass"] {
+  color-scheme: dark;
+  --bg-root: transparent;
+  --bg-panel: rgba(28, 36, 52, 0.42);
+  --bg-rail: rgba(18, 24, 36, 0.48);
+  --bg-hover: rgba(126, 176, 255, 0.14);
+  --bg-selected: rgba(126, 176, 255, 0.2);
+  --bg-input: rgba(255, 255, 255, 0.1);
+  --text-primary: #eef3fb;
+  --text-secondary: #b7c3d6;
+  --text-muted: #8e9cb3;
+  --text-overdue: #f0a0a8;
+  --text-on-accent: #ffffff;
+  --text-heading: #ffffff;
+  --text-label: #d5deed;
+  --surface-elevated: rgba(36, 46, 64, 0.52);
+  --surface-soft: rgba(255, 255, 255, 0.08);
+  --focus-ring: rgba(126, 176, 255, 0.42);
+  --accent: #7eb0ff;
+  --accent-hover: #9bc2ff;
+  --accent-soft: rgba(126, 176, 255, 0.18);
+  --accent-faint: rgba(126, 176, 255, 0.12);
+  --accent-strong: #c5dbff;
+  --success: #5dcf9e;
+  --warning: #f0b35a;
+  --danger: #f0888d;
+  --vip: #f0b35a;
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.24);
+  --shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.22);
+  --radius: 22px;
+  --radius-sm: 14px;
+}
+
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
     color-scheme: dark;
