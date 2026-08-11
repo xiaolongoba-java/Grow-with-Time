@@ -21,13 +21,13 @@
 ## 仓库简介（一句话，≤250 字）
 
 ```
-Grow with Time — 本地优先的待办与时间管理桌面端。Tauri 2 + React + SQLite，支持今日视图、看板/日历、标签、番茄钟、习惯与复盘，数据存本机，无需账号。
+Grow with Time（日进·拾光）— 本地优先的个人成长与行动桌面端。Tauri 2 + React + SQLite，支持今日执行、目标习惯、专注提醒与拾光记录，数据存本机，无需账号。
 ```
 
 ### 英文简介（GitHub 可选）
 
 ```
-Grow with Time — Local-first task & time management desktop app built with Tauri 2, React, and SQLite.
+Grow with Time — Local-first personal growth & task desktop app (Tauri 2, React, SQLite). Tasks, habits, focus, and journaling stay on your device.
 ```
 
 ---
@@ -35,18 +35,18 @@ Grow with Time — Local-first task & time management desktop app built with Tau
 ## 详细描述（Gitee「项目介绍」/ README 摘要）
 
 ```
-Grow with Time 是一款注重隐私与专注的桌面待办应用，数据默认保存在本机 SQLite，不依赖云同步。
+日进·拾光（Grow with Time）是一款注重隐私与专注的本地个人成长工具，数据默认保存在本机 SQLite，不依赖云同步。
 
 主要功能：
-· 今日 / 待办箱 / 已完成 / 全部视图，看板与日/周/月日历
-· 自然语言快速添加、标签、智能列表、子任务与重复任务
-· 横向时间轴、任务详情与番茄钟
-· 系统托盘、全局快捷键、提醒与桌面浮窗
-· 习惯追踪、生产力复盘、JSON/CSV 备份导出
+· 今日执行、「我的一天」、智能排程与晚间收尾
+· 任务、项目、标签、模板、番茄钟与系统提醒
+· 长期目标、习惯打卡、年度热点图与成就
+· 拾念 / 今日拾光 / 备忘录 / 拾光变迁
+· 托盘常驻、全局快捷键、桌面组件与 JSON/CSV 备份
 
 技术栈：Tauri 2 · React 19 · TypeScript · Zustand · SQLite
 
-支持平台：Windows（本机开发）、macOS Apple Silicon（需在 Mac 或 GitHub Actions 构建）
+支持平台：Windows x64、macOS Apple Silicon（需在 Mac 或 GitHub Actions 构建）
 ```
 
 ---

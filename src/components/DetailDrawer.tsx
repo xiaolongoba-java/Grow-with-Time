@@ -137,7 +137,6 @@ export function DetailDrawer() {
     hydrateFromTask();
     void loadAttachments(task.id);
     void fetchTaskEvents(task.id).then(setHistory);
-    if (focusTaskId !== task.id) setFocusTask(task.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id, detailPreferEdit]);
 

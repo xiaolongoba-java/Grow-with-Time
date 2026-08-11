@@ -20,23 +20,16 @@ export function PomodoroPanel({
   const focusRunning = useAppStore((s) => s.focusRunning);
   const toggleFocus = useAppStore((s) => s.toggleFocus);
   const resetFocus = useAppStore((s) => s.resetFocus);
-  const tickFocus = useAppStore((s) => s.tickFocus);
   const setFocusTask = useAppStore((s) => s.setFocusTask);
 
-  const activeId = boundTaskId ?? focusTaskId;
+  const activeId = focusRunning ? focusTaskId : boundTaskId ?? focusTaskId;
   const task = tasks.find((t) => t.id === activeId);
 
   useEffect(() => {
-    if (boundTaskId && focusTaskId !== boundTaskId) {
+    if (!focusRunning && boundTaskId && focusTaskId !== boundTaskId) {
       setFocusTask(boundTaskId);
     }
-  }, [boundTaskId, focusTaskId, setFocusTask]);
-
-  useEffect(() => {
-    if (!focusRunning) return;
-    const id = window.setInterval(() => tickFocus(), 1000);
-    return () => window.clearInterval(id);
-  }, [focusRunning, tickFocus]);
+  }, [boundTaskId, focusRunning, focusTaskId, setFocusTask]);
 
   const mm = String(Math.floor(focusSeconds / 60)).padStart(2, "0");
   const ss = String(focusSeconds % 60).padStart(2, "0");

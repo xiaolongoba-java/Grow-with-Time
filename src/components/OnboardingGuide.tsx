@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useAppStore } from "@/store/app";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
 
@@ -26,12 +27,19 @@ export function OnboardingGuide() {
   const complete = useAppStore((state) => state.settings.onboardingComplete);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [step, setStep] = useState(0);
+  // Session-local dismiss so a stale refreshAll cannot reopen the guide.
+  const [dismissed, setDismissed] = useState(false);
 
-  if (complete) return null;
+  if (complete || dismissed) return null;
   const current = steps[step];
 
-  return (
-    <div className="onboarding-backdrop">
+  const finish = () => {
+    setDismissed(true);
+    void updateSettings({ onboardingComplete: true });
+  };
+
+  return createPortal(
+    <div className="onboarding-backdrop" role="dialog" aria-modal="true">
       <section className="onboarding-card">
         <div className="onboarding-icon">
           <AppIcon name={current.icon} size={25} />
@@ -48,11 +56,7 @@ export function OnboardingGuide() {
           ))}
         </div>
         <footer>
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => void updateSettings({ onboardingComplete: true })}
-          >
+          <button type="button" className="btn-ghost" onClick={finish}>
             跳过
           </button>
           <button
@@ -62,7 +66,7 @@ export function OnboardingGuide() {
               if (step < steps.length - 1) {
                 setStep((value) => value + 1);
               } else {
-                void updateSettings({ onboardingComplete: true });
+                finish();
               }
             }}
           >
@@ -70,6 +74,7 @@ export function OnboardingGuide() {
           </button>
         </footer>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

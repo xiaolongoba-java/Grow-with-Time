@@ -1,4 +1,8 @@
-"""Generate HiDPI NSIS installer bitmaps for Grow with Time.
+"""Optional HiDPI NSIS installer bitmaps for Grow with Time.
+
+NOTE: Current releases use the standard Tauri NSIS template without
+headerImage/sidebarImage. Run this script only if you manually re-wire
+custom branding in src-tauri/tauri.conf.json.
 
 NSIS welcome/finish sidebar is ~164x314 and header ~150x57 at 100% scale.
 On HiDPI Windows scales these controls larger, so we ship 3x assets and let

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.6",
+  "version": "1.5.7",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -23,7 +23,7 @@
         "shadow": false,
         "backgroundColor": [0, 0, 0, 0],
         "titleBarStyle": "Overlay",
-        "visible": true,
+        "visible": false,
         "focus": true
       },
       {
@@ -141,11 +141,13 @@
       "icons/icon.ico"
     ],
     "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
       "nsis": {
         "languages": ["SimpChinese"],
         "displayLanguageSelector": false,
-        "headerImage": "windows/nsis/header.bmp",
-        "sidebarImage": "windows/nsis/sidebar.bmp",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
         "startMenuFolder": "日进·拾光"

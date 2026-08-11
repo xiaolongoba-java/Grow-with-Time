@@ -20,6 +20,12 @@ if (!String(tauri.productName ?? "").includes("Grow with Time")) {
 }
 if (!migrationTest.includes("future_letters")) failures.push("migration 测试未覆盖未来信");
 if (!backupTest.includes("daily_reflections") || !backupTest.includes("inspirations") || !backupTest.includes("future_letters")) failures.push("备份测试未覆盖完整拾光数据");
+if (tauri.bundle?.windows?.webviewInstallMode?.type !== "downloadBootstrapper") {
+  failures.push("Windows 安装包必须使用 WebView2 downloadBootstrapper，以保持最小体积");
+}
+if (tauri.bundle?.windows?.nsis?.template) {
+  failures.push("Windows 安装包应使用 Tauri 标准 NSIS 模板，避免自定义安装壳依赖");
+}
 
 if (failures.length) {
   console.error(`发布检查失败：\n- ${failures.join("\n- ")}`);

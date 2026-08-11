@@ -26,6 +26,7 @@ import {
   setNotificationStatus,
   markFutureLetterDelivered,
 } from "@/lib/db";
+import { privacySafeNotification } from "@/lib/privacy";
 import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
 import { todayDateString } from "@/lib/dates";
@@ -57,6 +58,8 @@ export function MainApp() {
   const filter = useAppStore((s) => s.filter);
   const settings = useAppStore((s) => s.settings);
   const settleTimers = useAppStore((s) => s.settleTimers);
+  const focusRunning = useAppStore((s) => s.focusRunning);
+  const tickFocus = useAppStore((s) => s.tickFocus);
 
   const [navCollapsed, setNavCollapsed] = useState(() => {
     try {
@@ -69,6 +72,13 @@ export function MainApp() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // Single global focus ticker — avoid double-counting from Today + PomodoroPanel.
+  useEffect(() => {
+    if (!focusRunning) return;
+    const id = window.setInterval(() => tickFocus(), 1000);
+    return () => window.clearInterval(id);
+  }, [focusRunning, tickFocus]);
 
   useEffect(() => {
     const onVisible = () => {
@@ -217,7 +227,12 @@ export function MainApp() {
           scheduledAt: new Date(item.fireAtMs).toISOString(),
         });
         if (created && item.showSystemNotification) {
-          sendNotification({ title: item.title, body: item.body });
+          const copy = privacySafeNotification(
+            settings.privacyMode,
+            item.title,
+            item.body,
+          );
+          sendNotification(copy);
         }
       }
       await setSetting("native_reminder_last_scan_at", String(now));
@@ -232,7 +247,7 @@ export function MainApp() {
       void recoverMissedReminders().catch(() => undefined);
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [ready, tasks, settings.notifyAhead]);
+  }, [ready, tasks, settings.notifyAhead, settings.privacyMode]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -264,7 +279,13 @@ export function MainApp() {
     const deliverLetters = async () => {
       const letters = await fetchDueFutureLetters();
       for (const letter of letters) {
-        sendNotification({ title: `一封来自过去的信：${letter.title}`, body: "打开日进·拾光，在“拾光变迁”中查看。" });
+        sendNotification(
+          privacySafeNotification(
+            useAppStore.getState().settings.privacyMode,
+            `一封来自过去的信：${letter.title}`,
+            "打开日进·拾光，在“拾光变迁”中查看。",
+          ),
+        );
         await createNotificationRecord({ title: `拾光变迁 · ${letter.title}`, body: "这封写给未来的信已经抵达。", scheduledAt: letter.deliver_at });
         await markFutureLetterDelivered(letter.id);
       }
@@ -280,7 +301,13 @@ export function MainApp() {
       try {
         const due = await fetchDueNotifications();
         for (const item of due) {
-          sendNotification({ title: item.title, body: item.body });
+          sendNotification(
+            privacySafeNotification(
+              useAppStore.getState().settings.privacyMode,
+              item.title,
+              item.body,
+            ),
+          );
           await setNotificationStatus(item.id, "delivered");
         }
         if (due.length) {
@@ -311,7 +338,13 @@ export function MainApp() {
             ? `「${item.timer.title}」到点了，已开始下一轮`
             : `「${item.timer.title}」倒计时结束`;
           if (granted) {
-            sendNotification({ title: "定时提醒", body });
+            sendNotification(
+              privacySafeNotification(
+                useAppStore.getState().settings.privacyMode,
+                "定时提醒",
+                body,
+              ),
+            );
           }
           setToast(body);
         }
@@ -430,7 +463,24 @@ export function MainApp() {
       ) : null}
       {error ? (
         <div className="toast" role="alert" aria-live="assertive" style={{ background: "var(--text-overdue)" }}>
-          {error}
+          <span>{error}</span>
+          <button
+            type="button"
+            className="toast-undo"
+            onClick={() => {
+              useAppStore.setState({ error: null });
+              void bootstrap();
+            }}
+          >
+            重试
+          </button>
+          <button
+            type="button"
+            className="toast-undo"
+            onClick={() => useAppStore.setState({ error: null })}
+          >
+            关闭
+          </button>
         </div>
       ) : null}
       <span style={{ display: "none" }}>{todayDateString()}</span>

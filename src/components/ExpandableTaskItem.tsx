@@ -22,7 +22,6 @@ export function ExpandableTaskItem({
   const tasks = useAppStore((s) => s.tasks);
   const selectTask = useAppStore((s) => s.selectTask);
   const toggleComplete = useAppStore((s) => s.toggleComplete);
-  const setFocusTask = useAppStore((s) => s.setFocusTask);
   const addTask = useAppStore((s) => s.addTask);
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState("");
@@ -33,7 +32,6 @@ export function ExpandableTaskItem({
 
   const toggleExpand = () => {
     setExpanded((v) => !v);
-    setFocusTask(task.id);
   };
 
   return (
@@ -93,7 +91,6 @@ export function ExpandableTaskItem({
           onClick={(e) => {
             e.stopPropagation();
             selectTask(task.id);
-            setFocusTask(task.id);
           }}
         >
           详情

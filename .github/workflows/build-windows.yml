@@ -33,8 +33,8 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
-      - name: Test application and migration contracts
-        run: npm test
+      - name: Release check, tests, and frontend build
+        run: npm run release:check
 
       - name: Build Tauri (NSIS)
         run: npm run tauri build -- --bundles nsis

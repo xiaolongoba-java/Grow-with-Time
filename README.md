@@ -108,6 +108,25 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.7 执行反馈与工程健康
+
+- 今日「开始」会打开详情并进入专注，按钮即时反馈；引导页「开始日进·拾光」更可靠。
+- 初始化/操作失败提示更可读，支持重试与关闭。
+- 无痕模式生效：系统通知标题与正文脱敏，避免锁屏或通知中心泄露任务内容。
+- 网络权限收窄为 HTTPS 与本机 HTTP（localhost / 127.0.0.1），兼容自定义 AI 与本地模型。
+- 发布检查接入 CI；Windows 安装包继续使用标准 Tauri NSIS + WebView2 downloadBootstrapper。
+- 备份恢复摘要与合并语义抽出可测纯逻辑，加强契约测试。
+- 测试依赖固定 Vitest 3，避免 Node 24 下 Vitest 4 用例收集失败。
+
+### v1.5.7
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.7_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.7/Grow.with.Time_1.5.7_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.7_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.7/Grow.with.Time_1.5.7_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.7) 或 Actions Artifacts 下载。
+
 #### v1.5.6 外观精装：璃幕主题与整窗圆角
 
 - 新增「璃幕」深色磨砂主题，与清昼、晨曦玻璃、静夜并列可选。
@@ -330,6 +349,12 @@
 ```bash
 npm install
 npm run tauri dev
+```
+
+发布前请跑本地门禁（版本对齐、测试与前端构建）：
+
+```bash
+npm run release:check
 ```
 
 若链接器冲突（Git 的 `link.exe`），复制 `src-tauri/.cargo/config.toml.example` 为 `config.toml`，并指向本机 MSVC 的 `link.exe`（该文件已加入 `.gitignore`，不会影响 CI）。

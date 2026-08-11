@@ -220,6 +220,9 @@ export function SettingsView() {
         >
           无痕模式：{settings.privacyMode ? "开启" : "关闭"}
         </button>
+        <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          开启后，系统通知只显示「日进·拾光 / 你有一条提醒」，不展示具体任务标题与内容。
+        </p>
       </section>
 
       <section className="settings-card" style={{ marginTop: 12 }}>
@@ -311,7 +314,8 @@ export function SettingsView() {
       <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>AI（OpenAI 兼容）</h3>
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
-          未配置 API Key 时，AI 拆解与智能排期不可用。
+          未配置 API Key 时，AI 拆解与智能排期不可用。Base URL 仅支持 HTTPS，或本机
+          HTTP（localhost / 127.0.0.1）。
         </p>
         <label className="field-label">Base URL</label>
         <input

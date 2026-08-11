@@ -5,4 +5,10 @@ describe("theme readability", () => {
   it.each(Object.entries(themeMeta))("keeps %s primary text at WCAG AA contrast", (_theme, palette) => {
     expect(contrastRatio(palette.text, palette.surface)).toBeGreaterThanOrEqual(4.5);
   });
+
+  it("keeps glass and dark headings brighter than soft muted greys", () => {
+    expect(contrastRatio(themeMeta.glass.text, themeMeta.glass.surface)).toBeGreaterThanOrEqual(7);
+    expect(contrastRatio(themeMeta.dark.text, themeMeta.dark.surface)).toBeGreaterThanOrEqual(7);
+    expect(contrastRatio(themeMeta.dawn.text, themeMeta.dawn.surface)).toBeGreaterThanOrEqual(7);
+  });
 });

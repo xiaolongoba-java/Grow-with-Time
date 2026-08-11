@@ -107,9 +107,12 @@ function DayBoard() {
   const today = todayDateString();
   const batchComplete = useAppStore((s) => s.batchComplete);
   const batchDelete = useAppStore((s) => s.batchDelete);
+  const selectTask = useAppStore((s) => s.selectTask);
   const setFocusTask = useAppStore((s) => s.setFocusTask);
   const toggleFocus = useAppStore((s) => s.toggleFocus);
   const focusRunning = useAppStore((s) => s.focusRunning);
+  const focusTaskId = useAppStore((s) => s.focusTaskId);
+  const focusSeconds = useAppStore((s) => s.focusSeconds);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [schedulePreview, setSchedulePreview] = useState<
@@ -183,15 +186,32 @@ function DayBoard() {
       );
     })[0];
   }, [cursor, dayTasks, today]);
+  const focusClock = `${String(Math.floor(focusSeconds / 60)).padStart(2, "0")}:${String(focusSeconds % 60).padStart(2, "0")}`;
+  const focusTask = allTasks.find((task) => task.id === focusTaskId) ?? null;
+
   const startNextTask = () => {
-    if (!nextTask) {
-      useAppStore.getState().setToast("今天还没有待执行任务");
+    // Already focusing: open that task so the timer/controls are visible.
+    if (focusRunning && focusTaskId) {
+      selectTask(focusTaskId);
+      useAppStore.getState().setToast(
+        `专注进行中「${focusTask?.title ?? "当前任务"}」· ${focusClock} · 可在详情暂停`,
+      );
       return;
     }
-    setFocusTask(nextTask.id);
-    if (!focusRunning) {
-      void toggleFocus();
+    if (!nextTask) {
+      useAppStore.getState().setToast("今天还没有待执行任务，先新建或加入我的一天吧");
+      return;
     }
+    selectTask(nextTask.id);
+    setFocusTask(nextTask.id);
+    if (nextTask.status !== "in_progress") {
+      void saveTask(nextTask.id, { status: "in_progress" });
+    }
+    void toggleFocus().then(() => {
+      useAppStore
+        .getState()
+        .setToast(`已开始专注「${nextTask.title}」· 右侧可暂停或重置`);
+    });
   };
   const previewSchedule = () => {
     const suggestions = suggestDaySchedule(
@@ -312,21 +332,28 @@ function DayBoard() {
             </span>
           ) : null}
           <div className="today-hero-actions">
-            <button
-              type="button"
-              className="today-focus-action"
-              onClick={startNextTask}
-              disabled={!nextTask}
-            >
-              <span aria-hidden="true">▶</span>
-              <span className="today-focus-label">
-                {focusRunning
-                  ? "继续专注"
-                  : nextTask
-                    ? `开始：${nextTask.title}`
-                    : "今天已完成"}
-              </span>
-            </button>
+            <div className="today-focus-block">
+              <button
+                type="button"
+                className={`today-focus-action ${focusRunning ? "is-running" : ""}`}
+                onClick={startNextTask}
+                disabled={!focusRunning && !nextTask}
+              >
+                <span aria-hidden="true">{focusRunning ? "●" : "▶"}</span>
+                <span className="today-focus-label">
+                  {focusRunning
+                    ? `专注中 ${focusClock}`
+                    : nextTask
+                      ? `开始：${nextTask.title}`
+                      : "今天已完成"}
+                </span>
+              </button>
+              {focusRunning && focusTask ? (
+                <p className="today-focus-status">
+                  「{focusTask.title}」· 点击打开计时
+                </p>
+              ) : null}
+            </div>
             {cursor === today ? (
               <button
                 type="button"
@@ -717,6 +744,12 @@ function DayBoard() {
                       type="button"
                       className="btn-ghost"
                       onClick={() => {
+                        if (focusRunning && focusTaskId !== task.id) {
+                          useAppStore
+                            .getState()
+                            .setToast("已有专注任务正在进行，请先暂停后再切换");
+                          return;
+                        }
                         setFocusTask(task.id);
                         if (task.status !== "in_progress") {
                           void saveTask(task.id, { status: "in_progress" });

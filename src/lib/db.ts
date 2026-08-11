@@ -34,6 +34,16 @@ import { extractMomentTags } from "@/lib/moments";
 import { createId, DB_URL, nowIso, nowTimeString, addMinutesToTime, ensureEndAfterStart, todayDateString } from "@/lib/dates";
 import { nextRepeatTaskDraft, parseRepeatRule } from "@/lib/repeat";
 import { goalAcceptsSource, localDateKey, localWeekStartKey } from "@/lib/growth";
+import {
+  backupPayloadHas,
+  validateBackupPayload,
+} from "@/lib/backup";
+
+export {
+  backupPayloadHas,
+  summarizeBackupRestore,
+  validateBackupPayload,
+} from "@/lib/backup";
 
 let dbPromise: Promise<Database> | null = null;
 const TASK_SELECT = `SELECT tasks.*,
@@ -1937,8 +1947,8 @@ export async function exportBackup(): Promise<BackupPayload> {
 
 export async function importBackup(payload: BackupPayload): Promise<void> {
   const db = await getDb();
-  const has = (key: keyof BackupPayload) =>
-    Object.prototype.hasOwnProperty.call(payload, key);
+  validateBackupPayload(payload);
+  const has = (key: keyof BackupPayload) => backupPayloadHas(payload, key);
 
   await db.execute("BEGIN IMMEDIATE");
   try {
@@ -2269,37 +2279,6 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
     await db.execute("ROLLBACK");
     throw error;
   }
-}
-
-/** Build a human-readable restore summary, including data that would be preserved. */
-export function summarizeBackupRestore(payload: BackupPayload): string {
-  const has = (key: keyof BackupPayload) =>
-    Object.prototype.hasOwnProperty.call(payload, key);
-  const lines = [
-    `备份时间：${new Date(payload.exportedAt).toLocaleString()}`,
-    `任务：${payload.tasks.length} 项`,
-    `标签：${payload.tags.length} 个`,
-    `习惯：${payload.habits.length} 个`,
-  ];
-  if (has("goals")) lines.push(`成长目标：${payload.goals?.length ?? 0} 个`);
-  if (has("dailyReflections") || has("inspirations") || has("futureLetters")) {
-    lines.push(
-      `拾光：回望 ${payload.dailyReflections?.length ?? 0} · 拾念 ${payload.inspirations?.length ?? 0} · 未来信 ${payload.futureLetters?.length ?? 0}`,
-    );
-  }
-  const keep: string[] = [];
-  if (!has("goals") && !has("goalEntries") && !has("achievements")) {
-    keep.push("成长目标");
-  }
-  if (!has("dailyReflections") && !has("inspirations") && !has("futureLetters")) {
-    keep.push("拾光记录");
-  }
-  if (!has("timers")) keep.push("循环提醒");
-  if (keep.length) {
-    lines.push("", `以下数据备份中未包含，将保留当前内容：${keep.join("、")}`);
-  }
-  lines.push("", "恢复会覆盖其余当前数据，是否继续？");
-  return lines.join("\n");
 }
 
 /* Projects and reusable task templates */

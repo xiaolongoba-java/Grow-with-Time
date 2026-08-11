@@ -3,8 +3,21 @@ dist
 dist-ssr
 *.local
 .DS_Store
+nul
+.tmp-clean/
+*.tsbuildinfo
 src-tauri/target
 .cargo-check-target
 .tauri-dev-*.log
 src-tauri/.cargo/config.toml
 scripts/vs_BuildTools.exe
+
+# Local build output and non-project working documents
+dist-setup/
+docs/ui-drafts/
+resume*_render/
+resume-*.docx
+build_resume.py
+separate_resume_sections.py
+个人简历*.docx
+*高级后端研发工程师*.docx

@@ -25,6 +25,7 @@ import { bumpGamification } from "@/lib/db";
 import { addDays, todayDateString } from "@/lib/dates";
 import { invoke } from "@tauri-apps/api/core";
 import { syncWindowChrome } from "@/lib/windowChrome";
+import { errorMessage } from "@/lib/errors";
 
 const emptyFilter = (): FilterState => ({
   keyword: "",
@@ -201,9 +202,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
           : {}),
       });
     } catch (e) {
+      const detail = errorMessage(e, "初始化失败");
+      const diskHint =
+        /space|磁盘|disk|full|os error 112|SQLITE_FULL|SQLITE_IOERR/i.test(
+          detail,
+        )
+          ? "（系统盘空间不足，请清理 C 盘后重启）"
+          : "";
       set({
         ready: true,
-        error: e instanceof Error ? e.message : "初始化失败",
+        error: `${detail}${diskHint}`,
       });
     }
   },
@@ -254,7 +262,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       db.fetchProjects(),
       db.fetchTaskTemplates(),
     ]);
-    set({
+    set((s) => ({
       tasks,
       trashTasks,
       tags,
@@ -263,10 +271,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       habits,
       habitChecks,
       timers,
-      settings,
+      // Don't regress onboarding if a concurrent refresh raced ahead of persist.
+      settings: {
+        ...settings,
+        onboardingComplete:
+          s.settings.onboardingComplete || settings.onboardingComplete,
+      },
       projects,
       taskTemplates,
-    });
+    }));
   },
 
   setNavigationGuard: (navigationGuard) => set({ navigationGuard }),
@@ -636,25 +649,42 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   updateSettings: async (patch) => {
-    if (patch.notifyAhead !== undefined) {
-      await db.setSetting("notify_ahead", String(patch.notifyAhead));
-    }
-    if (patch.autostart !== undefined) {
-      await db.setSetting("autostart", String(patch.autostart));
-    }
-    if (patch.privacyMode !== undefined) {
-      await db.setSetting("privacy_mode", String(patch.privacyMode));
-    }
-    if (patch.autoBackup !== undefined) {
-      await db.setSetting("auto_backup", String(patch.autoBackup));
-    }
-    if (patch.onboardingComplete !== undefined) {
-      await db.setSetting(
-        "onboarding_complete",
-        String(patch.onboardingComplete),
-      );
-    }
+    // Apply optimistically so UI (e.g. onboarding dismiss) never waits on SQLite.
+    const previous = get().settings;
     set((s) => ({ settings: { ...s.settings, ...patch } }));
+    try {
+      if (patch.notifyAhead !== undefined) {
+        await db.setSetting("notify_ahead", String(patch.notifyAhead));
+      }
+      if (patch.autostart !== undefined) {
+        await db.setSetting("autostart", String(patch.autostart));
+      }
+      if (patch.privacyMode !== undefined) {
+        await db.setSetting("privacy_mode", String(patch.privacyMode));
+      }
+      if (patch.autoBackup !== undefined) {
+        await db.setSetting("auto_backup", String(patch.autoBackup));
+      }
+      if (patch.onboardingComplete !== undefined) {
+        await db.setSetting(
+          "onboarding_complete",
+          String(patch.onboardingComplete),
+        );
+      }
+    } catch (e) {
+      set((state) => {
+        const settings = { ...state.settings };
+        for (const key of Object.keys(patch) as (keyof AppSettings)[]) {
+          if (Object.is(settings[key], patch[key])) {
+            (settings as Record<keyof AppSettings, AppSettings[keyof AppSettings]>)[key] = previous[key];
+          }
+        }
+        return {
+          settings,
+          toast: `设置保存失败，已恢复原设置：${errorMessage(e, "未知错误")}`,
+        };
+      });
+    }
   },
 
   saveAi: async (ai) => {
@@ -662,13 +692,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set((s) => ({ settings: { ...s.settings, ai }, toast: "AI 设置已保存" }));
   },
 
-  setFocusTask: (focusTaskId) =>
+  setFocusTask: (focusTaskId) => {
+    // Re-binding the same task must not wipe an in-progress session
+    // (detail drawer / pomodoro panel sync often re-calls this).
+    if (get().focusTaskId === focusTaskId) {
+      set({ focusTaskId });
+      return;
+    }
+    if (get().focusRunning) {
+      set({ toast: "已有专注任务正在进行，请先暂停后再切换" });
+      return;
+    }
     set({
       focusTaskId,
       focusSeconds: 25 * 60,
       focusRunning: false,
       focusSessionId: null,
-    }),
+    });
+  },
   tickFocus: () => {
     const { focusRunning, focusSeconds } = get();
     if (!focusRunning || focusSeconds <= 0) return;
