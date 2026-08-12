@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -113,6 +113,24 @@
         "minHeight": 300,
         "x": 860,
         "y": 90,
+        "visible": false,
+        "alwaysOnTop": true,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "skipTaskbar": true,
+        "focus": false
+      },
+      {
+        "label": "widget-dashboard",
+        "title": "桌面仪表盘",
+        "width": 1280,
+        "height": 210,
+        "minWidth": 960,
+        "minHeight": 180,
+        "x": 80,
+        "y": 40,
         "visible": false,
         "alwaysOnTop": true,
         "resizable": true,

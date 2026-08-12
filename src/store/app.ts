@@ -162,6 +162,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     autostart: false,
     privacyMode: true,
     autoBackup: true,
+    desktopWidgetMode: "dashboard",
     ai: { baseUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
     karma: 0,
     streak: 0,
@@ -297,7 +298,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
             ? "month"
             : get().dateScope,
       calendarCursor:
-        nav === "today" || nav === "myday"
+        nav === "today" || nav === "myday" || nav === "week"
           ? todayDateString()
           : get().calendarCursor,
       viewMode:
@@ -664,6 +665,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
       if (patch.autoBackup !== undefined) {
         await db.setSetting("auto_backup", String(patch.autoBackup));
+      }
+      if (patch.desktopWidgetMode !== undefined) {
+        await db.setSetting("desktop_widget_mode", patch.desktopWidgetMode);
       }
       if (patch.onboardingComplete !== undefined) {
         await db.setSetting(

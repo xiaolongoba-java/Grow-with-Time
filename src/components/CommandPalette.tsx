@@ -7,6 +7,7 @@ const destinations: { id: NavId; label: string }[] = [
   { id: "myday", label: "打开我的一天" },
   { id: "today", label: "打开今日" },
   { id: "inbox", label: "打开待办箱" },
+  { id: "week", label: "打开周清单" },
   { id: "projects", label: "打开项目与模板" },
   { id: "growth", label: "打开成长目标" },
   { id: "daily-reflection", label: "打开今日拾光" },

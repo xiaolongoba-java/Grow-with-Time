@@ -1053,6 +1053,7 @@ export async function loadAppSettings(): Promise<AppSettings> {
     autostart: s.autostart === "true",
     privacyMode: s.privacy_mode !== "false",
     autoBackup: s.auto_backup !== "false",
+    desktopWidgetMode: s.desktop_widget_mode === "classic" ? "classic" : "dashboard",
     ai: {
       baseUrl: s.ai_base_url || "https://api.openai.com/v1",
       apiKey: s.ai_api_key || "",

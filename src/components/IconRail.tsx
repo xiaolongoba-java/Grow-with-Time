@@ -1,6 +1,7 @@
 import type { NavId } from "@/types";
 import { useAppStore } from "@/store/app";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
+import { openDesktopWidgets } from "@/lib/desktopWidgets";
 
 /** 仅保留侧栏没有的入口，避免与「视图」列表重复 */
 const BOTTOM: { id: NavId; label: string; icon: AppIconName }[] = [
@@ -11,18 +12,21 @@ const BOTTOM: { id: NavId; label: string; icon: AppIconName }[] = [
 export function IconRail() {
   const nav = useAppStore((s) => s.nav);
   const setNav = useAppStore((s) => s.setNav);
+  const desktopWidgetMode = useAppStore((s) => s.settings.desktopWidgetMode);
 
   return (
     <aside className="icon-rail" aria-label="功能导航">
       <button
         type="button"
         className="rail-btn"
-        title="打开桌面组件（月历 / 今日计划 / 备忘录）"
+        title={
+          desktopWidgetMode === "classic"
+            ? "打开经典桌面组件（月历 / 今日计划 / 备忘录）"
+            : "打开桌面仪表盘"
+        }
         aria-label="打开桌面组件"
         onClick={() => {
-          void import("@tauri-apps/api/core").then(({ invoke }) =>
-            invoke("show_desktop_widgets"),
-          );
+          void openDesktopWidgets(desktopWidgetMode);
         }}
       >
         <AppIcon name="panel" />

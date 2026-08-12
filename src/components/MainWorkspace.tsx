@@ -24,6 +24,7 @@ import { SettingsView } from "@/components/SettingsView";
 import { HabitsView } from "@/components/HabitsView";
 import { RemindersView } from "@/components/RemindersView";
 import { ReviewView } from "@/components/ReviewView";
+import { WeeklyChecklistView } from "@/components/WeeklyChecklistView";
 import { ExpandableTaskItem } from "@/components/ExpandableTaskItem";
 import { ProjectsView } from "@/components/ProjectsView";
 import {
@@ -1204,6 +1205,7 @@ export function MainWorkspace() {
     );
   }
   if (nav === "review") return <ReviewView />;
+  if (nav === "week") return <WeeklyChecklistView />;
   if (nav === "growth") return <Suspense fallback={<div className="empty-state">正在加载成长数据…</div>}><GrowthView /></Suspense>;
   if (nav === "daily-reflection") return <Suspense fallback={<div className="empty-state">正在打开今日拾光…</div>}><MomentsView mode="today" /></Suspense>;
   if (nav === "inspirations") return <Suspense fallback={<div className="empty-state">正在打开拾念箱…</div>}><MomentsView mode="ideas" /></Suspense>;

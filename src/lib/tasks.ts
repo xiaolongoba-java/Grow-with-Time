@@ -139,6 +139,7 @@ export function getViewTitle(view: string): string {
     today: "今日",
     myday: "我的一天",
     inbox: "待办箱",
+    week: "周清单",
     completed: "已完成",
     all: "全部任务",
     board: "看板",

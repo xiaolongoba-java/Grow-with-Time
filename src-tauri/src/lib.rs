@@ -684,6 +684,15 @@ fn show_desktop_widgets(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn show_dashboard_strip(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("widget-dashboard") {
+        window.show().map_err(|e| e.to_string())?;
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn today_pending_count(count: i64) -> Result<i64, String> {
     Ok(count)
 }
@@ -819,8 +828,10 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
     let show = MenuItem::with_id(app, "show", "打开主窗口", true, None::<&str>)?;
     let float = MenuItem::with_id(app, "float", "桌面浮窗", true, None::<&str>)?;
+    let dashboard = MenuItem::with_id(app, "dashboard", "桌面仪表盘", true, None::<&str>)?;
+    let widgets = MenuItem::with_id(app, "widgets", "经典桌面组件", true, None::<&str>)?;
     let today = MenuItem::with_id(app, "today", "今日待办", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &float, &today, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &float, &dashboard, &widgets, &today, &quit])?;
 
     let _tray = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
@@ -836,6 +847,12 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             }
             "float" => {
                 let _ = show_float(app.clone());
+            }
+            "dashboard" => {
+                let _ = show_dashboard_strip(app.clone());
+            }
+            "widgets" => {
+                let _ = show_desktop_widgets(app.clone());
             }
             "today" => {
                 let _ = app.emit("tray:today", ());
@@ -902,6 +919,7 @@ pub fn run() {
             start_timer_ui,
             hide_float,
             show_desktop_widgets,
+            show_dashboard_strip,
             today_pending_count,
             schedule_native_notification,
             cancel_native_notification,
@@ -941,7 +959,14 @@ pub fn run() {
                     }
                 });
             }
-            for label in ["quick-add", "inspiration"] {
+            for label in [
+                "quick-add",
+                "inspiration",
+                "widget-dashboard",
+                "widget-calendar",
+                "widget-today",
+                "widget-memo",
+            ] {
                 if let Some(window) = app.get_webview_window(label) {
                     let app_handle = app.handle().clone();
                     let window_label = label.to_string();

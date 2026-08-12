@@ -209,6 +209,55 @@ export function SettingsView() {
       </section>
 
       <section className="settings-card" style={{ marginTop: 12 }}>
+        <h3>桌面组件</h3>
+        <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          侧栏与工具栏入口会按你选择的默认模式打开；两种模式可同时使用。
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <button
+            type="button"
+            className={settings.desktopWidgetMode === "dashboard" ? "btn-primary" : "btn-ghost"}
+            style={{ width: "auto" }}
+            onClick={() => void updateSettings({ desktopWidgetMode: "dashboard" })}
+          >
+            横条仪表盘
+          </button>
+          <button
+            type="button"
+            className={settings.desktopWidgetMode === "classic" ? "btn-primary" : "btn-ghost"}
+            style={{ width: "auto" }}
+            onClick={() => void updateSettings({ desktopWidgetMode: "classic" })}
+          >
+            经典三件套
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => {
+              void import("@tauri-apps/api/core").then(({ invoke }) =>
+                invoke("show_dashboard_strip"),
+              );
+            }}
+          >
+            打开仪表盘
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => {
+              void import("@tauri-apps/api/core").then(({ invoke }) =>
+                invoke("show_desktop_widgets"),
+              );
+            }}
+          >
+            打开经典组件
+          </button>
+        </div>
+      </section>
+
+      <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>隐私</h3>
         <p>本地优先，任务数据仅保存在本机。默认不上传任何日志与任务内容。</p>
         <button

@@ -15,6 +15,7 @@ export type NavId =
   | "today"
   | "myday"
   | "inbox"
+  | "week"
   | "completed"
   | "all"
   | "board"
@@ -223,12 +224,15 @@ export interface AiSettings {
   model: string;
 }
 
+export type DesktopWidgetMode = "dashboard" | "classic";
+
 export interface AppSettings {
   theme: ThemeMode;
   notifyAhead: number;
   autostart: boolean;
   privacyMode: boolean;
   autoBackup: boolean;
+  desktopWidgetMode: DesktopWidgetMode;
   ai: AiSettings;
   karma: number;
   streak: number;

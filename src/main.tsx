@@ -6,6 +6,7 @@ import { QuickAddApp } from "@/app/QuickAddApp";
 import { InspirationApp } from "@/app/InspirationApp";
 import { FloatApp } from "@/app/FloatApp";
 import { DesktopWidgetApp } from "@/app/DesktopWidgetApp";
+import { DashboardStripApp } from "@/app/DashboardStripApp";
 import "@/styles/global.css";
 import "@/styles/polish.css";
 
@@ -45,6 +46,7 @@ function AppByLabel() {
   if (label === "quick-add") return <QuickAddApp />;
   if (label === "inspiration") return <InspirationApp />;
   if (label === "float") return <FloatApp />;
+  if (label === "widget-dashboard") return <DashboardStripApp />;
   if (label.startsWith("widget-")) {
     return (
       <DesktopWidgetApp

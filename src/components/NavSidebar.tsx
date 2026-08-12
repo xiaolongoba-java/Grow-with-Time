@@ -5,6 +5,7 @@ import { parseNaturalInput } from "@/lib/nlp";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { isActiveTask } from "@/lib/tasks";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { openDesktopWidgets } from "@/lib/desktopWidgets";
 
 type NavSidebarProps = {
   onCollapse?: () => void;
@@ -13,6 +14,7 @@ type NavSidebarProps = {
 export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const nav = useAppStore((s) => s.nav);
   const setNav = useAppStore((s) => s.setNav);
+  const desktopWidgetMode = useAppStore((s) => s.settings.desktopWidgetMode);
   const tasks = useAppStore((s) => s.tasks);
   const tags = useAppStore((s) => s.tags);
   const smartLists = useAppStore((s) => s.smartLists);
@@ -134,6 +136,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
           ["today", "今日", counts.today, "today"],
           ["myday", "我的一天", counts.myday, "sparkle"],
           ["inbox", "待办箱", counts.inbox, "inbox"],
+          ["week", "周清单", null, "review"],
         ] as const
       ).map(([id, label, count, icon]) => (
         <button
@@ -143,7 +146,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
           onClick={() => setNav(id)}
         >
           <span className="nav-item-label"><AppIcon name={icon as AppIconName} size={17} />{label}</span>
-          <span className="nav-count">{count}</span>
+          {count !== null ? <span className="nav-count">{count}</span> : null}
         </button>
       ))}
 
@@ -274,7 +277,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       <footer className="nav-side-footer" aria-label="全局工具">
         <button type="button" className={nav === "settings" ? "active" : ""} onClick={() => setNav("settings")}><AppIcon name="settings" size={17} />设置</button>
         <button type="button" className={nav === "trash" ? "active" : ""} onClick={() => setNav("trash")}><AppIcon name="trash" size={17} />回收站</button>
-        <button type="button" onClick={() => { void import("@tauri-apps/api/core").then(({ invoke }) => invoke("show_desktop_widgets")); }}><AppIcon name="panel" size={17} />桌面组件</button>
+        <button type="button" onClick={() => { void openDesktopWidgets(desktopWidgetMode); }}><AppIcon name="panel" size={17} />桌面组件</button>
       </footer>
       {onCollapse ? (
         <button
