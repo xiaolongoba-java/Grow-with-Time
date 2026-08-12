@@ -22,7 +22,7 @@ export function IconRail() {
         title={
           desktopWidgetMode === "classic"
             ? "打开经典桌面组件（月历 / 今日计划 / 备忘录）"
-            : "打开桌面仪表盘"
+            : "打开桌面横条仪表盘（备忘 / 打卡 / 月历 / 倒计时）"
         }
         aria-label="打开桌面组件"
         onClick={() => {

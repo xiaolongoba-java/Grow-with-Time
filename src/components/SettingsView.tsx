@@ -211,7 +211,8 @@ export function SettingsView() {
       <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>桌面组件</h3>
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
-          侧栏与工具栏入口会按你选择的默认模式打开；两种模式可同时使用。
+          默认模式决定侧栏「桌面组件」与工具栏入口打开哪一种；两种模式可同时常驻桌面。
+          横条仪表盘适合一眼扫备忘与打卡；经典三件套为月历 / 今日计划 / 备忘录分窗。
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
           <button

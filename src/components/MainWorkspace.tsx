@@ -850,7 +850,10 @@ function WeekBoard() {
         >
           ‹
         </button>
-        <strong>{weekLabel}</strong>
+        <div className="week-board-title">
+          <span className="week-board-kicker">周历 · 按时间查看</span>
+          <strong>{weekLabel}</strong>
+        </div>
         <button
           type="button"
           className="btn-ghost"
@@ -896,7 +899,9 @@ function WeekBoard() {
           ))}
         </div>
       ) : (
-        <div className="scope-empty">本周暂无带日期的任务</div>
+        <div className="scope-empty">
+          本周暂无带日期的任务。若要按工作/生活等分类查看，请打开侧栏「周清单」。
+        </div>
       )}
 
       <div className="week-board" ref={bodyRef}>
@@ -1248,7 +1253,7 @@ export function MainWorkspace() {
                   className={dateScope === s ? "active" : ""}
                   onClick={() => setDateScope(s)}
                 >
-                  {s === "day" ? "日" : s === "week" ? "周" : "月"}
+                  {s === "day" ? "日" : s === "week" ? "周历" : "月"}
                 </button>
               ))}
             </div>

@@ -22,6 +22,8 @@ export function WeeklyChecklistView() {
   const tagMap = useAppStore((s) => s.tagMap);
   const calendarCursor = useAppStore((s) => s.calendarCursor);
   const setCalendarCursor = useAppStore((s) => s.setCalendarCursor);
+  const setNav = useAppStore((s) => s.setNav);
+  const setDateScope = useAppStore((s) => s.setDateScope);
   const toggleComplete = useAppStore((s) => s.toggleComplete);
   const selectTask = useAppStore((s) => s.selectTask);
   const today = todayDateString();
@@ -51,7 +53,7 @@ export function WeeklyChecklistView() {
         <div>
           <h2>周清单</h2>
           <p className="weekly-checklist-sub">
-            {weekStart} ～ {weekEnd} · 用标签「工作 / 生活 / 健康 / 学习」归类任务
+            {weekStart} ～ {weekEnd} · 按标签看本周目标；按小时排程请用「周历」
           </p>
         </div>
         <div className="weekly-checklist-nav">
@@ -75,6 +77,16 @@ export function WeeklyChecklistView() {
             onClick={() => setCalendarCursor(shiftWeek(weekStart, 1))}
           >
             下周 ›
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => {
+              setNav("today");
+              setDateScope("week");
+            }}
+          >
+            打开周历
           </button>
         </div>
       </div>

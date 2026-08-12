@@ -2514,6 +2514,19 @@ html[data-timeline="collapsed"] .app-body {
   font-size: 1.05rem;
 }
 
+.week-board-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.week-board-kicker {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
 .scope-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;

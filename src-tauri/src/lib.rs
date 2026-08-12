@@ -612,6 +612,16 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 14,
+            description: "desktop_widget_mode_default",
+            sql: r#"
+INSERT OR IGNORE INTO settings (key, value) VALUES ('desktop_widget_mode', 'dashboard');
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '14');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
