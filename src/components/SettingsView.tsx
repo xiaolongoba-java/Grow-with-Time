@@ -289,6 +289,19 @@ export function SettingsView() {
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
           开启后每 6 小时保存一份备份，自动保留最近 10 个版本。
         </p>
+        <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          最近成功：
+          {settings.autoBackupLastOk
+            ? new Date(settings.autoBackupLastOk).toLocaleString()
+            : "尚无成功记录"}
+          {settings.autoBackupLastError
+            ? ` · 最近失败：${settings.autoBackupLastError}${
+                settings.autoBackupFailStreak > 1
+                  ? `（连续 ${settings.autoBackupFailStreak} 次）`
+                  : ""
+              }`
+            : " · 当前无失败"}
+        </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="btn-primary" style={{ width: "auto" }} onClick={() => void exportJson()}>
             导出 JSON

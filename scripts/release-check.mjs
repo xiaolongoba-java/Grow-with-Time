@@ -18,8 +18,17 @@ if (!/^[\x20-\x7E]+$/.test(String(tauri.productName ?? ""))) {
 if (!String(tauri.productName ?? "").includes("Grow with Time")) {
   failures.push('productName 应包含 "Grow with Time"，以保持安装包命名稳定');
 }
-if (!migrationTest.includes("future_letters")) failures.push("migration 测试未覆盖未来信");
-if (!backupTest.includes("daily_reflections") || !backupTest.includes("inspirations") || !backupTest.includes("future_letters")) failures.push("备份测试未覆盖完整拾光数据");
+if (!migrationTest.includes("future_letters") || !migrationTest.includes("anniversaries")) {
+  failures.push("migration 测试未覆盖未来信 / 纪念日");
+}
+if (
+  !backupTest.includes("daily_reflections") ||
+  !backupTest.includes("inspirations") ||
+  !backupTest.includes("future_letters") ||
+  !backupTest.includes("anniversaries")
+) {
+  failures.push("备份测试未覆盖完整拾光数据");
+}
 if (tauri.bundle?.windows?.webviewInstallMode?.type !== "downloadBootstrapper") {
   failures.push("Windows 安装包必须使用 WebView2 downloadBootstrapper，以保持最小体积");
 }

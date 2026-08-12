@@ -1,0 +1,246 @@
+/* Weekly checklist */
+.weekly-checklist {
+  overflow: auto;
+  padding-bottom: 28px;
+}
+
+.weekly-checklist-top {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.weekly-checklist-sub,
+.weekly-checklist-hint {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.weekly-checklist-hint {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-secondary);
+}
+
+.weekly-checklist-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weekly-goals,
+.weekly-days,
+.weekly-stats {
+  margin-top: 18px;
+}
+
+.weekly-goals h3,
+.weekly-days h3,
+.weekly-stats h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.weekly-goal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.weekly-goal-card {
+  --goal-accent: #7d9be8;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: grid;
+  gap: 8px;
+}
+
+.weekly-goal-card header,
+.weekly-day-col header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.weekly-goal-card header span,
+.weekly-day-col header span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.weekly-goal-card p {
+  margin: 0;
+  min-height: 40px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.weekly-goal-bar,
+.weekly-day-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--goal-accent, var(--accent)) 18%, transparent);
+  overflow: hidden;
+}
+
+.weekly-goal-bar > i,
+.weekly-day-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--goal-accent, var(--accent));
+}
+
+.weekly-goal-card footer {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.weekly-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weekly-day-col {
+  min-height: 220px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.weekly-day-col.is-today {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.weekly-day-bar {
+  margin-top: 8px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.weekly-day-bar > i {
+  background: var(--accent);
+}
+
+.weekly-day-col ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.weekly-day-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.weekly-day-task {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-app) 70%, transparent);
+  color: var(--text-primary);
+  text-align: left;
+  padding: 6px 7px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.weekly-day-task.is-done .weekly-day-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.weekly-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+}
+
+.weekly-day-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weekly-day-check {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.weekly-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.weekly-stat-grid article {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.weekly-stat-grid span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.weekly-stat-grid strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.weekly-stat-grid p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.weekly-load-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 56px;
+  margin-top: 10px;
+}
+
+.weekly-load-bars > i {
+  flex: 1;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 55%, transparent));
+}
+
+@media (max-width: 1100px) {
+  .weekly-goal-grid,
+  .weekly-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .weekly-day-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .weekly-goal-grid,
+  .weekly-stat-grid,
+  .weekly-day-grid {
+    grid-template-columns: 1fr;
+  }
+}

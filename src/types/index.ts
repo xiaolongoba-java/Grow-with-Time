@@ -28,6 +28,7 @@ export type NavId =
   | "daily-reflection"
   | "inspirations"
   | "future-letters"
+  | "anniversaries"
   | "memos"
   | "trash"
   | "settings"
@@ -232,6 +233,12 @@ export interface AppSettings {
   autostart: boolean;
   privacyMode: boolean;
   autoBackup: boolean;
+  /** ISO timestamp of last successful auto-backup, if any */
+  autoBackupLastOk: string | null;
+  /** Last auto-backup failure message */
+  autoBackupLastError: string | null;
+  /** Consecutive auto-backup failures */
+  autoBackupFailStreak: number;
   desktopWidgetMode: DesktopWidgetMode;
   ai: AiSettings;
   karma: number;
@@ -314,6 +321,19 @@ export interface FutureLetter {
   status: "waiting" | "delivered" | "opened" | "archived";
   delivered_at: string | null;
   opened_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 纪念日：记录原日期，可按年循环倒数。 */
+export interface Anniversary {
+  id: string;
+  title: string;
+  /** YYYY-MM-DD 起始/纪念原日 */
+  event_date: string;
+  /** 1=每年循环，0=仅该日一次 */
+  recur_yearly: number;
+  note: string;
   created_at: string;
   updated_at: string;
 }
@@ -444,5 +464,6 @@ export interface BackupPayload {
   dailyReflections?: DailyReflection[];
   inspirations?: Inspiration[];
   futureLetters?: FutureLetter[];
+  anniversaries?: Anniversary[];
   settings: Record<string, string>;
 }

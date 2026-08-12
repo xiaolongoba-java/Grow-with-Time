@@ -3,6 +3,7 @@ import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   createMemo,
+  fetchAnniversaries,
   fetchDailyReflections,
   fetchHabitChecks,
   fetchHabits,
@@ -14,8 +15,10 @@ import {
   toggleHabitCheck,
 } from "@/lib/db";
 import { formatLongDate, todayDateString } from "@/lib/dates";
+import { anniversaryHeadline, sortAnniversaries } from "@/lib/anniversaries";
+import { emitDataChanged, bindVisibleDataRefresh } from "@/lib/widgetRefresh";
 import { formatCountdown, liveRemaining } from "@/lib/timers";
-import type { Habit, HabitCheck, Memo, Task, Timer } from "@/types";
+import type { Anniversary, Habit, HabitCheck, Memo, Task, Timer } from "@/types";
 
 const FALLBACK_QUOTES = [
   "日进一步，拾光成河。",
@@ -73,6 +76,7 @@ export function DashboardStripApp() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [checks, setChecks] = useState<HabitCheck[]>([]);
   const [timers, setTimers] = useState<Timer[]>([]);
+  const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
   const [quote, setQuote] = useState(FALLBACK_QUOTES[0]);
   const [privacyMode, setPrivacyMode] = useState(true);
   const [memoText, setMemoText] = useState("");
@@ -117,6 +121,7 @@ export function DashboardStripApp() {
       nextHabits,
       nextChecks,
       nextTimers,
+      nextAnniversaries,
       inspirations,
       reflections,
       privacyRaw,
@@ -126,6 +131,7 @@ export function DashboardStripApp() {
       fetchHabits(),
       fetchHabitChecks(),
       fetchTimers(),
+      fetchAnniversaries(),
       fetchInspirations(false),
       fetchDailyReflections(),
       getSetting("privacy_mode"),
@@ -135,6 +141,7 @@ export function DashboardStripApp() {
     setHabits(nextHabits);
     setChecks(nextChecks);
     setTimers(nextTimers);
+    setAnniversaries(nextAnniversaries);
     const privacyOn = privacyRaw !== "false";
     setPrivacyMode(privacyOn);
 
@@ -150,8 +157,7 @@ export function DashboardStripApp() {
   useEffect(() => {
     document.documentElement.dataset.desktopWidget = "dashboard";
     document.body.dataset.desktopWidget = "dashboard";
-    void refresh();
-    const poll = window.setInterval(() => void refresh(), 5_000);
+    const unbind = bindVisibleDataRefresh(() => refresh(), { fallbackMs: 30_000 });
     const tick = window.setInterval(() => {
       setNowMs(Date.now());
     }, 1_000);
@@ -181,7 +187,7 @@ export function DashboardStripApp() {
       });
 
     return () => {
-      window.clearInterval(poll);
+      unbind();
       window.clearInterval(tick);
       unlistenMoved?.();
       delete document.documentElement.dataset.desktopWidget;
@@ -203,6 +209,23 @@ export function DashboardStripApp() {
       ).length,
     [tasks, today],
   );
+
+  const nextAnniversary = useMemo(() => {
+    const sorted = sortAnniversaries(anniversaries, today);
+    const hit = sorted.find((item) => {
+      const days = anniversaryHeadline(item, today).daysLeft;
+      return days !== null && days <= 30;
+    });
+    return hit ? anniversaryHeadline(hit, today) : null;
+  }, [anniversaries, today]);
+
+  const nextAnniversaryTitle = useMemo(() => {
+    const sorted = sortAnniversaries(anniversaries, today);
+    return sorted.find((item) => {
+      const days = anniversaryHeadline(item, today).daysLeft;
+      return days !== null && days <= 30;
+    })?.title ?? null;
+  }, [anniversaries, today]);
 
   const pinnedMemos = useMemo(
     () =>
@@ -263,6 +286,7 @@ export function DashboardStripApp() {
       await createMemo(content);
       setMemoText("");
       await refresh();
+      void emitDataChanged("memo");
     } finally {
       setBusy(false);
     }
@@ -271,6 +295,7 @@ export function DashboardStripApp() {
   const toggleHabit = async (habitId: string) => {
     await toggleHabitCheck(habitId, today);
     await refresh();
+    void emitDataChanged("habit");
   };
 
   const openMain = async () => {
@@ -356,6 +381,13 @@ export function DashboardStripApp() {
             {formatLongDate(today)} · 周{weekdayLabel(new Date())}
           </p>
           <p className="dash-meta">今日待办 {pendingToday} 项</p>
+          {nextAnniversary && nextAnniversaryTitle ? (
+            <p className="dash-meta dash-anni">
+              {privacyMode
+                ? `纪念日 · ${nextAnniversary.label}`
+                : `${nextAnniversaryTitle} · ${nextAnniversary.label}`}
+            </p>
+          ) : null}
         </section>
 
         <section className="dash-panel dash-memos">

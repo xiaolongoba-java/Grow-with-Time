@@ -23,6 +23,11 @@ import type {
 import * as db from "@/lib/db";
 import { bumpGamification } from "@/lib/db";
 import { addDays, todayDateString } from "@/lib/dates";
+import {
+  focusEndsAtFromRemaining,
+  remainingFocusSeconds,
+} from "@/lib/focusTimer";
+import { emitDataChanged } from "@/lib/widgetRefresh";
 import { invoke } from "@tauri-apps/api/core";
 import { syncWindowChrome } from "@/lib/windowChrome";
 import { errorMessage } from "@/lib/errors";
@@ -62,6 +67,7 @@ interface AppStore {
   filter: FilterState;
   focusTaskId: string | null;
   focusSeconds: number;
+  focusEndsAt: number | null;
   focusRunning: boolean;
   focusSessionId: string | null;
   toast: string | null;
@@ -162,6 +168,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     autostart: false,
     privacyMode: true,
     autoBackup: true,
+    autoBackupLastOk: null,
+    autoBackupLastError: null,
+    autoBackupFailStreak: 0,
     desktopWidgetMode: "dashboard",
     ai: { baseUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
     karma: 0,
@@ -181,6 +190,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   filter: emptyFilter(),
   focusTaskId: null,
   focusSeconds: 25 * 60,
+  focusEndsAt: null,
   focusRunning: false,
   focusSessionId: null,
   toast: null,
@@ -281,6 +291,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       projects,
       taskTemplates,
     }));
+    void emitDataChanged("refresh");
   },
 
   setNavigationGuard: (navigationGuard) => set({ navigationGuard }),
@@ -710,29 +721,38 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({
       focusTaskId,
       focusSeconds: 25 * 60,
+      focusEndsAt: null,
       focusRunning: false,
       focusSessionId: null,
     });
   },
   tickFocus: () => {
-    const { focusRunning, focusSeconds } = get();
-    if (!focusRunning || focusSeconds <= 0) return;
-    const next = focusSeconds - 1;
+    const { focusRunning, focusEndsAt, focusSessionId } = get();
+    if (!focusRunning || focusEndsAt === null) return;
+    const next = remainingFocusSeconds(focusEndsAt);
     set({ focusSeconds: next });
-    if (next === 0 && get().focusSessionId) {
-      const sessionId = get().focusSessionId!;
-      void db.finishFocusSession(sessionId).then(() => get().refreshAll());
-      set({ focusRunning: false, focusSessionId: null, toast: "专注完成，已记录实际耗时" });
+    if (next === 0 && focusSessionId) {
+      void db.finishFocusSession(focusSessionId).then(() => get().refreshAll());
+      set({
+        focusRunning: false,
+        focusEndsAt: null,
+        focusSessionId: null,
+        toast: "专注完成，已记录实际耗时",
+      });
     }
   },
   toggleFocus: async () => {
-    const { focusRunning, focusSessionId, focusTaskId } = get();
+    const { focusRunning, focusSessionId, focusTaskId, focusSeconds, focusEndsAt } =
+      get();
     if (focusRunning) {
+      const remaining = remainingFocusSeconds(focusEndsAt);
       if (focusSessionId) {
         await db.finishFocusSession(focusSessionId, "手动暂停");
       }
       set({
         focusRunning: false,
+        focusEndsAt: null,
+        focusSeconds: remaining > 0 ? remaining : focusSeconds,
         focusSessionId: null,
         toast: "本次专注时间已记录",
       });
@@ -740,7 +760,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       return;
     }
     const session = await db.startFocusSession(focusTaskId);
-    set({ focusRunning: true, focusSessionId: session.id });
+    const endsAt = focusEndsAtFromRemaining(focusSeconds);
+    set({
+      focusRunning: true,
+      focusSessionId: session.id,
+      focusEndsAt: endsAt,
+      focusSeconds: remainingFocusSeconds(endsAt),
+    });
   },
   resetFocus: async () => {
     const { focusSessionId } = get();
@@ -750,6 +776,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
     set({
       focusSeconds: 25 * 60,
+      focusEndsAt: null,
       focusRunning: false,
       focusSessionId: null,
     });

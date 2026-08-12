@@ -45,16 +45,21 @@ export function summarizeBackupRestore(payload: BackupPayload): string {
     `习惯：${payload.habits?.length ?? 0} 个`,
   ];
   if (has("goals")) lines.push(`成长目标：${payload.goals?.length ?? 0} 个`);
-  if (has("dailyReflections") || has("inspirations") || has("futureLetters")) {
+  if (has("dailyReflections") || has("inspirations") || has("futureLetters") || has("anniversaries")) {
     lines.push(
-      `拾光：回望 ${payload.dailyReflections?.length ?? 0} · 拾念 ${payload.inspirations?.length ?? 0} · 未来信 ${payload.futureLetters?.length ?? 0}`,
+      `拾光：回望 ${payload.dailyReflections?.length ?? 0} · 拾念 ${payload.inspirations?.length ?? 0} · 未来信 ${payload.futureLetters?.length ?? 0} · 纪念日 ${payload.anniversaries?.length ?? 0}`,
     );
   }
   const keep: string[] = [];
   if (!has("goals") && !has("goalEntries") && !has("achievements")) {
     keep.push("成长目标");
   }
-  if (!has("dailyReflections") && !has("inspirations") && !has("futureLetters")) {
+  if (
+    !has("dailyReflections") &&
+    !has("inspirations") &&
+    !has("futureLetters") &&
+    !has("anniversaries")
+  ) {
     keep.push("拾光记录");
   }
   if (!has("timers")) keep.push("循环提醒");

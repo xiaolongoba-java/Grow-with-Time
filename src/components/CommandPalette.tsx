@@ -13,6 +13,7 @@ const destinations: { id: NavId; label: string }[] = [
   { id: "daily-reflection", label: "打开今日拾光" },
   { id: "inspirations", label: "打开拾念箱" },
   { id: "future-letters", label: "打开拾光变迁" },
+  { id: "anniversaries", label: "打开纪念日" },
   { id: "reminders", label: "打开提醒" },
   { id: "review", label: "打开复盘" },
   { id: "settings", label: "打开设置" },

@@ -32,7 +32,7 @@ describe("拾光规则", () => {
   });
 
   it("部分保存保留未传字段，收尾不覆盖已写收获", () => {
-    const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./db/moments.ts", import.meta.url), "utf8");
     expect(source).toContain("harvest=COALESCE($3,daily_reflections.harvest)");
     expect(source).toContain("WHEN TRIM(daily_reflections.harvest)='' AND TRIM(excluded.harvest)!=''");
     expect(source).toContain("export async function saveDayCloseReflection");

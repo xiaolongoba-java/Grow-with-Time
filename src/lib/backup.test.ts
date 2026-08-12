@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import {
   backupPayloadHas,
   summarizeBackupRestore,
@@ -27,7 +27,10 @@ function minimalPayload(
 
 describe("backup coverage", () => {
   it("exports and imports deep-planning records", () => {
-    const source = readFileSync("src/lib/db.ts", "utf8");
+    const source = readdirSync("src/lib/db")
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => readFileSync(`src/lib/db/${name}`, "utf8"))
+      .join("\n");
     for (const table of [
       "task_events",
       "focus_sessions",
@@ -41,6 +44,7 @@ describe("backup coverage", () => {
       "daily_reflections",
       "inspirations",
       "future_letters",
+      "anniversaries",
     ]) {
       expect(source).toContain(`SELECT * FROM ${table}`);
       expect(source).toContain(`INSERT INTO ${table}`);
@@ -59,7 +63,8 @@ describe("backup coverage", () => {
     expect(source).not.toContain("saveTaskPlanningMetadata(mapTask(task))");
     expect(source).toContain("BEGIN IMMEDIATE");
     expect(source).toContain("ROLLBACK");
-    expect(source).toContain("summarizeBackupRestore");
+    const barrel = readFileSync("src/lib/db.ts", "utf8");
+    expect(barrel).toContain("summarizeBackupRestore");
     expect(source).toContain("backupPayloadHas");
     expect(source).toContain("validateBackupPayload");
   });

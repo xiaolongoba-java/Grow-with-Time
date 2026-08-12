@@ -1,0 +1,38 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-widgets",
+  "description": "Desktop widgets — SQL + window move/show. No HTTP, filesystem export, dialogs, or global shortcuts.",
+  "windows": [
+    "widget-calendar",
+    "widget-today",
+    "widget-memo",
+    "widget-dashboard"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-close",
+    "core:window:allow-center",
+    "core:window:allow-set-title",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-decorations",
+    "core:window:allow-set-theme",
+    "core:window:allow-set-shadow",
+    "core:window:allow-set-effects",
+    "core:window:allow-set-background-color",
+    "core:window:allow-unminimize",
+    "core:event:default",
+    "core:event:allow-emit",
+    "core:event:allow-listen",
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-close"
+  ]
+}

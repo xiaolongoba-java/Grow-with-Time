@@ -20,13 +20,7 @@ import {
 } from "@/lib/tasks";
 import { formatDueDate, formatTimeRange, priorityLabel, todayDateString, addDays, formatLongDate, weekDates, parseDate, startOfWeek, parseTimeToMinutes } from "@/lib/dates";
 import type { Task } from "@/types";
-import { SettingsView } from "@/components/SettingsView";
-import { HabitsView } from "@/components/HabitsView";
-import { RemindersView } from "@/components/RemindersView";
-import { ReviewView } from "@/components/ReviewView";
-import { WeeklyChecklistView } from "@/components/WeeklyChecklistView";
 import { ExpandableTaskItem } from "@/components/ExpandableTaskItem";
-import { ProjectsView } from "@/components/ProjectsView";
 import {
   buildDeferredDateUpdate,
   findTimeConflictIds,
@@ -34,6 +28,36 @@ import {
 } from "@/lib/planning";
 import { saveDayCloseReflection, saveDaySnapshot } from "@/lib/db";
 
+const SettingsView = lazy(() =>
+  import("@/components/SettingsView").then((module) => ({
+    default: module.SettingsView,
+  })),
+);
+const HabitsView = lazy(() =>
+  import("@/components/HabitsView").then((module) => ({
+    default: module.HabitsView,
+  })),
+);
+const RemindersView = lazy(() =>
+  import("@/components/RemindersView").then((module) => ({
+    default: module.RemindersView,
+  })),
+);
+const ReviewView = lazy(() =>
+  import("@/components/ReviewView").then((module) => ({
+    default: module.ReviewView,
+  })),
+);
+const WeeklyChecklistView = lazy(() =>
+  import("@/components/WeeklyChecklistView").then((module) => ({
+    default: module.WeeklyChecklistView,
+  })),
+);
+const ProjectsView = lazy(() =>
+  import("@/components/ProjectsView").then((module) => ({
+    default: module.ProjectsView,
+  })),
+);
 const MemosView = lazy(() =>
   import("@/components/MemosView").then((module) => ({
     default: module.MemosView,
@@ -46,6 +70,11 @@ const GrowthView = lazy(() =>
 );
 const MomentsView = lazy(() =>
   import("@/components/MomentsView").then((module) => ({ default: module.MomentsView })),
+);
+const AnniversariesView = lazy(() =>
+  import("@/components/AnniversariesView").then((module) => ({
+    default: module.AnniversariesView,
+  })),
 );
 
 function BoardView({ tasks }: { tasks: Task[] }) {
@@ -1200,24 +1229,57 @@ export function MainWorkspace() {
     }
   }, [nav, setViewMode, setDateScope]);
 
-  if (nav === "settings") return <SettingsView />;
-  if (nav === "habits") return <HabitsView />;
+  if (nav === "settings") {
+    return (
+      <Suspense fallback={<div className="empty-state">正在打开设置…</div>}>
+        <SettingsView />
+      </Suspense>
+    );
+  }
+  if (nav === "habits") {
+    return (
+      <Suspense fallback={<div className="empty-state">正在打开习惯…</div>}>
+        <HabitsView />
+      </Suspense>
+    );
+  }
   if (nav === "reminders") {
     return (
       <main className="main-workspace">
         <div className="workspace-top">
           <h2>{getViewTitle("reminders")}</h2>
         </div>
-        <RemindersView />
+        <Suspense fallback={<div className="empty-state">正在打开提醒…</div>}>
+          <RemindersView />
+        </Suspense>
       </main>
     );
   }
-  if (nav === "review") return <ReviewView />;
-  if (nav === "week") return <WeeklyChecklistView />;
+  if (nav === "review") {
+    return (
+      <Suspense fallback={<div className="empty-state">正在打开复盘…</div>}>
+        <ReviewView />
+      </Suspense>
+    );
+  }
+  if (nav === "week") {
+    return (
+      <Suspense fallback={<div className="empty-state">正在打开周清单…</div>}>
+        <WeeklyChecklistView />
+      </Suspense>
+    );
+  }
   if (nav === "growth") return <Suspense fallback={<div className="empty-state">正在加载成长数据…</div>}><GrowthView /></Suspense>;
   if (nav === "daily-reflection") return <Suspense fallback={<div className="empty-state">正在打开今日拾光…</div>}><MomentsView mode="today" /></Suspense>;
   if (nav === "inspirations") return <Suspense fallback={<div className="empty-state">正在打开拾念箱…</div>}><MomentsView mode="ideas" /></Suspense>;
   if (nav === "future-letters") return <Suspense fallback={<div className="empty-state">正在打开拾光变迁…</div>}><MomentsView mode="letters" /></Suspense>;
+  if (nav === "anniversaries") {
+    return (
+      <Suspense fallback={<div className="empty-state">正在打开纪念日…</div>}>
+        <AnniversariesView />
+      </Suspense>
+    );
+  }
   if (nav === "memos") {
     return (
       <Suspense fallback={<div className="empty-state">正在加载备忘录…</div>}>
@@ -1225,7 +1287,13 @@ export function MainWorkspace() {
       </Suspense>
     );
   }
-  if (nav === "projects") return <ProjectsView />;
+  if (nav === "projects") {
+    return (
+      <Suspense fallback={<div className="empty-state">正在打开项目…</div>}>
+        <ProjectsView />
+      </Suspense>
+    );
+  }
   if (nav === "trash") {
     return (
       <main className="main-workspace">

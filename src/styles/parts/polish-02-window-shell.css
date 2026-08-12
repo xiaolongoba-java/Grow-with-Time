@@ -1,0 +1,26 @@
+/* Shared window shell — clip square WebView bleed at the four corners. */
+:root {
+  --shell-radius: 16px;
+}
+
+html,
+body,
+#root {
+  background: transparent !important;
+}
+
+#root {
+  overflow: hidden;
+  border-radius: var(--shell-radius);
+  clip-path: inset(0 round var(--shell-radius));
+  isolation: isolate;
+}
+
+.app-root {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+@media (max-width: 900px) {
+  :root { --shell-radius: 12px; }
+}

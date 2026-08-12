@@ -12,6 +12,7 @@ import {
   updateMemo,
 } from "@/lib/db";
 import { isOverdue, todayDateString } from "@/lib/dates";
+import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
 import type { Memo, Task } from "@/types";
 
 type WidgetKind = "calendar" | "today" | "memo";
@@ -112,8 +113,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   useEffect(() => {
     document.documentElement.dataset.desktopWidget = kind;
     document.body.dataset.desktopWidget = kind;
-    void refresh();
-    const poll = window.setInterval(() => void refresh(), 5_000);
+    const unbind = bindVisibleDataRefresh(() => refresh(), { fallbackMs: 30_000 });
     const current = getCurrentWebviewWindow();
     const positionKey = `minimal.widget.position.${kind}`;
     try {
@@ -136,7 +136,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
       unlistenMoved = unlisten;
     });
     return () => {
-      window.clearInterval(poll);
+      unbind();
       unlistenMoved?.();
       delete document.documentElement.dataset.desktopWidget;
       delete document.body.dataset.desktopWidget;
@@ -202,6 +202,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
       await createTask({ title, due_date: today });
       setTaskText("");
       await refresh();
+      void emitDataChanged("task");
     } finally {
       setBusy(false);
     }
@@ -215,6 +216,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
       await createMemo(content);
       setMemoText("");
       await refresh();
+      void emitDataChanged("memo");
     } finally {
       setBusy(false);
     }
@@ -411,7 +413,12 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                   className="widget-task-check"
                   type="button"
                   aria-label={`完成 ${task.title}`}
-                  onClick={() => void toggleTaskComplete(task.id).then(refresh)}
+                  onClick={() =>
+                    void toggleTaskComplete(task.id).then(() => {
+                      void refresh();
+                      void emitDataChanged("task");
+                    })
+                  }
                 />
                 <div>
                   <strong>{task.title}</strong>
@@ -471,7 +478,10 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                     onClick={() =>
                       void updateMemo(memo.id, {
                         pinned: memo.pinned ? 0 : 1,
-                      }).then(refresh)
+                      }).then(() => {
+                        void refresh();
+                        void emitDataChanged("memo");
+                      })
                     }
                   >
                     {memo.pinned ? "●" : "○"}

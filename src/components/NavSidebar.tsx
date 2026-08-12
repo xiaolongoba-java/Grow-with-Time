@@ -33,7 +33,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const [draft, setDraft] = useState("");
   const [tagName, setTagName] = useState("");
   const [hints, setHints] = useState<string[]>([]);
-  const [momentsOpen, setMomentsOpen] = useState(["daily-reflection", "inspirations", "future-letters"].includes(nav));
+  const [momentsOpen, setMomentsOpen] = useState(["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav));
   const [moreOpen, setMoreOpen] = useState(["completed", "all", "habits", "reminders", "review", "memos", "projects"].includes(nav));
   const draftRef = useRef<HTMLInputElement>(null);
 
@@ -158,7 +158,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         <span className="nav-item-label"><AppIcon name="sparkle" size={17} />成长</span>
       </button>
       <div className="nav-section-label">拾光</div>
-      <button type="button" className={`nav-item nav-group-trigger ${["daily-reflection", "inspirations", "future-letters"].includes(nav) ? "active" : ""}`} aria-expanded={momentsOpen} onClick={() => { setMomentsOpen((value) => !value); if (!["daily-reflection", "inspirations", "future-letters"].includes(nav)) setNav("daily-reflection"); }}>
+      <button type="button" className={`nav-item nav-group-trigger ${["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav) ? "active" : ""}`} aria-expanded={momentsOpen} onClick={() => { setMomentsOpen((value) => !value); if (!["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav)) setNav("daily-reflection"); }}>
         <span className="nav-item-label"><AppIcon name="sparkle" size={17} />拾光</span><span className="nav-group-chevron">{momentsOpen ? "−" : "+"}</span>
       </button>
       {momentsOpen ? <div className="nav-subgroup">
@@ -167,6 +167,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
           ["daily-reflection", "今日拾光", "today"],
           ["inspirations", "拾念箱", "memo"],
           ["future-letters", "拾光变迁", "review"],
+          ["anniversaries", "纪念日", "heart"],
         ] as const
       ).map(([id, label, icon]) => (
         <button key={id} type="button" className={`nav-item ${nav === id ? "active" : ""}`} onClick={() => setNav(id)}>

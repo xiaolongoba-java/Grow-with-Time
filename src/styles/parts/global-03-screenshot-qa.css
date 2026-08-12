@@ -1,0 +1,113 @@
+/* Screenshot QA fixes — must remain the final override layer. */
+.icon-rail {
+  padding: 14px 7px;
+  gap: 7px;
+  border-right: 1px solid #e5e9f1;
+  background: #f3f5fa;
+}
+
+.icon-rail::before {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 12px;
+  color: #6f7fa9;
+  border: 1px solid #e0e5ef;
+  background: #fff;
+  box-shadow: none;
+}
+
+.rail-btn {
+  width: 40px;
+  height: 40px;
+  color: #6f788b !important;
+  opacity: 1 !important;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.rail-btn svg {
+  display: block;
+  opacity: 1;
+}
+
+.rail-btn:hover {
+  color: #6277b5 !important;
+  border-color: #e2e6f0;
+  background: #fff;
+}
+
+.rail-btn.active {
+  color: #5f73b1 !important;
+  border-color: #dfe4f2;
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(69, 80, 108, 0.1);
+}
+
+.karma-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 7px;
+  color: #9a765f;
+  border-color: #eaded6;
+  background: #fcf8f5;
+}
+
+.reminders-context {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  padding: 0 4px;
+  color: #758096;
+  font-size: 12px;
+}
+
+.reminders-context > i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #b5bdcb;
+}
+
+.reminders-context > small {
+  margin-left: auto;
+  color: #a0a8b7;
+  font-size: 11px;
+}
+
+html[data-timeline="collapsed"] .app-body {
+  padding-right: 0 !important;
+}
+
+.timeline-drawer.is-collapsed {
+  inset: auto 18px 16px auto !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+.timeline-drawer.is-collapsed .timeline-drawer-rail {
+  position: static !important;
+  display: inline-flex;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: center;
+  width: auto !important;
+  min-width: 112px;
+  height: 38px !important;
+  padding: 0 13px !important;
+  gap: 7px;
+  color: #6577aa;
+  border: 1px solid #dfe4ed;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 7px 20px rgba(62, 73, 99, 0.11);
+}
+
+.timeline-drawer-rail-label {
+  writing-mode: horizontal-tb !important;
+  white-space: nowrap !important;
+  letter-spacing: 0 !important;
+  font-size: 12px;
+  line-height: 1;
+}

@@ -1,17 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": [
-    "main",
-    "quick-add",
-    "float",
-    "widget-calendar",
-    "widget-today",
-    "widget-memo",
-    "widget-dashboard",
-    "inspiration"
-  ],
+  "identifier": "main",
+  "description": "Full capability for the main window (settings, backup, shortcuts, AI).",
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-show",

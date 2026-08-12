@@ -22,6 +22,7 @@ import {
 import { formatDueDate, isOverdue, todayDateString } from "@/lib/dates";
 import { parseNaturalInput } from "@/lib/nlp";
 import { formatCountdown, liveRemaining } from "@/lib/timers";
+import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
 import type { Memo, Task, Timer } from "@/types";
 
 export function FloatApp() {
@@ -64,8 +65,7 @@ export function FloatApp() {
 
   useEffect(() => {
     document.documentElement.dataset.theme ||= "system";
-    void refresh();
-    const poll = window.setInterval(() => void refresh(), 5_000);
+    const unbind = bindVisibleDataRefresh(() => refresh(), { fallbackMs: 30_000 });
     const tick = window.setInterval(() => setTick((n) => n + 1), 1000);
     let unlistenFocus: (() => void) | undefined;
     let unlistenTimer: (() => void) | undefined;
@@ -84,7 +84,7 @@ export function FloatApp() {
       unlistenTimer = fn;
     });
     return () => {
-      window.clearInterval(poll);
+      unbind();
       window.clearInterval(tick);
       unlistenFocus?.();
       unlistenTimer?.();
@@ -130,6 +130,7 @@ export function FloatApp() {
       }
       setMemoText("");
       await refresh();
+      void emitDataChanged("memo");
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存失败");
     } finally {
@@ -149,6 +150,7 @@ export function FloatApp() {
       });
       setTaskText("");
       await refresh();
+      void emitDataChanged("task");
     } catch (e) {
       setError(e instanceof Error ? e.message : "创建失败");
     } finally {

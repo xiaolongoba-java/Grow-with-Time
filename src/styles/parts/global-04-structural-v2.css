@@ -1,0 +1,286 @@
+/* Structural refresh v2 */
+body {
+  background: transparent;
+}
+
+.brand-mark {
+  background: linear-gradient(145deg, #6f87ff, #4259d8);
+  box-shadow: 0 7px 18px rgba(75, 104, 245, 0.22);
+}
+
+.karma-pill {
+  color: #b65f39;
+  border-color: rgba(240, 154, 114, 0.24);
+  background: rgba(240, 154, 114, 0.1);
+}
+
+.btn-primary,
+.primary-btn {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 8px 20px rgba(75, 104, 245, 0.2);
+}
+
+.btn-primary:hover,
+.primary-btn:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 10px 24px rgba(75, 104, 245, 0.25);
+}
+
+.rail-btn.active {
+  color: #344bc3;
+  background: #edf0ff;
+  box-shadow: 0 7px 20px rgba(12, 15, 27, 0.24);
+}
+
+.nav-item.active {
+  background: linear-gradient(90deg, var(--accent-soft), rgba(75, 104, 245, 0.025));
+  box-shadow: inset 0 0 0 1px rgba(75, 104, 245, 0.06);
+}
+
+.main-workspace {
+  background: var(--bg-root);
+}
+
+html[data-timeline="collapsed"] .app-body {
+  padding-right: 0;
+}
+
+.timeline-drawer {
+  inset: auto 20px 18px calc(var(--rail-w) + var(--side-w) + 20px);
+  width: auto;
+  height: min(58vh, 520px);
+  display: block;
+  pointer-events: none;
+}
+
+html[data-nav="collapsed"] .timeline-drawer {
+  left: 20px;
+}
+
+.timeline-drawer.is-collapsed {
+  inset: auto 20px 18px auto;
+  width: auto;
+  height: auto;
+}
+
+.timeline-drawer-rail,
+.timeline-drawer.is-collapsed .timeline-drawer-rail {
+  position: absolute;
+  inset: auto 0 0 auto;
+  z-index: 48;
+  display: flex;
+  flex-direction: row;
+  width: auto;
+  height: 40px;
+  padding: 0 14px;
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  color: #fff;
+  background: #292d38;
+  box-shadow: 0 10px 28px rgba(22, 26, 36, 0.22);
+  pointer-events: auto;
+}
+
+.timeline-drawer.is-open .timeline-drawer-rail {
+  top: -46px;
+  bottom: auto;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.timeline-drawer-rail-label {
+  writing-mode: horizontal-tb;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+.timeline-drawer-panel {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  background: var(--bg-panel);
+  box-shadow: 0 22px 60px rgba(28, 33, 46, 0.2);
+  pointer-events: auto;
+}
+
+.timeline-drawer-backdrop {
+  background: rgba(24, 27, 35, 0.16);
+  backdrop-filter: blur(2px);
+}
+
+.timeline-dock-head {
+  min-height: 62px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.timeline-dock-title h3 {
+  font-size: 16px;
+}
+
+.timeline-dock-body {
+  padding: 14px 18px 18px;
+}
+
+.timeline-h-scroll {
+  border-color: var(--border);
+  border-radius: 14px;
+  background: var(--bg-root);
+}
+
+.timeline-h-hours {
+  background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+}
+
+.timeline-h-hour {
+  border-left-color: var(--border);
+}
+
+.timeline-h-gridline {
+  background: var(--border);
+}
+
+.timeline-h-event {
+  padding: 8px 10px 8px 13px;
+  gap: 4px;
+  border-radius: 10px;
+  border-color: rgba(75, 104, 245, 0.16);
+  background: #eef1ff;
+  box-shadow: 0 3px 10px rgba(75, 104, 245, 0.1);
+}
+
+.timeline-h-event-title {
+  font-size: 12px;
+}
+
+.timeline-h-event-time {
+  max-width: 100%;
+  padding: 2px 5px;
+  font-size: 10px;
+}
+
+.today-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  min-height: 150px;
+  padding: 24px 28px;
+  overflow: hidden;
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 88% 10%, rgba(47, 111, 237, 0.14), transparent 28%),
+    radial-gradient(circle at 96% 92%, rgba(232, 161, 108, 0.11), transparent 24%),
+    linear-gradient(120deg, #edf4ff 0%, #f7faff 70%, #ffffff 100%);
+  box-shadow: 0 10px 30px rgba(36, 77, 148, 0.08);
+}
+
+.today-hero::after {
+  content: "";
+  position: absolute;
+  right: -42px;
+  bottom: -84px;
+  width: 210px;
+  height: 210px;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 22px color-mix(in srgb, var(--accent) 3%, transparent),
+    0 0 0 48px color-mix(in srgb, var(--accent) 2%, transparent);
+}
+
+.today-hero-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  max-width: 72%;
+}
+
+.today-hero h3 {
+  margin: 9px 0 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 730;
+  letter-spacing: -0.035em;
+}
+
+.today-hero p {
+  color: var(--text-secondary);
+}
+
+.today-hero .plan-warning {
+  display: table;
+  width: fit-content;
+  margin-top: 10px;
+  padding: 3px 8px;
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 650;
+  border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--warning) 7%, var(--bg-panel));
+}
+
+:root[data-theme="dark"] .timeline-drawer-panel {
+  background: var(--bg-panel);
+}
+
+:root[data-theme="dark"] .today-hero {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background:
+    radial-gradient(circle at 88% 10%, rgba(112, 161, 255, 0.19), transparent 29%),
+    radial-gradient(circle at 96% 92%, rgba(220, 151, 99, 0.08), transparent 24%),
+    linear-gradient(120deg, #172944 0%, #172131 72%, #182130 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+:root[data-theme="dark"] .today-hero h3 {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .today-hero p {
+  color: var(--text-secondary);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .today-hero {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+    background:
+      radial-gradient(circle at 88% 10%, rgba(112, 161, 255, 0.19), transparent 29%),
+      radial-gradient(circle at 96% 92%, rgba(220, 151, 99, 0.08), transparent 24%),
+      linear-gradient(120deg, #172944 0%, #172131 72%, #182130 100%);
+  }
+
+  :root[data-theme="system"] .today-hero h3 {
+    color: var(--text-primary);
+  }
+
+  :root[data-theme="system"] .today-hero p {
+    color: var(--text-secondary);
+  }
+}
+
+:root[data-theme="dark"] .timeline-h-event {
+  color: var(--text-primary);
+  background: rgba(128, 151, 255, 0.13);
+}
+
+@media (max-width: 980px) {
+  .timeline-drawer {
+    left: 18px;
+    right: 18px;
+  }
+}

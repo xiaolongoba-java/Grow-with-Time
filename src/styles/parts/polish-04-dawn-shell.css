@@ -1,0 +1,164 @@
+/* Dawn Glass — one light frosted shell, corners on the window edge. */
+:root[data-theme="dawn"] body {
+  background: transparent !important;
+}
+
+:root[data-theme="dawn"],
+:root[data-theme="dawn"] body,
+:root[data-theme="dawn"] #root {
+  background-color: transparent;
+}
+
+:root[data-theme="dawn"] #root,
+:root[data-theme="dawn"] .app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--shell-radius);
+}
+
+:root[data-theme="dawn"] .app-root {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background:
+    radial-gradient(circle at 88% 8%, rgba(255, 168, 188, 0.16), transparent 32%),
+    radial-gradient(circle at 8% 92%, rgba(120, 170, 255, 0.14), transparent 36%),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.9), rgba(236, 244, 255, 0.86));
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme="dawn"] .app-body {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 0;
+  background: transparent;
+}
+
+:root[data-theme="dawn"] .icon-rail,
+:root[data-theme="dawn"] .nav-side,
+:root[data-theme="dawn"] .main-workspace,
+:root[data-theme="dawn"] .detail-drawer {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+:root[data-theme="dawn"] .icon-rail,
+:root[data-theme="dawn"] .nav-side {
+  border-right: 1px solid rgba(54, 82, 129, 0.12);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+:root[data-theme="dawn"] .detail-drawer {
+  border-left: 1px solid rgba(54, 82, 129, 0.12);
+  background: rgba(255, 255, 255, 0.36);
+}
+
+:root[data-theme="dawn"] .main-workspace {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(255, 160, 182, 0.12), transparent 28%),
+    transparent;
+}
+
+:root[data-theme="dawn"] .brand-mark {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.76);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #63a4ff, #3478ee 58%, #ff7f9a);
+  box-shadow: 0 9px 22px rgba(46, 102, 196, 0.24), inset 0 1px rgba(255, 255, 255, 0.55);
+}
+
+:root[data-theme="dawn"] .rail-btn { color: var(--text-secondary) !important; }
+
+:root[data-theme="dawn"] .rail-btn:hover,
+:root[data-theme="dawn"] .rail-btn.active,
+:root[data-theme="dawn"] .nav-item.active {
+  color: var(--accent-strong) !important;
+  border-color: rgba(54, 82, 129, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 5px 14px rgba(56, 88, 139, 0.08), inset 0 1px rgba(255, 255, 255, 0.95);
+}
+
+:root[data-theme="dawn"] .scope-card,
+:root[data-theme="dawn"] .expand-task,
+:root[data-theme="dawn"] .settings-card,
+:root[data-theme="dawn"] .project-card,
+:root[data-theme="dawn"] .template-card,
+:root[data-theme="dawn"] .reflection-sheet,
+:root[data-theme="dawn"] .idea-capture,
+:root[data-theme="dawn"] .letter-next,
+:root[data-theme="dawn"] .moments-empty,
+:root[data-theme="dawn"] .timeline-task-popover,
+:root[data-theme="dawn"] .notification-popover {
+  border-color: rgba(54, 82, 129, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.78));
+  box-shadow: 0 8px 22px rgba(50, 79, 125, 0.08), inset 0 1px rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dawn"] .today-hero,
+:root[data-theme="dawn"] .moments-hero {
+  border-color: rgba(54, 82, 129, 0.12);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(255, 143, 164, 0.14), transparent 30%),
+    linear-gradient(135deg, rgba(250, 252, 255, 0.92), rgba(255, 240, 245, 0.84));
+  box-shadow: 0 10px 28px rgba(51, 81, 130, 0.08), inset 0 1px rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dawn"] input,
+:root[data-theme="dawn"] textarea,
+:root[data-theme="dawn"] select,
+:root[data-theme="dawn"] .seg,
+:root[data-theme="dawn"] .search-box,
+:root[data-theme="dawn"] .quick-add-input,
+:root[data-theme="dawn"] .field {
+  color: var(--text-primary);
+  border-color: rgba(54, 82, 129, 0.16);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.95), 0 4px 12px rgba(58, 84, 128, 0.04);
+}
+
+:root[data-theme="dawn"] .btn-primary,
+:root[data-theme="dawn"] .primary-btn,
+:root[data-theme="dawn"] .seg button.active {
+  color: #fff;
+  background: linear-gradient(135deg, #4e8ff5, #3478ee);
+  box-shadow: 0 9px 21px rgba(41, 101, 202, 0.24), inset 0 1px rgba(255, 255, 255, 0.28);
+}
+
+:root[data-theme="dawn"] .btn-ghost {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.28);
+}
+
+:root[data-theme="dawn"] .today-moment-action {
+  border-color: rgba(54, 82, 129, 0.14);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+  :root[data-theme="dawn"] #root,
+  :root[data-theme="dawn"] .app-root {
+    border-radius: 12px;
+  }
+}

@@ -73,11 +73,20 @@ export function MainApp() {
     void bootstrap();
   }, [bootstrap]);
 
-  // Single global focus ticker — avoid double-counting from Today + PomodoroPanel.
+  // Single global focus ticker — uses absolute endsAt so sleep gaps are settled.
   useEffect(() => {
     if (!focusRunning) return;
     const id = window.setInterval(() => tickFocus(), 1000);
-    return () => window.clearInterval(id);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tickFocus();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [focusRunning, tickFocus]);
 
   useEffect(() => {
@@ -365,7 +374,7 @@ export function MainApp() {
     const backup = async () => {
       try {
         const [
-          { exportBackup },
+          { exportBackup, setSetting },
           { appDataDir, join },
           { mkdir, writeTextFile, readDir, remove },
         ] =
@@ -391,8 +400,42 @@ export function MainApp() {
           if (!old.name) continue;
           await remove(await join(dir, old.name));
         }
-      } catch {
-        /* automatic backup is best-effort */
+        const okAt = new Date().toISOString();
+        await setSetting("auto_backup_last_ok", okAt);
+        await setSetting("auto_backup_last_error", "");
+        await setSetting("auto_backup_fail_streak", "0");
+        useAppStore.setState((state) => ({
+          settings: {
+            ...state.settings,
+            autoBackupLastOk: okAt,
+            autoBackupLastError: null,
+            autoBackupFailStreak: 0,
+          },
+        }));
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error || "未知错误");
+        try {
+          const { setSetting } = await import("@/lib/db");
+          const prev = useAppStore.getState().settings.autoBackupFailStreak;
+          const streak = prev + 1;
+          await setSetting("auto_backup_last_error", message);
+          await setSetting("auto_backup_fail_streak", String(streak));
+          useAppStore.setState((state) => ({
+            settings: {
+              ...state.settings,
+              autoBackupLastError: message,
+              autoBackupFailStreak: streak,
+            },
+            // Prompt once when failures start stacking; avoid nagging every interval.
+            toast:
+              streak === 1 || streak === 3
+                ? `自动备份失败：${message}`
+                : state.toast,
+          }));
+        } catch {
+          /* ignore secondary persistence errors */
+        }
       }
     };
     void backup();

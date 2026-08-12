@@ -11,9 +11,10 @@ describe("database migration declarations", () => {
       Number(match[1]),
     );
     expect(new Set(versions).size).toBe(versions.length);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     expect(source).toContain("schema_contract");
     expect(source).toContain("desktop_widget_mode");
+    expect(source).toContain("anniversaries");
     const firstMigration = source.slice(
       source.indexOf('description: "create_tasks_and_settings"'),
       source.indexOf('description: "full_prd_schema"'),
@@ -21,7 +22,7 @@ describe("database migration declarations", () => {
     expect(firstMigration).toContain("deleted_at TEXT\n);");
     expect(firstMigration).not.toContain("reminder_minutes_json");
     expect(firstMigration).not.toContain("estimated_minutes");
-    const compatibility = readFileSync("src/lib/db.ts", "utf8");
+    const compatibility = readFileSync("src/lib/db/client.ts", "utf8");
     expect(compatibility).toContain(
       "ALTER TABLE tasks ADD COLUMN reminder_minutes_json TEXT",
     );
@@ -48,6 +49,7 @@ describe("database migration declarations", () => {
       "daily_reflections",
       "inspirations",
       "future_letters",
+      "anniversaries",
     ]) {
       expect(source).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
     }

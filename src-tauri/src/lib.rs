@@ -622,6 +622,26 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 15,
+            description: "anniversaries",
+            sql: r#"
+CREATE TABLE IF NOT EXISTS anniversaries (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  event_date TEXT NOT NULL,
+  recur_yearly INTEGER NOT NULL DEFAULT 1,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_anniversaries_event_date
+  ON anniversaries(event_date);
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '15');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -843,10 +863,15 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let today = MenuItem::with_id(app, "today", "今日待办", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &float, &dashboard, &widgets, &today, &quit])?;
 
-    let _tray = TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
+    let mut builder = TrayIconBuilder::new()
         .menu(&menu)
-        .tooltip("日进·拾光")
+        .tooltip("日进·拾光");
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    } else {
+        eprintln!("tray: missing default window icon; continuing without tray icon image");
+    }
+    let _tray = builder
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
             "show" => {

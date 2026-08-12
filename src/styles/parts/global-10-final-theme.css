@@ -1,0 +1,182 @@
+/* Final theme layer: kept last intentionally so legacy module styles inherit it. */
+.icon-rail {
+  border-right: 0;
+  padding: 18px 10px;
+  background:
+    radial-gradient(circle at 50% 7%, rgba(255, 255, 255, 0.1), transparent 25%),
+    var(--bg-rail);
+}
+
+.icon-rail::before {
+  content: "G";
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 13px;
+  color: #f7f3ff;
+  background: rgba(255, 255, 255, 0.09);
+  font: 750 18px/1 var(--font-display);
+}
+
+.rail-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  color: rgba(243, 242, 255, 0.68);
+}
+
+.rail-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.rail-btn.active {
+  color: #393a72;
+  background: #f0e9ff;
+  box-shadow: 0 7px 20px rgba(20, 20, 45, 0.24);
+}
+
+.nav-side {
+  background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.nav-side-scroll {
+  padding: 22px 16px;
+  gap: 11px;
+}
+
+.brand-row {
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.brand-lockup,
+.nav-item-label {
+  display: flex;
+  align-items: center;
+}
+
+.brand-lockup {
+  gap: 10px;
+  min-width: 0;
+}
+
+.nav-item-label {
+  gap: 9px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #6f93e8, #3f6fd6);
+  box-shadow: 0 6px 16px rgba(55, 95, 180, 0.22);
+}
+
+.brand-caption {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.karma-pill {
+  padding: 4px 7px;
+  border: 1px solid rgba(229, 154, 107, 0.25);
+  border-radius: 99px;
+  color: #a86440;
+  background: rgba(229, 154, 107, 0.11);
+  font-size: 10px;
+}
+
+.nav-item {
+  min-height: 39px;
+  border-radius: 11px;
+}
+
+.nav-item.active {
+  position: relative;
+  background: linear-gradient(90deg, var(--accent-soft), rgba(98, 99, 168, 0.04));
+  box-shadow: inset 0 0 0 1px rgba(98, 99, 168, 0.07);
+}
+
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 17px;
+  border-radius: 0 5px 5px 0;
+  background: var(--accent);
+}
+
+.btn-primary,
+.primary-btn {
+  background: linear-gradient(135deg, #82a0df, var(--accent));
+  box-shadow: 0 8px 20px rgba(98, 99, 168, 0.19);
+}
+
+.main-workspace {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(229, 154, 107, 0.09), transparent 25%),
+    var(--bg-root);
+}
+
+.workspace-top {
+  padding: 25px 28px 13px;
+}
+
+.workspace-top h2 {
+  font-size: 1.72rem;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+}
+
+.scope-board {
+  gap: 14px;
+  padding: 0 28px 28px;
+}
+
+.scope-card,
+.expand-task {
+  border-color: var(--border);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.expand-task {
+  margin-bottom: 9px;
+  border-radius: 14px;
+}
+
+.expand-task:hover {
+  border-color: rgba(98, 99, 168, 0.17);
+  box-shadow: 0 10px 27px rgba(45, 43, 67, 0.09);
+  transform: translateY(-1px);
+}
+
+.task-check {
+  border-radius: 50%;
+  border-color: rgba(98, 99, 168, 0.36);
+}
+
+.detail-panel {
+  background:
+    linear-gradient(180deg, rgba(98, 99, 168, 0.04), transparent 150px),
+    var(--bg-panel);
+  box-shadow: -14px 0 42px rgba(45, 43, 67, 0.11);
+}
+
+.detail-meta {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-root);
+}

@@ -65,6 +65,8 @@
 - 单次提醒和多提醒组合，支持系统通知、通知中心与稍后提醒
 - 循环提醒适合喝水、活动和护眼等周期事项
 - 事项倒计时适合会议、发布和阶段节点
+- 番茄钟专注基于绝对结束时间结算，休眠或卡顿后唤醒仍按真实经过时间扣减
+- **准时提醒依赖应用正在运行或托盘驻留**；完全退出后不会由系统代发，下次打开会受控补发
 - 应用重新打开时会受控补发错过的提醒，较早提醒只进入通知中心，避免集中弹窗
 
 ### 桌面体验
@@ -106,7 +108,28 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
+> **Windows**：安装包体积偏小，首次安装在尚未具备 WebView2 的干净系统上**可能需要联网下载 Microsoft WebView2 Runtime**。  
+> **macOS**：当前为 ad-hoc 签名、尚未公证；首次打开若被 Gatekeeper 拦截，请在「系统设置 → 隐私与安全性」中允许。  
+> **提醒**：要准点收到桌面提醒，请保持应用运行或托盘驻留；完全退出后不会由系统代发，下次启动会补发。
+
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
+
+#### v1.5.11 纪念日、可靠性与工程瘦身
+
+- 新增拾光「纪念日」：按年循环倒数、近 30 天提示，桌面仪表盘问候区展示临近日。
+- 专注计时改为绝对结束时间，休眠/卡顿后按真实经过时间结算。
+- 收紧 CSP，并按主窗口 / 快捷录入 / 桌面组件拆分 capability。
+- 自动备份记录成功/失败状态并在设置页展示；桌面组件改为事件刷新 + 可见时低频兜底。
+- 拆分 `db.ts` 与 CSS 入口层；Vite 分包与窗口按需加载，主包体积显著下降。
+
+### v1.5.11
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.11_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.11/Grow.with.Time_1.5.11_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.11_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.11/Grow.with.Time_1.5.11_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.11) 或 Actions Artifacts 下载。
 
 #### v1.5.10 周清单 / 周历澄清与桌面默认
 

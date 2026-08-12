@@ -1,14 +1,7 @@
 import { StrictMode, Component, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { MainApp } from "@/app/MainApp";
-import { QuickAddApp } from "@/app/QuickAddApp";
-import { InspirationApp } from "@/app/InspirationApp";
-import { FloatApp } from "@/app/FloatApp";
-import { DesktopWidgetApp } from "@/app/DesktopWidgetApp";
-import { DashboardStripApp } from "@/app/DashboardStripApp";
-import "@/styles/global.css";
-import "@/styles/polish.css";
+import "@/styles/index.css";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -42,25 +35,41 @@ try {
   label = "main";
 }
 
-function AppByLabel() {
-  if (label === "quick-add") return <QuickAddApp />;
-  if (label === "inspiration") return <InspirationApp />;
-  if (label === "float") return <FloatApp />;
-  if (label === "widget-dashboard") return <DashboardStripApp />;
+async function resolveApp() {
+  if (label === "quick-add") {
+    const { QuickAddApp } = await import("@/app/QuickAddApp");
+    return <QuickAddApp />;
+  }
+  if (label === "inspiration") {
+    const { InspirationApp } = await import("@/app/InspirationApp");
+    return <InspirationApp />;
+  }
+  if (label === "float") {
+    const { FloatApp } = await import("@/app/FloatApp");
+    return <FloatApp />;
+  }
+  if (label === "widget-dashboard") {
+    const { DashboardStripApp } = await import("@/app/DashboardStripApp");
+    return <DashboardStripApp />;
+  }
   if (label.startsWith("widget-")) {
+    const { DesktopWidgetApp } = await import("@/app/DesktopWidgetApp");
     return (
       <DesktopWidgetApp
         kind={label.slice("widget-".length) as "calendar" | "today" | "memo"}
       />
     );
   }
+  const { MainApp } = await import("@/app/MainApp");
   return <MainApp />;
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <AppByLabel />
-    </ErrorBoundary>
-  </StrictMode>,
-);
+const root = createRoot(document.getElementById("root")!);
+
+void resolveApp().then((app) => {
+  root.render(
+    <StrictMode>
+      <ErrorBoundary>{app}</ErrorBoundary>
+    </StrictMode>,
+  );
+});
