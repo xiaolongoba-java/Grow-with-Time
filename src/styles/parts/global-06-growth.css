@@ -522,6 +522,7 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
 .create-task-modal input, .create-task-modal select, .create-task-modal textarea { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); background: var(--surface); font: inherit; }
 .create-task-modal textarea { min-height: 76px; resize: vertical; }
 .create-task-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.create-task-hint { margin: -4px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
 .create-task-time-card { display: grid; gap: 13px; padding: 15px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-soft); }
 .create-task-time-card > div:first-child { display: flex; justify-content: space-between; gap: 12px; }
 .create-task-time-card span { color: var(--text-muted); font-size: 12px; }

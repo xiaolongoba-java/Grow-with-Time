@@ -1,9 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
-import type { TaskPriority } from "@/types";
+import type { RepeatRule, TaskPriority } from "@/types";
 import { TimeRangeFields } from "@/components/TimePicker";
 import { findFirstAvailableTimeSlot } from "@/lib/planning";
 import { nowTimeString, parseTimeToMinutes, todayDateString } from "@/lib/dates";
+import { stringifyRepeatRule } from "@/lib/repeat";
+
+function repeatFromFrequency(value: string): RepeatRule | null {
+  if (!value) return null;
+  if (value === "custom") {
+    return {
+      frequency: "custom",
+      interval: 1,
+      nthWeekday: { n: -1, weekday: 5 },
+    };
+  }
+  return {
+    frequency: value as RepeatRule["frequency"],
+    interval: 1,
+  };
+}
 
 export function CreateTaskDialog() {
   const tasks = useAppStore((s) => s.tasks);
@@ -23,6 +39,7 @@ export function CreateTaskDialog() {
   const [priority, setPriority] = useState<TaskPriority>(3);
   const [estimatedMinutes, setEstimatedMinutes] = useState(60);
   const [projectId, setProjectId] = useState("");
+  const [repeat, setRepeat] = useState<RepeatRule | null>(null);
   const [saving, setSaving] = useState(false);
   const [timeManual, setTimeManual] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -70,6 +87,7 @@ export function CreateTaskDialog() {
       priority,
       estimated_minutes: estimatedMinutes,
       project_id: projectId || null,
+      repeat_rule: stringifyRepeatRule(repeat),
       flexible: 0,
       schedule_locked: 1,
     });
@@ -100,7 +118,23 @@ export function CreateTaskDialog() {
           <label>优先级<select value={priority} onChange={(event) => setPriority(Number(event.target.value) as TaskPriority)}><option value={1}>P1 紧急</option><option value={2}>P2 高</option><option value={3}>P3 普通</option><option value={4}>P4 低</option></select></label>
           <label>预计时长<select value={estimatedMinutes} onChange={(event) => setEstimatedMinutes(Number(event.target.value))}><option value={30}>30 分钟</option><option value={45}>45 分钟</option><option value={60}>1 小时</option><option value={90}>1.5 小时</option><option value={120}>2 小时</option></select></label>
           <label>所属项目<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">无项目</option>{projects.filter((project) => !project.archived).map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+          <label>
+            重复
+            <select
+              value={repeat?.frequency ?? ""}
+              onChange={(event) => setRepeat(repeatFromFrequency(event.target.value))}
+            >
+              <option value="">不重复</option>
+              <option value="daily">每天</option>
+              <option value="weekly">每周</option>
+              <option value="monthly">每月</option>
+              <option value="custom">每月最后周五</option>
+            </select>
+          </label>
         </div>
+        {repeat?.frequency === "weekly" ? (
+          <p className="create-task-hint">每周按当前日期的星期滚动；例如「每周三写周报」请把日期设为周三。</p>
+        ) : null}
         <div className="create-task-time-card">
           <div><strong>时间安排</strong><span>{suggestedSlot ? (timeManual ? "已按你的调整保留时间" : "已避开当天已有任务，可继续手动调整") : "当天没有足够的连续空闲时间，请手动调整"}</span></div>
           <TimeRangeFields
