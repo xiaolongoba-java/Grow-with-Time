@@ -114,6 +114,19 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.15 修复桌面组件发版编译
+
+- 修复托盘打开桌面组件时缺少 `layer` 参数导致 Windows / macOS CI 编译失败。
+
+### v1.5.15
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.15_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.15/Grow.with.Time_1.5.15_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.15_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.15/Grow.with.Time_1.5.15_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.15) 或 Actions Artifacts 下载。
+
 #### v1.5.14 每周几与桌面组件层级
 
 - 新建 / 详情支持选择每周几（可多选）；无痕默认关闭，桌面组件正确显示纪念日标题。

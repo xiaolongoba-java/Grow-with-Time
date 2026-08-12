@@ -923,10 +923,10 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                 let _ = show_float(app.clone());
             }
             "dashboard" => {
-                let _ = show_dashboard_strip(app.clone());
+                let _ = show_dashboard_strip(app.clone(), Some("bottom".into()));
             }
             "widgets" => {
-                let _ = show_desktop_widgets(app.clone());
+                let _ = show_desktop_widgets(app.clone(), Some("bottom".into()));
             }
             "today" => {
                 let _ = app.emit("tray:today", ());
