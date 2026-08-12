@@ -434,14 +434,18 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
   for (const item of payload.anniversaries ?? []) {
     await db.execute(
       `INSERT INTO anniversaries
-       (id,title,event_date,recur_yearly,note,created_at,updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+       (id,title,event_date,recur_yearly,note,calendar,lunar_month,lunar_day,lunar_leap,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         item.id,
         item.title,
         item.event_date,
         item.recur_yearly,
         item.note,
+        item.calendar === "lunar" ? "lunar" : "solar",
+        item.lunar_month ?? null,
+        item.lunar_day ?? null,
+        item.lunar_leap ? 1 : 0,
         item.created_at,
         item.updated_at,
       ],

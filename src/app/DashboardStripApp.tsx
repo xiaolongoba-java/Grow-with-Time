@@ -15,7 +15,10 @@ import {
   toggleHabitCheck,
 } from "@/lib/db";
 import { formatLongDate, todayDateString } from "@/lib/dates";
-import { anniversaryHeadline, sortAnniversaries } from "@/lib/anniversaries";
+import {
+  anniversaryDatesInMonth,
+  listUpcomingAnniversaries,
+} from "@/lib/anniversaries";
 import { emitDataChanged, bindVisibleDataRefresh } from "@/lib/widgetRefresh";
 import { formatCountdown, liveRemaining } from "@/lib/timers";
 import type { Anniversary, Habit, HabitCheck, Memo, Task, Timer } from "@/types";
@@ -210,22 +213,20 @@ export function DashboardStripApp() {
     [tasks, today],
   );
 
-  const nextAnniversary = useMemo(() => {
-    const sorted = sortAnniversaries(anniversaries, today);
-    const hit = sorted.find((item) => {
-      const days = anniversaryHeadline(item, today).daysLeft;
-      return days !== null && days <= 30;
-    });
-    return hit ? anniversaryHeadline(hit, today) : null;
-  }, [anniversaries, today]);
+  const upcomingAnniversaries = useMemo(
+    () => listUpcomingAnniversaries(anniversaries, today, 30, 4),
+    [anniversaries, today],
+  );
 
-  const nextAnniversaryTitle = useMemo(() => {
-    const sorted = sortAnniversaries(anniversaries, today);
-    return sorted.find((item) => {
-      const days = anniversaryHeadline(item, today).daysLeft;
-      return days !== null && days <= 30;
-    })?.title ?? null;
-  }, [anniversaries, today]);
+  const anniversaryMonthDates = useMemo(
+    () =>
+      anniversaryDatesInMonth(
+        anniversaries,
+        month.getFullYear(),
+        month.getMonth(),
+      ),
+    [anniversaries, month],
+  );
 
   const pinnedMemos = useMemo(
     () =>
@@ -381,11 +382,11 @@ export function DashboardStripApp() {
             {formatLongDate(today)} · 周{weekdayLabel(new Date())}
           </p>
           <p className="dash-meta">今日待办 {pendingToday} 项</p>
-          {nextAnniversary && nextAnniversaryTitle ? (
+          {upcomingAnniversaries[0] ? (
             <p className="dash-meta dash-anni">
               {privacyMode
-                ? `纪念日 · ${nextAnniversary.label}`
-                : `${nextAnniversaryTitle} · ${nextAnniversary.label}`}
+                ? `纪念日 · ${upcomingAnniversaries[0].label}`
+                : `${upcomingAnniversaries[0].item.title} · ${upcomingAnniversaries[0].label}`}
             </p>
           ) : null}
         </section>
@@ -448,6 +449,23 @@ export function DashboardStripApp() {
           </div>
         </section>
 
+        <section className="dash-panel dash-anniversaries">
+          <div className="dash-panel-title">纪念日</div>
+          {upcomingAnniversaries.length === 0 ? (
+            <p className="dash-empty">近 30 天暂无</p>
+          ) : (
+            <ul>
+              {upcomingAnniversaries.map(({ item, daysLeft, label }) => (
+                <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
+                  <span>{privacyMode ? "纪念日" : item.title}</span>
+                  <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
+                  <em>{privacyMode ? label.replace(/^.*?·\s*/, "") || label : label}</em>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <section className="dash-panel dash-calendar">
           <div className="dash-panel-title dash-cal-toolbar">
             <button
@@ -479,14 +497,17 @@ export function DashboardStripApp() {
             {calendarDays.map((day) => {
               const key = dateKey(day);
               const inMonth = day.getMonth() === month.getMonth();
+              const anniTitles = anniversaryMonthDates.get(key);
               return (
                 <span
                   key={key}
+                  title={anniTitles?.join("、")}
                   className={[
                     "dash-cal-day",
                     inMonth ? "" : "is-out",
                     key === today ? "is-today" : "",
                     taskDates.has(key) ? "has-task" : "",
+                    anniTitles?.length ? "has-anni" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}

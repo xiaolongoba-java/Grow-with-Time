@@ -232,6 +232,58 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
   border-radius: 50%;
 }
 
+.widget-calendar-dots i.is-anni {
+  background: #ffd28a;
+}
+
+.widget-calendar-day.has-anni > span {
+  color: #ffd28a;
+}
+
+.widget-anni-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.widget-anni-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 210, 138, 0.18);
+}
+
+.widget-anni-list li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.widget-anni-list li strong {
+  font-size: 12px;
+  color: #ffd28a;
+  font-variant-numeric: tabular-nums;
+}
+
+.widget-anni-list li em {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-size: 11px;
+  color: rgba(220, 231, 247, 0.62);
+}
+
+.widget-anni-list li.is-today {
+  border-color: rgba(255, 210, 138, 0.45);
+  background: rgba(255, 210, 138, 0.1);
+}
+
 .widget-calendar-summary,
 .widget-progress {
   display: flex;

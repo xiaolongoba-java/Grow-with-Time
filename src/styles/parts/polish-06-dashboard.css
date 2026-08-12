@@ -60,7 +60,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr 0.95fr 1.15fr 0.9fr;
+  grid-template-columns: 0.85fr 1fr 0.85fr 0.95fr 1.05fr 0.85fr;
   gap: 10px;
   padding: 8px 12px 6px;
 }
@@ -105,7 +105,8 @@
 }
 
 .dash-memos ul,
-.dash-timers ul {
+.dash-timers ul,
+.dash-anniversaries ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -115,12 +116,47 @@
 }
 
 .dash-memos li,
-.dash-timers li {
+.dash-timers li,
+.dash-anniversaries li {
   font-size: 12px;
   line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dash-anniversaries li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 1px;
+  white-space: normal;
+}
+
+.dash-anniversaries li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-anniversaries li strong {
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 214, 170, 0.95);
+}
+
+.dash-anniversaries li em {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-size: 11px;
+  color: rgba(232, 240, 252, 0.55);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-anniversaries li.is-today strong {
+  color: #ffd28a;
 }
 
 .dash-timers li {
@@ -225,6 +261,7 @@
 }
 
 .dash-cal-day {
+  position: relative;
   height: 16px;
   line-height: 16px;
   border-radius: 4px;
@@ -239,6 +276,11 @@
   font-weight: 700;
 }
 
+.dash-cal-day.has-anni {
+  color: #ffd28a;
+  font-weight: 600;
+}
+
 .dash-cal-day.has-task::after {
   content: "";
   display: block;
@@ -247,6 +289,10 @@
   margin: -2px auto 0;
   border-radius: 99px;
   background: #9fd0ff;
+}
+
+.dash-cal-day.has-anni.has-task::after {
+  background: #ffd28a;
 }
 
 .dashboard-strip-quote {

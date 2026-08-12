@@ -642,6 +642,19 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 16,
+            description: "anniversary_lunar_calendar",
+            sql: r#"
+ALTER TABLE anniversaries ADD COLUMN calendar TEXT NOT NULL DEFAULT 'solar';
+ALTER TABLE anniversaries ADD COLUMN lunar_month INTEGER;
+ALTER TABLE anniversaries ADD COLUMN lunar_day INTEGER;
+ALTER TABLE anniversaries ADD COLUMN lunar_leap INTEGER NOT NULL DEFAULT 0;
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '16');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

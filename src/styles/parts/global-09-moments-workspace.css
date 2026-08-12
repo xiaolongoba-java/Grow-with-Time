@@ -84,6 +84,32 @@
   align-items: center;
 }
 
+.anni-cal-seg {
+  flex: 0 0 auto;
+}
+
+.anni-lunar-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.anni-lunar-pickers .field[type="number"] {
+  width: 88px;
+}
+
+.anni-lunar-pickers select.field {
+  width: auto;
+  min-width: 88px;
+}
+
+.anni-lunar-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .anni-composer-row .field[type="date"] {
   width: auto;
   min-width: 160px;

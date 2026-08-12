@@ -1,7 +1,7 @@
 {
   "name": "minimal-todo",
   "private": true,
-  "version": "1.5.11",
+  "version": "1.5.12",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,6 +24,7 @@
     "@tauri-apps/plugin-http": "^2.5.9",
     "@tauri-apps/plugin-notification": "^2.3.3",
     "@tauri-apps/plugin-sql": "^2.4.0",
+    "lunar-typescript": "^1.8.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",

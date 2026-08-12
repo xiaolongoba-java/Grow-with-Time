@@ -329,8 +329,16 @@ export interface FutureLetter {
 export interface Anniversary {
   id: string;
   title: string;
-  /** YYYY-MM-DD 起始/纪念原日 */
+  /** YYYY-MM-DD 锚定公历日（农历条目也存对应公历） */
   event_date: string;
+  /** solar=公历循环，lunar=农历同日循环 */
+  calendar: "solar" | "lunar";
+  /** 农历月 1–12；公历时为 null */
+  lunar_month: number | null;
+  /** 农历日 1–30；公历时为 null */
+  lunar_day: number | null;
+  /** 1=闰月 */
+  lunar_leap: number;
   /** 1=每年循环，0=仅该日一次 */
   recur_yearly: number;
   note: string;

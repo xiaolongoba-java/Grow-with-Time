@@ -6,14 +6,20 @@ import remarkGfm from "remark-gfm";
 import {
   createMemo,
   createTask,
+  fetchAnniversaries,
   fetchMemos,
   fetchTasks,
+  getSetting,
   toggleTaskComplete,
   updateMemo,
 } from "@/lib/db";
+import {
+  anniversaryDatesInMonth,
+  listUpcomingAnniversaries,
+} from "@/lib/anniversaries";
 import { isOverdue, todayDateString } from "@/lib/dates";
 import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
-import type { Memo, Task } from "@/types";
+import type { Anniversary, Memo, Task } from "@/types";
 
 type WidgetKind = "calendar" | "today" | "memo";
 
@@ -63,6 +69,8 @@ function priorityColor(priority: number) {
 export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [memos, setMemos] = useState<Memo[]>([]);
+  const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
+  const [privacyMode, setPrivacyMode] = useState(true);
   const [taskText, setTaskText] = useState("");
   const [memoText, setMemoText] = useState("");
   const [month, setMonth] = useState(() => {
@@ -102,12 +110,17 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   }, [kind, widgetColor, widgetOpacity]);
 
   const refresh = async () => {
-    const [nextTasks, nextMemos] = await Promise.all([
-      fetchTasks(),
-      fetchMemos(),
-    ]);
+    const [nextTasks, nextMemos, nextAnniversaries, privacyRaw] =
+      await Promise.all([
+        fetchTasks(),
+        fetchMemos(),
+        fetchAnniversaries(),
+        getSetting("privacy_mode"),
+      ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
+    setAnniversaries(nextAnniversaries);
+    setPrivacyMode(privacyRaw !== "false");
   };
 
   useEffect(() => {
@@ -162,6 +175,21 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
             a.priority - b.priority,
         ),
     [tasks, today],
+  );
+
+  const upcomingAnniversaries = useMemo(
+    () => listUpcomingAnniversaries(anniversaries, today, 30, 4),
+    [anniversaries, today],
+  );
+
+  const anniversaryMonthDates = useMemo(
+    () =>
+      anniversaryDatesInMonth(
+        anniversaries,
+        month.getFullYear(),
+        month.getMonth(),
+      ),
+    [anniversaries, month],
   );
 
   const calendarDays = useMemo(() => {
@@ -351,6 +379,11 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
             {calendarDays.map((date) => {
               const key = dateKey(date);
               const dayTasks = activeTasksByDate.get(key) ?? [];
+              const anniTitles = anniversaryMonthDates.get(key) ?? [];
+              const tipParts = [
+                ...dayTasks.map((task) => task.title),
+                ...anniTitles.map((title) => `纪念日 · ${title}`),
+              ];
               return (
                 <div
                   key={key}
@@ -358,38 +391,63 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                     "widget-calendar-day",
                     date.getMonth() !== month.getMonth() ? "is-outside" : "",
                     key === today ? "is-today" : "",
+                    anniTitles.length ? "has-anni" : "",
                   ].join(" ")}
-                  title={
-                    dayTasks.length
-                      ? dayTasks.map((task) => task.title).join("\n")
-                      : "暂无任务"
-                  }
+                  title={tipParts.length ? tipParts.join("\n") : "暂无安排"}
                 >
                   <span>{date.getDate()}</span>
                   <div className="widget-calendar-dots">
-                    {dayTasks.slice(0, 4).map((task) => (
+                    {dayTasks.slice(0, 3).map((task) => (
                       <i
                         key={task.id}
                         style={{ background: priorityColor(task.priority) }}
                       />
                     ))}
+                    {anniTitles.length ? (
+                      <i className="is-anni" key="anni" />
+                    ) : null}
                   </div>
                 </div>
               );
             })}
           </div>
+          {upcomingAnniversaries.length ? (
+            <ul className="widget-anni-list">
+              {upcomingAnniversaries.map(({ item, daysLeft, label }) => (
+                <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
+                  <span>{privacyMode ? "纪念日" : item.title}</span>
+                  <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
+                  <em>{label}</em>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <footer className="widget-calendar-summary">
             本月还有{" "}
             {[...activeTasksByDate.entries()]
               .filter(([key]) => key.startsWith(monthKey(month)))
               .reduce((sum, [, list]) => sum + list.length, 0)}{" "}
             项任务
+            {anniversaryMonthDates.size
+              ? ` · ${anniversaryMonthDates.size} 个纪念日`
+              : ""}
           </footer>
         </section>
       ) : null}
 
       {kind === "today" ? (
         <section className="widget-today">
+          {upcomingAnniversaries.length ? (
+            <ul className="widget-anni-list">
+              {upcomingAnniversaries.map(({ item, daysLeft, label }) => (
+                <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
+                  <span>{privacyMode ? "纪念日" : item.title}</span>
+                  <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
+                  <em>{label}</em>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <div className="widget-quick-row">
             <input
               value={taskText}

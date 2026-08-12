@@ -60,11 +60,27 @@ export async function getDb(): Promise<Database> {
           event_date TEXT NOT NULL,
           recur_yearly INTEGER NOT NULL DEFAULT 1,
           note TEXT NOT NULL DEFAULT '',
+          calendar TEXT NOT NULL DEFAULT 'solar',
+          lunar_month INTEGER,
+          lunar_day INTEGER,
+          lunar_leap INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )`);
       } catch {
         /* ignore */
+      }
+      for (const sql of [
+        "ALTER TABLE anniversaries ADD COLUMN calendar TEXT NOT NULL DEFAULT 'solar'",
+        "ALTER TABLE anniversaries ADD COLUMN lunar_month INTEGER",
+        "ALTER TABLE anniversaries ADD COLUMN lunar_day INTEGER",
+        "ALTER TABLE anniversaries ADD COLUMN lunar_leap INTEGER NOT NULL DEFAULT 0",
+      ]) {
+        try {
+          await db.execute(sql);
+        } catch {
+          /* already exists */
+        }
       }
       // v12 owns planning metadata formally. The legacy columns are read once
       // as an upgrade bridge, then every write is mirrored to the canonical table.
