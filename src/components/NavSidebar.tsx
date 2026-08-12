@@ -15,6 +15,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const nav = useAppStore((s) => s.nav);
   const setNav = useAppStore((s) => s.setNav);
   const desktopWidgetMode = useAppStore((s) => s.settings.desktopWidgetMode);
+  const desktopWidgetLayer = useAppStore((s) => s.settings.desktopWidgetLayer);
   const tasks = useAppStore((s) => s.tasks);
   const tags = useAppStore((s) => s.tags);
   const smartLists = useAppStore((s) => s.smartLists);
@@ -278,7 +279,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       <footer className="nav-side-footer" aria-label="全局工具">
         <button type="button" className={nav === "settings" ? "active" : ""} onClick={() => setNav("settings")}><AppIcon name="settings" size={17} />设置</button>
         <button type="button" className={nav === "trash" ? "active" : ""} onClick={() => setNav("trash")}><AppIcon name="trash" size={17} />回收站</button>
-        <button type="button" onClick={() => { void openDesktopWidgets(desktopWidgetMode); }}><AppIcon name="panel" size={17} />桌面组件</button>
+        <button type="button" onClick={() => { void openDesktopWidgets(desktopWidgetMode, desktopWidgetLayer); }}><AppIcon name="panel" size={17} />桌面组件</button>
       </footer>
       {onCollapse ? (
         <button

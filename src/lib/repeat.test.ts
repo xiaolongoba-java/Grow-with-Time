@@ -29,6 +29,11 @@ describe("repeat rules", () => {
     expect(
       nextOccurrence(task('{"frequency":"weekly","interval":1}'))?.due_date,
     ).toBe("2026-08-04");
+    expect(
+      nextOccurrence(
+        task('{"frequency":"weekly","interval":1,"weekdays":[3]}', "2026-08-12"),
+      )?.due_date,
+    ).toBe("2026-08-19");
   });
 
   it("supports the last weekday of a month", () => {

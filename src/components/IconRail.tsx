@@ -13,6 +13,7 @@ export function IconRail() {
   const nav = useAppStore((s) => s.nav);
   const setNav = useAppStore((s) => s.setNav);
   const desktopWidgetMode = useAppStore((s) => s.settings.desktopWidgetMode);
+  const desktopWidgetLayer = useAppStore((s) => s.settings.desktopWidgetLayer);
 
   return (
     <aside className="icon-rail" aria-label="功能导航">
@@ -26,7 +27,7 @@ export function IconRail() {
         }
         aria-label="打开桌面组件"
         onClick={() => {
-          void openDesktopWidgets(desktopWidgetMode);
+          void openDesktopWidgets(desktopWidgetMode, desktopWidgetLayer);
         }}
       >
         <AppIcon name="panel" />

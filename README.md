@@ -114,6 +114,20 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.14 每周几与桌面组件层级
+
+- 新建 / 详情支持选择每周几（可多选）；无痕默认关闭，桌面组件正确显示纪念日标题。
+- 桌面组件默认贴窗口底层，设置中可切换始终置顶。
+
+### v1.5.14
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.14_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.14/Grow.with.Time_1.5.14_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.14_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.14/Grow.with.Time_1.5.14_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.14) 或 Actions Artifacts 下载。
+
 #### v1.5.13 新建任务可选重复
 
 - 新建任务弹窗支持设置重复（每天 / 每周 / 每月 / 每月最后周五）。

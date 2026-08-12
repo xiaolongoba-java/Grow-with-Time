@@ -1,6 +1,16 @@
 import type { RepeatRule, Task, TaskDraft } from "@/types";
 import { todayDateString } from "@/lib/dates";
 
+export const WEEKDAY_OPTIONS = [
+  { value: 1, label: "一" },
+  { value: 2, label: "二" },
+  { value: 3, label: "三" },
+  { value: 4, label: "四" },
+  { value: 5, label: "五" },
+  { value: 6, label: "六" },
+  { value: 0, label: "日" },
+] as const;
+
 export function parseRepeatRule(raw: string | null): RepeatRule | null {
   if (!raw) return null;
   try {
@@ -14,10 +24,72 @@ export function stringifyRepeatRule(rule: RepeatRule | null): string | null {
   return rule ? JSON.stringify(rule) : null;
 }
 
+export function weekdayFromDate(dateStr: string): number {
+  return new Date(`${dateStr}T12:00:00`).getDay();
+}
+
+export function formatYmd(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** Next date on or after `fromDate` that matches one of `weekdays` (0=Sun). */
+export function nextDateMatchingWeekdays(
+  fromDate: string,
+  weekdays: number[],
+): string {
+  if (!weekdays.length) return fromDate;
+  const set = new Set(weekdays);
+  const cursor = new Date(`${fromDate}T12:00:00`);
+  for (let i = 0; i < 8; i++) {
+    if (set.has(cursor.getDay())) return formatYmd(cursor);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return fromDate;
+}
+
+export function toggleWeekday(weekdays: number[], day: number): number[] {
+  const set = new Set(weekdays);
+  if (set.has(day)) {
+    if (set.size <= 1) return weekdays;
+    set.delete(day);
+  } else {
+    set.add(day);
+  }
+  return [...set].sort((a, b) => {
+    const rank = (n: number) => (n === 0 ? 7 : n);
+    return rank(a) - rank(b);
+  });
+}
+
+export function describeRepeatRule(rule: RepeatRule | null): string {
+  if (!rule) return "不重复";
+  if (rule.frequency === "daily") return "每天";
+  if (rule.frequency === "weekly") {
+    if (rule.weekdays?.length) {
+      const labels = WEEKDAY_OPTIONS.filter((d) =>
+        rule.weekdays!.includes(d.value),
+      ).map((d) => d.label);
+      return labels.length ? `每周${labels.join("")}` : "每周";
+    }
+    return "每周";
+  }
+  if (rule.frequency === "monthly") return "每月";
+  if (rule.frequency === "custom") return "每月最后周五";
+  return "不重复";
+}
+
+export function weeklyRuleFromDate(dateStr: string): RepeatRule {
+  return {
+    frequency: "weekly",
+    interval: 1,
+    weekdays: [weekdayFromDate(dateStr)],
+  };
+}
+
 function addDays(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T12:00:00`);
   d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return formatYmd(d);
 }
 
 function lastWeekdayOfMonth(year: number, month: number, weekday: number): string {
@@ -25,7 +97,7 @@ function lastWeekdayOfMonth(year: number, month: number, weekday: number): strin
   while (d.getDay() !== weekday) {
     d.setDate(d.getDate() - 1);
   }
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return formatYmd(d);
 }
 
 export function nextOccurrence(
@@ -60,7 +132,7 @@ export function nextOccurrence(
       if (rule.monthDay === -1) {
         const last = new Date(d.getFullYear(), d.getMonth() + 1, 0, 12);
         return {
-          due_date: `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`,
+          due_date: formatYmd(last),
           due_time,
         };
       }
@@ -68,7 +140,7 @@ export function nextOccurrence(
         d.setDate(Math.min(rule.monthDay, 28));
       }
       return {
-        due_date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+        due_date: formatYmd(d),
         due_time,
       };
     }

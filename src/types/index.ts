@@ -226,6 +226,7 @@ export interface AiSettings {
 }
 
 export type DesktopWidgetMode = "dashboard" | "classic";
+export type DesktopWidgetLayer = "bottom" | "top";
 
 export interface AppSettings {
   theme: ThemeMode;
@@ -240,6 +241,8 @@ export interface AppSettings {
   /** Consecutive auto-backup failures */
   autoBackupFailStreak: number;
   desktopWidgetMode: DesktopWidgetMode;
+  /** Desktop widgets sit under other apps by default. */
+  desktopWidgetLayer: DesktopWidgetLayer;
   ai: AiSettings;
   karma: number;
   streak: number;

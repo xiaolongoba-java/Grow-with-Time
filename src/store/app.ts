@@ -166,12 +166,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
     theme: "system",
     notifyAhead: 30,
     autostart: false,
-    privacyMode: true,
+    privacyMode: false,
     autoBackup: true,
     autoBackupLastOk: null,
     autoBackupLastError: null,
     autoBackupFailStreak: 0,
     desktopWidgetMode: "dashboard",
+    desktopWidgetLayer: "bottom",
     ai: { baseUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
     karma: 0,
     streak: 0,
@@ -679,6 +680,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
       if (patch.desktopWidgetMode !== undefined) {
         await db.setSetting("desktop_widget_mode", patch.desktopWidgetMode);
+      }
+      if (patch.desktopWidgetLayer !== undefined) {
+        await db.setSetting("desktop_widget_layer", patch.desktopWidgetLayer);
+        const { openDesktopWidgets } = await import("@/lib/desktopWidgets");
+        await openDesktopWidgets(
+          get().settings.desktopWidgetMode,
+          patch.desktopWidgetLayer,
+        );
       }
       if (patch.onboardingComplete !== undefined) {
         await db.setSetting(

@@ -232,13 +232,31 @@ export function SettingsView() {
             经典三件套
           </button>
         </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <button
+            type="button"
+            className={settings.desktopWidgetLayer === "bottom" ? "btn-primary" : "btn-ghost"}
+            style={{ width: "auto" }}
+            onClick={() => void updateSettings({ desktopWidgetLayer: "bottom" })}
+          >
+            贴窗口底层
+          </button>
+          <button
+            type="button"
+            className={settings.desktopWidgetLayer === "top" ? "btn-primary" : "btn-ghost"}
+            style={{ width: "auto" }}
+            onClick={() => void updateSettings({ desktopWidgetLayer: "top" })}
+          >
+            始终置顶
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             type="button"
             className="btn-ghost"
             onClick={() => {
-              void import("@tauri-apps/api/core").then(({ invoke }) =>
-                invoke("show_dashboard_strip"),
+              void import("@/lib/desktopWidgets").then(({ openDesktopWidgets }) =>
+                openDesktopWidgets("dashboard", settings.desktopWidgetLayer),
               );
             }}
           >
@@ -248,8 +266,8 @@ export function SettingsView() {
             type="button"
             className="btn-ghost"
             onClick={() => {
-              void import("@tauri-apps/api/core").then(({ invoke }) =>
-                invoke("show_desktop_widgets"),
+              void import("@/lib/desktopWidgets").then(({ openDesktopWidgets }) =>
+                openDesktopWidgets("classic", settings.desktopWidgetLayer),
               );
             }}
           >

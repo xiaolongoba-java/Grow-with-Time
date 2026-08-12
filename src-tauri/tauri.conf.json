@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.13",
+  "version": "1.5.14",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -21,7 +21,12 @@
         "center": true,
         "transparent": true,
         "shadow": false,
-        "backgroundColor": [0, 0, 0, 0],
+        "backgroundColor": [
+          0,
+          0,
+          0,
+          0
+        ],
         "titleBarStyle": "Overlay",
         "visible": false,
         "focus": true
@@ -78,7 +83,7 @@
         "x": 80,
         "y": 90,
         "visible": false,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "resizable": true,
         "decorations": false,
         "transparent": true,
@@ -96,7 +101,7 @@
         "x": 500,
         "y": 90,
         "visible": false,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "resizable": true,
         "decorations": false,
         "transparent": true,
@@ -114,7 +119,7 @@
         "x": 860,
         "y": 90,
         "visible": false,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "resizable": true,
         "decorations": false,
         "transparent": true,
@@ -132,7 +137,7 @@
         "x": 80,
         "y": 40,
         "visible": false,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "resizable": true,
         "decorations": false,
         "transparent": true,
@@ -170,7 +175,9 @@
         "silent": true
       },
       "nsis": {
-        "languages": ["SimpChinese"],
+        "languages": [
+          "SimpChinese"
+        ],
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
@@ -198,7 +205,9 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:app.db"]
+      "preload": [
+        "sqlite:app.db"
+      ]
     }
   }
 }

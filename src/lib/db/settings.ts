@@ -1,5 +1,6 @@
 import type { AiSettings, AppSettings, ThemeMode } from "@/types";
 import { nowIso, todayDateString } from "@/lib/dates";
+import { isPrivacyModeEnabled } from "@/lib/privacy";
 import { parseRepeatRule } from "@/lib/repeat";
 import { getDb } from "./client";
 
@@ -52,12 +53,13 @@ export async function loadAppSettings(): Promise<AppSettings> {
     theme: parseThemeMode(s.theme),
     notifyAhead: Number(s.notify_ahead ?? 30),
     autostart: s.autostart === "true",
-    privacyMode: s.privacy_mode !== "false",
+    privacyMode: isPrivacyModeEnabled(s.privacy_mode),
     autoBackup: s.auto_backup !== "false",
     autoBackupLastOk: s.auto_backup_last_ok || null,
     autoBackupLastError: s.auto_backup_last_error || null,
     autoBackupFailStreak: Number(s.auto_backup_fail_streak ?? 0),
     desktopWidgetMode: s.desktop_widget_mode === "classic" ? "classic" : "dashboard",
+    desktopWidgetLayer: s.desktop_widget_layer === "top" ? "top" : "bottom",
     ai: {
       baseUrl: s.ai_base_url || "https://api.openai.com/v1",
       apiKey: s.ai_api_key || "",

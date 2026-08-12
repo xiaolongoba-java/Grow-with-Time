@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { getSubtasks, subtaskProgress } from "@/lib/tasks";
-import { parseRepeatRule, stringifyRepeatRule } from "@/lib/repeat";
+import { parseRepeatRule, stringifyRepeatRule, describeRepeatRule, weeklyRuleFromDate, nextDateMatchingWeekdays } from "@/lib/repeat";
+import { RepeatWeekdayPicker } from "@/components/RepeatWeekdayPicker";
 import type {
   Attachment,
   RepeatRule,
@@ -32,13 +33,7 @@ const PRIORITY_LABEL: Record<number, string> = {
 };
 
 function repeatLabel(rule: string | null): string {
-  const r = parseRepeatRule(rule);
-  if (!r) return "不重复";
-  if (r.frequency === "daily") return "每天";
-  if (r.frequency === "weekly") return "每周";
-  if (r.frequency === "monthly") return "每月";
-  if (r.frequency === "custom") return "每月最后周五";
-  return "不重复";
+  return describeRepeatRule(parseRepeatRule(rule));
 }
 
 function statusLabel(status: TaskStatus): string {
@@ -820,6 +815,8 @@ export function DetailDrawer() {
                     interval: 1,
                     nthWeekday: { n: -1, weekday: 5 },
                   });
+                else if (v === "weekly")
+                  setRepeat(weeklyRuleFromDate(dueDate || todayDateString()));
                 else
                   setRepeat({
                     frequency: v as RepeatRule["frequency"],
@@ -833,6 +830,22 @@ export function DetailDrawer() {
               <option value="monthly">每月</option>
               <option value="custom">每月最后周五</option>
             </select>
+            {repeat?.frequency === "weekly" ? (
+              <div className="create-task-weekdays" style={{ marginTop: 8 }}>
+                <RepeatWeekdayPicker
+                  weekdays={
+                    repeat.weekdays ??
+                    weeklyRuleFromDate(dueDate || todayDateString()).weekdays!
+                  }
+                  onChange={(weekdays) => {
+                    setRepeat({ ...repeat, weekdays });
+                    if (dueDate) {
+                      setDueDate(nextDateMatchingWeekdays(dueDate, weekdays));
+                    }
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
           <div>
             <label className="field-label">备注</label>

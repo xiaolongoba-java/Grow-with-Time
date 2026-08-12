@@ -523,6 +523,25 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
 .create-task-modal textarea { min-height: 76px; resize: vertical; }
 .create-task-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
 .create-task-hint { margin: -4px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+.create-task-weekdays { display: grid; gap: 8px; }
+.repeat-weekday-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.repeat-weekday-chip {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.repeat-weekday-chip.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--text-primary);
+}
 .create-task-time-card { display: grid; gap: 13px; padding: 15px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-soft); }
 .create-task-time-card > div:first-child { display: flex; justify-content: space-between; gap: 12px; }
 .create-task-time-card span { color: var(--text-muted); font-size: 12px; }

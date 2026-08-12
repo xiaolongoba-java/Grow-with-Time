@@ -11,12 +11,12 @@ import {
   fetchMemos,
   fetchTasks,
   fetchTimers,
-  getSetting,
   toggleHabitCheck,
 } from "@/lib/db";
 import { formatLongDate, todayDateString } from "@/lib/dates";
 import {
   anniversaryDatesInMonth,
+  formatAnniversaryAnchor,
   listUpcomingAnniversaries,
 } from "@/lib/anniversaries";
 import { emitDataChanged, bindVisibleDataRefresh } from "@/lib/widgetRefresh";
@@ -81,7 +81,6 @@ export function DashboardStripApp() {
   const [timers, setTimers] = useState<Timer[]>([]);
   const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
   const [quote, setQuote] = useState(FALLBACK_QUOTES[0]);
-  const [privacyMode, setPrivacyMode] = useState(true);
   const [memoText, setMemoText] = useState("");
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
@@ -127,7 +126,6 @@ export function DashboardStripApp() {
       nextAnniversaries,
       inspirations,
       reflections,
-      privacyRaw,
     ] = await Promise.all([
       fetchTasks(),
       fetchMemos(),
@@ -137,7 +135,6 @@ export function DashboardStripApp() {
       fetchAnniversaries(),
       fetchInspirations(false),
       fetchDailyReflections(),
-      getSetting("privacy_mode"),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
@@ -145,14 +142,11 @@ export function DashboardStripApp() {
     setChecks(nextChecks);
     setTimers(nextTimers);
     setAnniversaries(nextAnniversaries);
-    const privacyOn = privacyRaw !== "false";
-    setPrivacyMode(privacyOn);
 
     const today = todayDateString();
     const highlight = reflections.find((item) => item.reflection_date === today)?.highlight?.trim();
     const inspiration = inspirations.find((item) => item.status === "inbox")?.content?.trim();
-    if (privacyOn) setQuote("你有一条拾光记录");
-    else if (highlight) setQuote(highlight);
+    if (highlight) setQuote(highlight);
     else if (inspiration) setQuote(inspiration.slice(0, 48));
     else setQuote(FALLBACK_QUOTES[Math.floor(Date.now() / 86_400_000) % FALLBACK_QUOTES.length]);
   };
@@ -384,9 +378,11 @@ export function DashboardStripApp() {
           <p className="dash-meta">今日待办 {pendingToday} 项</p>
           {upcomingAnniversaries[0] ? (
             <p className="dash-meta dash-anni">
-              {privacyMode
-                ? `纪念日 · ${upcomingAnniversaries[0].label}`
-                : `${upcomingAnniversaries[0].item.title} · ${upcomingAnniversaries[0].label}`}
+              {`${upcomingAnniversaries[0].item.title} · ${
+                upcomingAnniversaries[0].daysLeft === 0
+                  ? "就是今天"
+                  : `还有 ${upcomingAnniversaries[0].daysLeft} 天`
+              }`}
             </p>
           ) : null}
         </section>
@@ -400,9 +396,7 @@ export function DashboardStripApp() {
               pinnedMemos.map((memo) => (
                 <li key={memo.id}>
                   {memo.pinned ? "📌 " : ""}
-                  {privacyMode
-                    ? "一条备忘"
-                    : (memo.title || memo.content).slice(0, 28)}
+                  {(memo.title || memo.content).slice(0, 28)}
                 </li>
               ))
             )}
@@ -441,7 +435,7 @@ export function DashboardStripApp() {
                     onClick={() => void toggleHabit(habit.id)}
                   >
                     <span>{done ? "✓" : "○"}</span>
-                    {privacyMode ? "习惯打卡" : habit.title}
+                    {habit.title}
                   </button>
                 );
               })
@@ -455,11 +449,11 @@ export function DashboardStripApp() {
             <p className="dash-empty">近 30 天暂无</p>
           ) : (
             <ul>
-              {upcomingAnniversaries.map(({ item, daysLeft, label }) => (
+              {upcomingAnniversaries.map(({ item, daysLeft }) => (
                 <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
-                  <span>{privacyMode ? "纪念日" : item.title}</span>
+                  <span>{item.title}</span>
                   <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
-                  <em>{privacyMode ? label.replace(/^.*?·\s*/, "") || label : label}</em>
+                  <em>{formatAnniversaryAnchor(item)}</em>
                 </li>
               ))}
             </ul>
@@ -527,7 +521,7 @@ export function DashboardStripApp() {
             <ul>
               {activeTimers.map((timer) => (
                 <li key={timer.id}>
-                  <span>{privacyMode ? "倒计时" : timer.title}</span>
+                  <span>{timer.title}</span>
                   <strong className={timer.running ? "is-running" : ""}>
                     {formatCountdown(liveRemaining(timer, nowMs))}
                   </strong>

@@ -655,6 +655,16 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 17,
+            description: "desktop_widget_layer_default",
+            sql: r#"
+INSERT OR IGNORE INTO settings (key, value) VALUES ('desktop_widget_layer', 'bottom');
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '17');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -716,21 +726,37 @@ fn hide_float(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn pin_desktop_widget(window: &tauri::WebviewWindow, layer: &str) -> Result<(), String> {
+    let pin_bottom = layer != "top";
+    if pin_bottom {
+        let _ = window.set_always_on_top(false);
+        window
+            .set_always_on_bottom(true)
+            .map_err(|e| e.to_string())?;
+    } else {
+        let _ = window.set_always_on_bottom(false);
+        window.set_always_on_top(true).map_err(|e| e.to_string())?;
+    }
+    window.show().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
-fn show_desktop_widgets(app: AppHandle) -> Result<(), String> {
+fn show_desktop_widgets(app: AppHandle, layer: Option<String>) -> Result<(), String> {
+    let layer = layer.unwrap_or_else(|| "bottom".into());
     for label in ["widget-calendar", "widget-today", "widget-memo"] {
         if let Some(window) = app.get_webview_window(label) {
-            window.show().map_err(|e| e.to_string())?;
+            pin_desktop_widget(&window, &layer)?;
         }
     }
     Ok(())
 }
 
 #[tauri::command]
-fn show_dashboard_strip(app: AppHandle) -> Result<(), String> {
+fn show_dashboard_strip(app: AppHandle, layer: Option<String>) -> Result<(), String> {
+    let layer = layer.unwrap_or_else(|| "bottom".into());
     if let Some(window) = app.get_webview_window("widget-dashboard") {
-        window.show().map_err(|e| e.to_string())?;
-        let _ = window.set_focus();
+        pin_desktop_widget(&window, &layer)?;
     }
     Ok(())
 }

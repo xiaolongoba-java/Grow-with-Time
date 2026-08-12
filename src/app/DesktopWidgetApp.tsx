@@ -9,12 +9,12 @@ import {
   fetchAnniversaries,
   fetchMemos,
   fetchTasks,
-  getSetting,
   toggleTaskComplete,
   updateMemo,
 } from "@/lib/db";
 import {
   anniversaryDatesInMonth,
+  formatAnniversaryAnchor,
   listUpcomingAnniversaries,
 } from "@/lib/anniversaries";
 import { isOverdue, todayDateString } from "@/lib/dates";
@@ -70,7 +70,6 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [memos, setMemos] = useState<Memo[]>([]);
   const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
-  const [privacyMode, setPrivacyMode] = useState(true);
   const [taskText, setTaskText] = useState("");
   const [memoText, setMemoText] = useState("");
   const [month, setMonth] = useState(() => {
@@ -110,17 +109,14 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   }, [kind, widgetColor, widgetOpacity]);
 
   const refresh = async () => {
-    const [nextTasks, nextMemos, nextAnniversaries, privacyRaw] =
-      await Promise.all([
-        fetchTasks(),
-        fetchMemos(),
-        fetchAnniversaries(),
-        getSetting("privacy_mode"),
-      ]);
+    const [nextTasks, nextMemos, nextAnniversaries] = await Promise.all([
+      fetchTasks(),
+      fetchMemos(),
+      fetchAnniversaries(),
+    ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
     setAnniversaries(nextAnniversaries);
-    setPrivacyMode(privacyRaw !== "false");
   };
 
   useEffect(() => {
@@ -413,11 +409,11 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
           </div>
           {upcomingAnniversaries.length ? (
             <ul className="widget-anni-list">
-              {upcomingAnniversaries.map(({ item, daysLeft, label }) => (
+              {upcomingAnniversaries.map(({ item, daysLeft }) => (
                 <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
-                  <span>{privacyMode ? "纪念日" : item.title}</span>
+                  <span>{item.title}</span>
                   <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
-                  <em>{label}</em>
+                  <em>{formatAnniversaryAnchor(item)}</em>
                 </li>
               ))}
             </ul>
@@ -439,11 +435,11 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
         <section className="widget-today">
           {upcomingAnniversaries.length ? (
             <ul className="widget-anni-list">
-              {upcomingAnniversaries.map(({ item, daysLeft, label }) => (
+              {upcomingAnniversaries.map(({ item, daysLeft }) => (
                 <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
-                  <span>{privacyMode ? "纪念日" : item.title}</span>
+                  <span>{item.title}</span>
                   <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
-                  <em>{label}</em>
+                  <em>{formatAnniversaryAnchor(item)}</em>
                 </li>
               ))}
             </ul>
