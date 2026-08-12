@@ -38,6 +38,7 @@ export function filterTasksByView(
     case "all":
     case "board":
     case "calendar":
+    case "week":
       break;
     case "tags":
       if (activeTagId) {
@@ -127,6 +128,8 @@ export function getEmptyMessage(view: string): string {
       return "创建第一个习惯开始追踪。";
     case "reminders":
       return "还没有提醒，创建一个循环倒计时吧。";
+    case "week":
+      return "本周还没有安排任务。";
     case "trash":
       return "回收站是空的。";
     default:

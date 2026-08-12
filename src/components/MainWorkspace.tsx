@@ -974,25 +974,28 @@ function WeekBoard() {
                   const duration = Math.max(30, endMin - startMin);
                   const top =
                     ((startMin - hourStart * 60) / 60) * slotH;
-                  const height = (duration / 60) * slotH;
+                  const height = Math.max(28, (duration / 60) * slotH);
+                  const timeLabel = formatTimeRange(t.due_time, t.end_time);
+                  const compact = height < 44;
                   return (
                     <div
                       key={t.id}
-                      className={`week-event ${t.status === "completed" ? "is-done" : ""}`}
+                      className={`week-event ${compact ? "is-compact" : ""} ${t.status === "completed" ? "is-done" : ""}`}
                       style={{
                         top: Math.max(0, top),
-                        height: Math.max(28, height),
+                        height,
                       }}
+                      title={`${timeLabel} ${t.title}`}
                       draggable
                       onDragStart={(e) =>
                         e.dataTransfer.setData("text/task", t.id)
                       }
                       onClick={() => selectTask(t.id)}
                     >
-                      <span className="week-event-time">
-                        {formatTimeRange(t.due_time, t.end_time)}
-                      </span>
-                      {t.title}
+                      {compact ? null : (
+                        <span className="week-event-time">{timeLabel}</span>
+                      )}
+                      <span className="week-event-title">{t.title}</span>
                     </div>
                   );
                 })}

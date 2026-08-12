@@ -2749,9 +2749,26 @@ html[data-timeline="collapsed"] .app-body {
 
 .week-event-time {
   display: block;
+  flex-shrink: 0;
   font-size: 10px;
-  opacity: 0.85;
-  margin-bottom: 2px;
+  line-height: 1.2;
+  opacity: 0.78;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.week-event-title {
+  flex: 1 1 auto;
+  min-height: 0;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  word-break: break-word;
 }
 
 .week-head,
@@ -2822,10 +2839,30 @@ html[data-timeline="collapsed"] .app-body {
   overflow: hidden;
   z-index: 1;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.week-event.is-compact {
+  justify-content: center;
+  gap: 0;
+}
+
+.week-event.is-compact .week-event-time {
+  display: none;
+}
+
+.week-event.is-compact .week-event-title {
+  -webkit-line-clamp: 2;
 }
 
 .week-event.is-done {
   opacity: 0.55;
+}
+
+.week-event.is-done .week-event-title {
+  text-decoration: line-through;
 }
 
 .week-now {

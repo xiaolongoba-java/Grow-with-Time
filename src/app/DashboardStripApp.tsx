@@ -10,7 +10,7 @@ import {
   fetchMemos,
   fetchTasks,
   fetchTimers,
-  settleExpiredTimers,
+  getSetting,
   toggleHabitCheck,
 } from "@/lib/db";
 import { formatLongDate, todayDateString } from "@/lib/dates";
@@ -74,6 +74,7 @@ export function DashboardStripApp() {
   const [checks, setChecks] = useState<HabitCheck[]>([]);
   const [timers, setTimers] = useState<Timer[]>([]);
   const [quote, setQuote] = useState(FALLBACK_QUOTES[0]);
+  const [privacyMode, setPrivacyMode] = useState(true);
   const [memoText, setMemoText] = useState("");
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
@@ -118,6 +119,7 @@ export function DashboardStripApp() {
       nextTimers,
       inspirations,
       reflections,
+      privacyRaw,
     ] = await Promise.all([
       fetchTasks(),
       fetchMemos(),
@@ -126,17 +128,21 @@ export function DashboardStripApp() {
       fetchTimers(),
       fetchInspirations(false),
       fetchDailyReflections(),
+      getSetting("privacy_mode"),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
     setHabits(nextHabits);
     setChecks(nextChecks);
     setTimers(nextTimers);
+    const privacyOn = privacyRaw !== "false";
+    setPrivacyMode(privacyOn);
 
     const today = todayDateString();
     const highlight = reflections.find((item) => item.reflection_date === today)?.highlight?.trim();
     const inspiration = inspirations.find((item) => item.status === "inbox")?.content?.trim();
-    if (highlight) setQuote(highlight);
+    if (privacyOn) setQuote("你有一条拾光记录");
+    else if (highlight) setQuote(highlight);
     else if (inspiration) setQuote(inspiration.slice(0, 48));
     else setQuote(FALLBACK_QUOTES[Math.floor(Date.now() / 86_400_000) % FALLBACK_QUOTES.length]);
   };
@@ -148,11 +154,6 @@ export function DashboardStripApp() {
     const poll = window.setInterval(() => void refresh(), 5_000);
     const tick = window.setInterval(() => {
       setNowMs(Date.now());
-      void settleExpiredTimers()
-        .then((fired) => {
-          if (fired.length) return refresh();
-        })
-        .catch(() => undefined);
     }, 1_000);
 
     const current = getCurrentWebviewWindow();
@@ -366,7 +367,9 @@ export function DashboardStripApp() {
               pinnedMemos.map((memo) => (
                 <li key={memo.id}>
                   {memo.pinned ? "📌 " : ""}
-                  {(memo.title || memo.content).slice(0, 28)}
+                  {privacyMode
+                    ? "一条备忘"
+                    : (memo.title || memo.content).slice(0, 28)}
                 </li>
               ))
             )}
@@ -405,7 +408,7 @@ export function DashboardStripApp() {
                     onClick={() => void toggleHabit(habit.id)}
                   >
                     <span>{done ? "✓" : "○"}</span>
-                    {habit.title}
+                    {privacyMode ? "习惯打卡" : habit.title}
                   </button>
                 );
               })
@@ -471,7 +474,7 @@ export function DashboardStripApp() {
             <ul>
               {activeTimers.map((timer) => (
                 <li key={timer.id}>
-                  <span>{timer.title}</span>
+                  <span>{privacyMode ? "倒计时" : timer.title}</span>
                   <strong className={timer.running ? "is-running" : ""}>
                     {formatCountdown(liveRemaining(timer, nowMs))}
                   </strong>

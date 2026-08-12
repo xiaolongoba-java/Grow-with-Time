@@ -1,6 +1,6 @@
 [package]
 name = "minimal-todo"
-version = "1.5.8"
+version = "1.5.9"
 description = "日进·拾光 (Grow with Time) desktop app"
 authors = ["you"]
 edition = "2021"

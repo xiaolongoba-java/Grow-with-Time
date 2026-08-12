@@ -108,6 +108,21 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.9 周视图可读性与稳定性
+
+- 周时间网格保留左侧时间轴；矮任务块不再用时段行挤压标题，完整时间改到悬停提示。
+- 周起始统一为周一，与周清单 / 成长统计一致。
+- 桌面仪表盘不再抢先结算倒计时，避免主窗口漏发提醒；无痕模式下仪表盘文案脱敏。
+
+### v1.5.9
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.9_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.9/Grow.with.Time_1.5.9_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.9_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.9/Grow.with.Time_1.5.9_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.9) 或 Actions Artifacts 下载。
+
 #### v1.5.8 周清单与桌面仪表盘
 
 - 新增「周清单」视图：本周目标分栏、当周日历、完成统计与日负荷。

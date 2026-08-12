@@ -111,7 +111,9 @@ export function addDays(date: string, n: number): string {
 
 export function startOfWeek(date: string): string {
   const d = parseDate(date);
-  d.setDate(d.getDate() - d.getDay());
+  // Monday-based week, aligned with growth / 周清单.
+  const mondayOffset = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - mondayOffset);
   return toDateString(d);
 }
 
