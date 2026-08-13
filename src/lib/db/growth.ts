@@ -105,7 +105,7 @@ export async function fetchGoalEntries(goalId?: string): Promise<GoalEntry[]> {
       );
 }
 
-async function refreshGoalProgress(goalId: string): Promise<void> {
+export async function refreshGoalProgress(goalId: string): Promise<void> {
   const db = await getDb();
   const goalRows = await db.select<Goal[]>("SELECT * FROM goals WHERE id=$1", [goalId]);
   if (!goalRows[0]) return;
@@ -326,4 +326,3 @@ export async function toggleAchievementPinned(id: string): Promise<void> {
     [id],
   );
 }
-

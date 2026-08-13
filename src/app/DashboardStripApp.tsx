@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { fetchTasks } from "@/lib/db/tasks";
+import { createMemo, fetchMemos } from "@/lib/db/memos";
 import {
-  createMemo,
   fetchAnniversaries,
   fetchDailyReflections,
-  fetchHabitChecks,
-  fetchHabits,
   fetchInspirations,
-  fetchMemos,
-  fetchTasks,
-  fetchTimers,
-  toggleHabitCheck,
-} from "@/lib/db";
+} from "@/lib/db/moments";
+import { fetchHabitChecks, fetchHabits, toggleHabitCheck } from "@/lib/db/taxonomy";
+import { fetchTimers } from "@/lib/db/timers";
 import { formatLongDate, todayDateString } from "@/lib/dates";
 import {
   anniversaryDatesInMonth,

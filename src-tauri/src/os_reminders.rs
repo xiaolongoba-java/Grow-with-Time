@@ -1,7 +1,7 @@
 //! OS-level reminder scheduling so toasts can fire after the process exits.
 
-const MAX_OS_REMINDERS: usize = 48;
-const MAX_AHEAD_MS: u64 = 90 * 24 * 60 * 60 * 1000;
+pub const MAX_OS_REMINDERS: usize = 48;
+pub const MAX_AHEAD_MS: u64 = 90 * 24 * 60 * 60 * 1000;
 #[cfg(windows)]
 const AUMID: &str = "com.minimal.todo";
 #[cfg(target_os = "macos")]
@@ -15,25 +15,44 @@ pub struct OsReminder {
     pub fire_at_ms: u64,
 }
 
-pub fn sync(reminders: &[OsReminder]) -> bool {
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    let mut upcoming: Vec<OsReminder> = reminders
+pub struct ReminderWindow {
+    pub windowed: Vec<OsReminder>,
+    pub overflow: Vec<OsReminder>,
+    pub truncated: bool,
+}
+
+pub fn select_window(reminders: &[OsReminder], now_ms: u64) -> ReminderWindow {
+    let mut in_horizon: Vec<OsReminder> = reminders
         .iter()
         .filter(|item| item.fire_at_ms > now_ms && item.fire_at_ms <= now_ms + MAX_AHEAD_MS)
         .cloned()
         .collect();
-    upcoming.sort_by_key(|item| item.fire_at_ms);
-    upcoming.truncate(MAX_OS_REMINDERS);
-    match sync_platform(&upcoming) {
-        Ok(()) => true,
-        Err(error) => {
-            eprintln!("os reminders: {error}");
-            false
-        }
+    in_horizon.sort_by_key(|item| item.fire_at_ms);
+    let beyond: Vec<OsReminder> = reminders
+        .iter()
+        .filter(|item| item.fire_at_ms > now_ms + MAX_AHEAD_MS)
+        .cloned()
+        .collect();
+    let truncated = in_horizon.len() > MAX_OS_REMINDERS || !beyond.is_empty();
+    let overflow_in_horizon = if in_horizon.len() > MAX_OS_REMINDERS {
+        in_horizon.split_off(MAX_OS_REMINDERS)
+    } else {
+        Vec::new()
+    };
+    let mut overflow = overflow_in_horizon;
+    overflow.extend(beyond);
+    ReminderWindow {
+        windowed: in_horizon,
+        overflow,
+        truncated,
     }
+}
+
+pub fn sync(reminders: &[OsReminder]) -> Result<(), String> {
+    sync_platform(reminders).map_err(|error| {
+        eprintln!("os reminders: {error}");
+        error
+    })
 }
 
 #[cfg(windows)]

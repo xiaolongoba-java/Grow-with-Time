@@ -29,6 +29,25 @@ export async function getDb(): Promise<Database> {
         /* already exists */
       }
       try {
+        await db.execute("ALTER TABLE tasks ADD COLUMN generated_from_id TEXT");
+      } catch {
+        /* already exists */
+      }
+      try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS karma_ledger (
+          id TEXT PRIMARY KEY,
+          source_type TEXT NOT NULL,
+          source_id TEXT NOT NULL,
+          action TEXT NOT NULL,
+          points INTEGER NOT NULL,
+          entry_date TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          UNIQUE(source_type, source_id, action)
+        )`);
+      } catch {
+        /* ignore */
+      }
+      try {
         await db.execute(
           "ALTER TABLE memos ADD COLUMN title TEXT NOT NULL DEFAULT ''",
         );
@@ -95,6 +114,33 @@ export async function getDb(): Promise<Database> {
   return dbPromise;
 }
 
+let txQueue: Promise<unknown> = Promise.resolve();
+
+/** Serialize SQLite transactions. Nested work must use *WithinTransaction helpers. */
+export function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  const run = txQueue.then(async () => {
+    const db = await getDb();
+    await db.execute("BEGIN IMMEDIATE");
+    try {
+      const result = await fn();
+      await db.execute("COMMIT");
+      return result;
+    } catch (error) {
+      try {
+        await db.execute("ROLLBACK");
+      } catch {
+        /* ignore */
+      }
+      throw error;
+    }
+  });
+  txQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 export function mapTask(row: Task): Task {
   const raw = (row as Task & { reminder_minutes_json?: string | null })
     .reminder_minutes_json;
@@ -127,6 +173,7 @@ export function mapTask(row: Task): Task {
     actual_minutes: row.actual_minutes ?? 0,
     goal_id: row.goal_id ?? null,
     goal_contribution: row.goal_contribution ?? 1,
+    generated_from_id: row.generated_from_id ?? null,
   };
 }
 

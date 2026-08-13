@@ -9,6 +9,7 @@ import {
   nextDateMatchingWeekdays,
   stringifyRepeatRule,
   weeklyRuleFromDate,
+  monthlyRuleFromDate,
 } from "@/lib/repeat";
 
 function repeatFromFrequency(value: string, dueDate: string): RepeatRule | null {
@@ -21,6 +22,7 @@ function repeatFromFrequency(value: string, dueDate: string): RepeatRule | null 
     };
   }
   if (value === "weekly") return weeklyRuleFromDate(dueDate);
+  if (value === "monthly") return monthlyRuleFromDate(dueDate);
   return {
     frequency: value as RepeatRule["frequency"],
     interval: 1,

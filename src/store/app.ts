@@ -21,13 +21,17 @@ import type {
   DateScope,
 } from "@/types";
 import * as db from "@/lib/db";
-import { bumpGamification } from "@/lib/db";
 import { addDays, todayDateString } from "@/lib/dates";
 import {
   focusEndsAtFromRemaining,
   remainingFocusSeconds,
 } from "@/lib/focusTimer";
 import { emitDataChanged } from "@/lib/widgetRefresh";
+import { interpretOpenFocus, type FocusRecovery } from "@/lib/focusRecovery";
+import {
+  EMPTY_REMINDER_SYNC,
+  type ReminderSyncStatus,
+} from "@/lib/nativeReminders";
 import { invoke } from "@tauri-apps/api/core";
 import { syncWindowChrome } from "@/lib/windowChrome";
 import { errorMessage } from "@/lib/errors";
@@ -70,6 +74,8 @@ interface AppStore {
   focusEndsAt: number | null;
   focusRunning: boolean;
   focusSessionId: string | null;
+  pendingFocusRecovery: FocusRecovery | null;
+  reminderSync: ReminderSyncStatus;
   toast: string | null;
   canUndo: boolean;
   _undoAction: (() => Promise<void>) | null;
@@ -139,14 +145,22 @@ interface AppStore {
 
   setFocusTask: (id: string | null) => void;
   tickFocus: () => void;
+  persistFocusHeartbeat: (hidden?: boolean) => void;
   toggleFocus: () => Promise<void>;
   resetFocus: () => Promise<void>;
+  resolveFocusRecovery: (
+    action: "continue" | "settle_activity" | "settle_planned" | "abandon",
+  ) => Promise<void>;
+  setReminderSync: (status: ReminderSyncStatus) => void;
 }
 
 function applyTheme(theme: ThemeMode) {
   document.documentElement.dataset.theme = theme;
   void syncWindowChrome(theme);
 }
+
+let lastFocusHeartbeatWrite = 0;
+const FOCUS_HEARTBEAT_MS = 15_000;
 
 export const useAppStore = create<AppStore>((set, get) => ({
   ready: false,
@@ -194,6 +208,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   focusEndsAt: null,
   focusRunning: false,
   focusSessionId: null,
+  pendingFocusRecovery: null,
+  reminderSync: EMPTY_REMINDER_SYNC,
   toast: null,
   canUndo: false,
   _undoAction: null,
@@ -203,14 +219,32 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const today = todayDateString();
       const rolled = await db.rolloverOverdueTasks();
+      await db.backfillGeneratedFromIds();
       await get().refreshAll();
       applyTheme(get().settings.theme);
+      const openFocus = await db.fetchOpenFocusSessions();
+      const persistedFocus = await db.loadActiveFocus();
+      if (!openFocus.length) {
+        await db.saveActiveFocus(null);
+      } else {
+        const latest = openFocus[0];
+        const extras = openFocus.slice(1);
+        set({
+          pendingFocusRecovery: interpretOpenFocus(
+            latest,
+            persistedFocus,
+            Date.now(),
+            25 * 60,
+            extras,
+          ),
+        });
+      }
       set({
         ready: true,
         error: null,
         calendarCursor: today,
         ...(rolled > 0
-          ? { toast: `已将 ${rolled} 项未完成任务顺延至今日` }
+          ? { toast: `已将 ${rolled} 项逾期任务加入今日计划，截止日期未改` }
           : {}),
       });
     } catch (e) {
@@ -239,7 +273,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         set({
           ...(onTodayNav || rolled > 0 ? { calendarCursor: today } : {}),
           ...(rolled > 0
-            ? { toast: `已将 ${rolled} 项未完成任务顺延至今日` }
+            ? { toast: `已将 ${rolled} 项逾期任务加入今日计划，截止日期未改` }
             : {}),
         });
       }
@@ -382,20 +416,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
   toggleComplete: async (id) => {
     const before = get().tasks.find((task) => task.id === id);
     const { task } = await db.toggleTaskComplete(id);
-    if (task?.status === "completed") {
-      const g = await bumpGamification();
-      set((s) => ({
-        settings: { ...s.settings, karma: g.karma, streak: g.streak },
-        toast: `+10 Karma · 连击 ${g.streak} 天`,
-      }));
-    }
     await get().refreshAll();
     if (before) {
       set({
         toast: task?.status === "completed" ? "任务已完成" : "已恢复为待办",
         canUndo: true,
         _undoAction: async () => {
-          await db.updateTask(id, { status: before.status });
+          await db.toggleTaskComplete(id);
           await get().refreshAll();
         },
       });
@@ -417,23 +444,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   batchComplete: async (ids) => {
-    const previous = get().tasks
-      .filter((task) => ids.includes(task.id))
-      .map((task) => ({ id: task.id, status: task.status }));
-    await db.batchSetTaskStatus(ids, "completed");
+    const toComplete = get()
+      .tasks.filter((task) => ids.includes(task.id) && task.status !== "completed")
+      .map((task) => task.id);
+    if (!toComplete.length) return;
+    await db.batchSetTaskStatus(toComplete, "completed");
     await get().refreshAll();
     set({
-      toast: `已完成 ${ids.length} 项任务`,
+      toast: `已完成 ${toComplete.length} 项任务`,
       canUndo: true,
       _undoAction: async () => {
-        for (const status of [...new Set(previous.map((item) => item.status))]) {
-          await db.batchSetTaskStatus(
-            previous
-              .filter((item) => item.status === status)
-              .map((item) => item.id),
-            status,
-          );
-        }
+        await db.batchSetTaskStatus(toComplete, "pending");
         await get().refreshAll();
       },
     });
@@ -740,8 +761,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!focusRunning || focusEndsAt === null) return;
     const next = remainingFocusSeconds(focusEndsAt);
     set({ focusSeconds: next });
+    if (Date.now() - lastFocusHeartbeatWrite >= FOCUS_HEARTBEAT_MS) {
+      lastFocusHeartbeatWrite = Date.now();
+      get().persistFocusHeartbeat();
+    }
     if (next === 0 && focusSessionId) {
-      void db.finishFocusSession(focusSessionId).then(() => get().refreshAll());
+      void db.finishFocusSession(focusSessionId).then(async () => {
+        await db.saveActiveFocus(null);
+        await get().refreshAll();
+      });
       set({
         focusRunning: false,
         focusEndsAt: null,
@@ -749,6 +777,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
         toast: "专注完成，已记录实际耗时",
       });
     }
+  },
+  persistFocusHeartbeat: (hidden = false) => {
+    const { focusRunning, focusSessionId, focusTaskId, focusEndsAt, focusSeconds } =
+      get();
+    if (!focusRunning || !focusSessionId || focusEndsAt == null) return;
+    lastFocusHeartbeatWrite = Date.now();
+    void db.saveActiveFocus({
+      sessionId: focusSessionId,
+      taskId: focusTaskId,
+      endsAt: focusEndsAt,
+      plannedSec: Math.max(focusSeconds, 1),
+      lastHeartbeatAt: Date.now(),
+      hiddenAt: hidden ? Date.now() : null,
+    });
   },
   toggleFocus: async () => {
     const { focusRunning, focusSessionId, focusTaskId, focusSeconds, focusEndsAt } =
@@ -758,6 +800,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       if (focusSessionId) {
         await db.finishFocusSession(focusSessionId, "手动暂停");
       }
+      await db.saveActiveFocus(null);
       set({
         focusRunning: false,
         focusEndsAt: null,
@@ -769,7 +812,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       return;
     }
     const session = await db.startFocusSession(focusTaskId);
-    const endsAt = focusEndsAtFromRemaining(focusSeconds);
+    const plannedSec = focusSeconds;
+    const endsAt = focusEndsAtFromRemaining(plannedSec);
+    await db.saveActiveFocus({
+      sessionId: session.id,
+      taskId: focusTaskId,
+      endsAt,
+      plannedSec,
+      lastHeartbeatAt: Date.now(),
+      hiddenAt: null,
+    });
     set({
       focusRunning: true,
       focusSessionId: session.id,
@@ -783,6 +835,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await db.finishFocusSession(focusSessionId, "重置计时器");
       await get().refreshAll();
     }
+    await db.saveActiveFocus(null);
     set({
       focusSeconds: 25 * 60,
       focusEndsAt: null,
@@ -790,4 +843,79 @@ export const useAppStore = create<AppStore>((set, get) => ({
       focusSessionId: null,
     });
   },
+  resolveFocusRecovery: async (action) => {
+    const pending = get().pendingFocusRecovery;
+    if (!pending) return;
+    const extraEndedAt = (startedAt: string) => {
+      if (action === "abandon" || action === "settle_activity") return startedAt;
+      const started = Date.parse(startedAt);
+      const plannedMs = Math.max(
+        0,
+        pending.plannedSettleAt - new Date(pending.session.started_at).getTime(),
+      );
+      const plannedEnd = started + plannedMs;
+      if (action === "continue") {
+        return new Date(Math.min(Date.now(), plannedEnd)).toISOString();
+      }
+      return new Date(plannedEnd).toISOString();
+    };
+    const finishExtras = async () => {
+      const reason =
+        action === "abandon" ? "异常退出，已放弃" : "异常退出后结算";
+      for (const extra of pending.extras) {
+        await db.finishFocusSession(extra.id, reason, extraEndedAt(extra.started_at));
+      }
+    };
+    if (action === "continue" && pending.canContinue && pending.endsAt) {
+      await finishExtras();
+      await db.saveActiveFocus({
+        sessionId: pending.session.id,
+        taskId: pending.session.task_id,
+        endsAt: pending.endsAt,
+        plannedSec: Math.max(pending.remainingSec, 1),
+        lastHeartbeatAt: Date.now(),
+        hiddenAt: null,
+      });
+      set({
+        pendingFocusRecovery: null,
+        focusTaskId: pending.session.task_id,
+        focusSessionId: pending.session.id,
+        focusEndsAt: pending.endsAt,
+        focusSeconds: pending.remainingSec,
+        focusRunning: true,
+        toast: pending.extraCount
+          ? `已继续上次专注，另外 ${pending.extraCount} 条已按计划时长结算`
+          : "已继续上次专注",
+      });
+      return;
+    }
+    const abandon = action === "abandon";
+    const endedAt = abandon
+      ? pending.session.started_at
+      : new Date(
+          action === "settle_planned"
+            ? pending.plannedSettleAt
+            : pending.activitySettleAt,
+        ).toISOString();
+    await db.finishFocusSession(
+      pending.session.id,
+      abandon ? "异常退出，已放弃" : "异常退出后结算",
+      endedAt,
+    );
+    await finishExtras();
+    await db.saveActiveFocus(null);
+    set({
+      pendingFocusRecovery: null,
+      focusSessionId: null,
+      focusEndsAt: null,
+      focusRunning: false,
+      toast: abandon
+        ? "已放弃上次未结束的专注"
+        : action === "settle_planned"
+          ? "已按计划时长结算专注"
+          : "已按最后活动时间结算专注",
+    });
+    await get().refreshAll();
+  },
+  setReminderSync: (reminderSync) => set({ reminderSync }),
 }));

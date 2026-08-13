@@ -38,6 +38,7 @@ function task(partial: Partial<Task> & Pick<Task, "id" | "title">): Task {
     goal_id: null,
     goal_contribution: 1,
     ...partial,
+    generated_from_id: partial.generated_from_id ?? null,
   };
 }
 

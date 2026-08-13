@@ -5,20 +5,10 @@ import {
   WebviewWindow,
 } from "@tauri-apps/api/webviewWindow";
 import { listen } from "@tauri-apps/api/event";
-import {
-  createMemo,
-  createTask,
-  deleteMemo,
-  fetchMemos,
-  fetchTasks,
-  fetchTimers,
-  pauseTimer,
-  resetTimer,
-  rolloverOverdueTasks,
-  startTimer,
-  toggleTaskComplete,
-  updateMemo,
-} from "@/lib/db";
+import { createTask, fetchTasks, toggleTaskComplete } from "@/lib/db/tasks";
+import { createMemo, deleteMemo, fetchMemos, updateMemo } from "@/lib/db/memos";
+import { fetchTimers, pauseTimer, resetTimer, startTimer } from "@/lib/db/timers";
+import { rolloverOverdueTasks } from "@/lib/db/settings";
 import { formatDueDate, isOverdue, todayDateString } from "@/lib/dates";
 import { parseNaturalInput } from "@/lib/nlp";
 import { formatCountdown, liveRemaining } from "@/lib/timers";

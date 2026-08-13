@@ -7,6 +7,7 @@ import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { invoke } from "@tauri-apps/api/core";
 import { themeMeta, type VisualTheme } from "@/lib/themes";
+import { OS_REMINDER_LIMIT } from "@/lib/nativeReminders";
 
 type DatabaseHealth = {
   healthy: boolean;
@@ -189,6 +190,7 @@ export function SettingsView() {
           系统会登记到期提醒，完全退出后仍可能弹出。若系统通知权限被关，则无法保证准点。
           全局快捷键 Ctrl/Cmd+Shift+N。
         </p>
+        <ReminderSyncStatusCard />
       </section>
 
       <section className="settings-card" style={{ marginTop: 12 }}>
@@ -429,5 +431,46 @@ export function SettingsView() {
         </button>
       </section>
     </main>
+  );
+}
+
+function ReminderSyncStatusCard() {
+  const sync = useAppStore((s) => s.reminderSync);
+  const osLabel =
+    sync.osAvailable == null
+      ? "检测中…"
+      : sync.osAvailable
+        ? "可用"
+        : "不可用，已改用应用内调度";
+  const permLabel =
+    sync.permissionGranted == null
+      ? "检测中…"
+      : sync.permissionGranted
+        ? "已授权"
+        : "未授权";
+  const lastSyncLabel = sync.lastOkAt
+    ? new Date(sync.lastOkAt).toLocaleString()
+    : "尚未成功";
+  const failed = Boolean(sync.lastError) && !sync.osAvailable;
+  return (
+    <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
+      <p>系统提醒：{osLabel}</p>
+      <p>通知权限：{permLabel}</p>
+      <p>
+        系统托管 {sync.scheduledCount} 条
+        {sync.totalUpcoming ? `（即将到期共 ${sync.totalUpcoming} 条）` : ""}
+        ，另有 {sync.overflowCount} 条依赖应用运行。
+      </p>
+      <p>
+        完全退出后，只有系统托管的提醒可能弹出；超出 {OS_REMINDER_LIMIT} 条或 90 天的提醒，要等应用再次运行后才会补发。
+      </p>
+      {sync.truncated ? (
+        <p>
+          因系统限制，目前只登记了最近 {OS_REMINDER_LIMIT} 条、90 天内的提醒；队列会每 6 小时以及每次提醒触发后自动补入。
+        </p>
+      ) : null}
+      <p>最近一次同步：{failed ? `失败 · ${sync.lastError}` : `成功 · ${lastSyncLabel}`}</p>
+      {!failed && sync.lastError ? <p>{sync.lastError}</p> : null}
+    </div>
   );
 }

@@ -11,10 +11,12 @@ describe("database migration declarations", () => {
       Number(match[1]),
     );
     expect(new Set(versions).size).toBe(versions.length);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
     expect(source).toContain("schema_contract");
     expect(source).toContain("desktop_widget_mode");
     expect(source).toContain("desktop_widget_layer");
+    expect(source).toContain("generated_from_id");
+    expect(source).toContain("karma_ledger");
     expect(source).toContain("anniversaries");
     const firstMigration = source.slice(
       source.indexOf('description: "create_tasks_and_settings"'),
@@ -29,6 +31,9 @@ describe("database migration declarations", () => {
     );
     expect(compatibility).toContain(
       "ALTER TABLE tasks ADD COLUMN estimated_minutes INTEGER",
+    );
+    expect(compatibility).toContain(
+      "ALTER TABLE tasks ADD COLUMN generated_from_id TEXT",
     );
     expect(source).toContain(
       "ALTER TABLE tasks ADD COLUMN schedule_locked INTEGER NOT NULL DEFAULT 0",

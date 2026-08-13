@@ -114,6 +114,24 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.18 事务、积分、重复与备份修复
+
+- 数据库事务改为顶层串行，避免多窗口同时写入时互相提交或回滚。
+- 完成任务的 Karma 记入流水；撤销完成会扣回，清空回收站也会移除对应积分。
+- 「每 N 周 + 多个星期几」按完整周间隔计算，不再提前跳到下一匹配日。
+- 备份恢复会跳过无效关联，不再写入孤儿数据。
+- 批量删除/恢复会带上子任务；专注异常退出可按最后活动时间或计划时长结算。
+- 系统提醒先同步托管队列，再扫描错过项，减少重复弹窗。
+
+### v1.5.18
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.18_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.18/Grow.with.Time_1.5.18_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.18_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.18/Grow.with.Time_1.5.18_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.18) 或 Actions Artifacts 下载。
+
 #### v1.5.17 退出后仍能提醒
 
 - 关闭主窗口放到托盘；托盘「退出应用」才会真正退出。

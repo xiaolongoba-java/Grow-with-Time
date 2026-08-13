@@ -3,13 +3,14 @@ import type {
   BackupPayload,
   DaySnapshot,
   FocusSession,
+  KarmaLedgerEntry,
   Milestone,
   Project,
   TaskEvent,
 } from "@/types";
 import { nowIso } from "@/lib/dates";
-import { backupPayloadHas, validateBackupPayload } from "@/lib/backup";
-import { getDb } from "./client";
+import { backupPayloadHas, sanitizeBackupPayload, validateBackupPayload } from "@/lib/backup";
+import { getDb, withTransaction } from "./client";
 import { saveTaskPlanningMetadata } from "./client";
 import { fetchTasks } from "./tasks";
 import {
@@ -34,7 +35,7 @@ import {
   fetchInspirations,
 } from "./moments";
 import { fetchTaskTemplates } from "./projects";
-import { getAllSettings, setSetting } from "./settings";
+import { getAllSettings, refreshKarmaFromLedger, setSetting } from "./settings";
 
 /* Backup */
 export async function exportBackup(): Promise<BackupPayload> {
@@ -71,10 +72,13 @@ export async function exportBackup(): Promise<BackupPayload> {
   const inspirations = await fetchInspirations(true);
   const futureLetters = await fetchFutureLetters();
   const anniversaries = await fetchAnniversaries();
+  const karmaLedger = await db.select<KarmaLedgerEntry[]>(
+    "SELECT * FROM karma_ledger ORDER BY created_at ASC",
+  );
   const settings = await getAllSettings();
 
   return {
-    version: 6,
+    version: 7,
     exportedAt: nowIso(),
     tasks,
     tags,
@@ -100,18 +104,23 @@ export async function exportBackup(): Promise<BackupPayload> {
     inspirations,
     futureLetters,
     anniversaries,
+    karmaLedger,
     settings,
   };
 }
 
-export async function importBackup(payload: BackupPayload): Promise<void> {
+export async function importBackup(raw: BackupPayload): Promise<void> {
   const db = await getDb();
-  validateBackupPayload(payload);
-  const has = (key: keyof BackupPayload) => backupPayloadHas(payload, key);
+  validateBackupPayload(raw);
+  const payload = sanitizeBackupPayload(raw);
+  const has = (key: keyof BackupPayload) => backupPayloadHas(raw, key);
 
-  await db.execute("BEGIN IMMEDIATE");
-  try {
+  await withTransaction(async () => {
     if (has("anniversaries")) await db.execute("DELETE FROM anniversaries");
+    // Tasks are replaced by every supported backup version. Keeping a local
+    // ledger from the previous dataset would leave points tied to removed tasks.
+    // v7 restores its ledger below; older backups restart from their saved Karma.
+    await db.execute("DELETE FROM karma_ledger");
     if (has("futureLetters")) await db.execute("DELETE FROM future_letters");
     if (has("inspirations")) await db.execute("DELETE FROM inspirations");
     if (has("dailyReflections")) await db.execute("DELETE FROM daily_reflections");
@@ -152,8 +161,8 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         completed_at, deleted_at, parent_id, repeat_rule, remind_minutes,
         project_id, my_day_date,
         blocked_by_id, completion_criteria, energy_level, flexible, schedule_locked,
-        actual_minutes, goal_id, goal_contribution
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
+        actual_minutes, goal_id, goal_contribution, generated_from_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
       [
         task.id,
         task.title,
@@ -182,6 +191,7 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
         task.actual_minutes ?? 0,
         task.goal_id ?? null,
         task.goal_contribution ?? 1,
+        task.generated_from_id ?? null,
       ],
     );
     // Backup tasks already carry the normalized multi-reminder array. Persist
@@ -451,13 +461,26 @@ export async function importBackup(payload: BackupPayload): Promise<void> {
       ],
     );
   }
+  for (const item of payload.karmaLedger ?? []) {
+    await db.execute(
+      `INSERT OR IGNORE INTO karma_ledger
+       (id,source_type,source_id,action,points,entry_date,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [item.id,item.source_type,item.source_id,item.action,item.points,item.entry_date,item.created_at],
+    );
+  }
   for (const [key, value] of Object.entries(payload.settings)) {
     await setSetting(key, value);
   }
-    await db.execute("COMMIT");
-  } catch (error) {
-    await db.execute("ROLLBACK");
-    throw error;
+  if (!has("karmaLedger")) {
+    await setSetting("karma_base", payload.settings.karma ?? "0");
+    await setSetting("karma_streak_base", payload.settings.streak ?? "0");
+    await setSetting(
+      "karma_streak_last_date",
+      payload.settings.last_complete_date ?? "",
+    );
+  } else {
+    await refreshKarmaFromLedger();
   }
+  });
 }
-

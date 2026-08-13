@@ -667,6 +667,37 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 18,
+            description: "repeat_generated_from_id",
+            sql: r#"
+ALTER TABLE tasks ADD COLUMN generated_from_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_tasks_generated_from
+  ON tasks(generated_from_id);
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '18');
+"#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 19,
+            description: "karma_ledger",
+            sql: r#"
+CREATE TABLE IF NOT EXISTS karma_ledger (
+  id TEXT PRIMARY KEY,
+  source_type TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  points INTEGER NOT NULL,
+  entry_date TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(source_type, source_id, action)
+);
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '19');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -878,12 +909,27 @@ fn cancel_native_notification(
     Ok(())
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OsReminderSyncResult {
+    ok: bool,
+    scheduled_count: usize,
+    overflow_count: usize,
+    truncated: bool,
+    error: Option<String>,
+    hosted_ids: Vec<String>,
+}
+
 #[tauri::command]
 fn sync_native_notifications(
     scheduled: tauri::State<'_, Arc<ReminderScheduler>>,
     reminders: Vec<NativeReminder>,
-) -> Result<bool, String> {
-    let os_reminders: Vec<os_reminders::OsReminder> = reminders
+) -> Result<OsReminderSyncResult, String> {
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let mapped: Vec<os_reminders::OsReminder> = reminders
         .iter()
         .map(|item| os_reminders::OsReminder {
             id: item.reminder_id.clone(),
@@ -892,20 +938,48 @@ fn sync_native_notifications(
             fire_at_ms: item.fire_at_ms,
         })
         .collect();
-    let os_ok = os_reminders::sync(&os_reminders);
+    let window = os_reminders::select_window(&mapped, now_ms);
+    let os_error = os_reminders::sync(&window.windowed).err();
+    let os_ok = os_error.is_none();
+    let windowed_ids: std::collections::HashSet<String> =
+        window.windowed.iter().map(|item| item.id.clone()).collect();
 
     let mut guard = scheduled.reminders.lock().map_err(|e| e.to_string())?;
     guard.clear();
-    if !os_ok {
-        guard.extend(
-            reminders
-                .into_iter()
-                .map(|item| (item.reminder_id.clone(), item)),
-        );
-    }
+    let in_process: Vec<NativeReminder> = if os_ok {
+        reminders
+            .into_iter()
+            .filter(|item| item.fire_at_ms > now_ms && !windowed_ids.contains(&item.reminder_id))
+            .collect()
+    } else {
+        reminders
+            .into_iter()
+            .filter(|item| item.fire_at_ms > now_ms)
+            .collect()
+    };
+    guard.extend(
+        in_process
+            .into_iter()
+            .map(|item| (item.reminder_id.clone(), item)),
+    );
     drop(guard);
     scheduled.changed.notify_all();
-    Ok(os_ok)
+    Ok(OsReminderSyncResult {
+        ok: os_ok,
+        scheduled_count: if os_ok { window.windowed.len() } else { 0 },
+        overflow_count: if os_ok {
+            window.overflow.len()
+        } else {
+            mapped.iter().filter(|item| item.fire_at_ms > now_ms).count()
+        },
+        truncated: os_ok && window.truncated,
+        error: os_error,
+        hosted_ids: if os_ok {
+            window.windowed.iter().map(|item| item.id.clone()).collect()
+        } else {
+            Vec::new()
+        },
+    })
 }
 
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {

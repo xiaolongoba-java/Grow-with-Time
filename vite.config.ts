@@ -25,23 +25,27 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes("node_modules")) return;
-          if (id.includes("react-dom") || id.includes("/react/") || id.includes("\\react\\")) {
+          const normalized = id.replace(/\\/g, "/");
+          if (normalized.includes("lunar-typescript")) return "lunar";
+          if (normalized.includes("/src/lib/widgetRefresh")) return "widget-refresh";
+          if (normalized.includes("/src/lib/anniversaries")) return "anniversaries";
+          if (!normalized.includes("node_modules")) return;
+          if (normalized.includes("react-dom") || normalized.includes("/react/") || id.includes("\\react\\")) {
             return "react-vendor";
           }
-          if (id.includes("@tauri-apps")) return "tauri-vendor";
-          if (id.includes("@dnd-kit")) return "dnd-vendor";
+          if (normalized.includes("@tauri-apps")) return "tauri-vendor";
+          if (normalized.includes("@dnd-kit")) return "dnd-vendor";
           if (
-            id.includes("react-markdown") ||
-            id.includes("remark-") ||
-            id.includes("mdast") ||
-            id.includes("micromark") ||
-            id.includes("unist") ||
-            id.includes("vfile")
+            normalized.includes("react-markdown") ||
+            normalized.includes("remark-") ||
+            normalized.includes("mdast") ||
+            normalized.includes("micromark") ||
+            normalized.includes("unist") ||
+            normalized.includes("vfile")
           ) {
             return "markdown-vendor";
           }
-          if (id.includes("zustand")) return "zustand";
+          if (normalized.includes("zustand")) return "zustand";
         },
       },
     },

@@ -1,7 +1,8 @@
 import type { AiSettings, AppSettings, ThemeMode } from "@/types";
-import { nowIso, todayDateString } from "@/lib/dates";
+import { createId, nowIso, todayDateString } from "@/lib/dates";
 import { isPrivacyModeEnabled } from "@/lib/privacy";
 import { parseRepeatRule } from "@/lib/repeat";
+import { mergeLegacyStreakDates, recomputeStreak } from "@/lib/karma";
 import { getDb } from "./client";
 
 /* Settings */
@@ -78,15 +79,20 @@ export async function saveAiSettings(ai: AiSettings): Promise<void> {
   await setSetting("ai_model", ai.model);
 }
 
-/** Move pending dated tasks from before today to today. Idempotent; safe to call often. */
+/** Move overdue pending tasks onto today's plan without rewriting the deadline. */
 export async function rolloverOverdueTasks(): Promise<number> {
   const db = await getDb();
   const today = todayDateString();
 
-  const rows = await db.select<{ id: string; repeat_rule: string | null }[]>(
-    `SELECT id, repeat_rule FROM tasks
-     WHERE status = 'pending'
+  const rows = await db.select<{
+    id: string;
+    repeat_rule: string | null;
+    my_day_date: string | null;
+  }[]>(
+    `SELECT id, repeat_rule, my_day_date FROM tasks
+     WHERE status IN ('pending', 'in_progress', 'waiting')
        AND deleted_at IS NULL
+       AND parent_id IS NULL
        AND due_date IS NOT NULL
        AND due_date < $1`,
     [today],
@@ -94,6 +100,7 @@ export async function rolloverOverdueTasks(): Promise<number> {
 
   const ids = rows
     .filter((row) => !parseRepeatRule(row.repeat_rule))
+    .filter((row) => row.my_day_date !== today)
     .map((row) => row.id);
 
   if (ids.length === 0) return 0;
@@ -101,7 +108,7 @@ export async function rolloverOverdueTasks(): Promise<number> {
   const timestamp = nowIso();
   for (const id of ids) {
     await db.execute(
-      "UPDATE tasks SET due_date = $1, updated_at = $2 WHERE id = $3",
+      "UPDATE tasks SET my_day_date = $1, updated_at = $2 WHERE id = $3",
       [today, timestamp, id],
     );
   }
@@ -110,25 +117,100 @@ export async function rolloverOverdueTasks(): Promise<number> {
   return ids.length;
 }
 
-export async function bumpGamification(): Promise<{
-  karma: number;
-  streak: number;
-}> {
-  const settings = await loadAppSettings();
-  const today = todayDateString();
-  let streak = settings.streak;
-  if (settings.lastCompleteDate === today) {
-    // already counted today for streak continuity only
-  } else {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const y = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, "0")}-${String(yesterday.getDate()).padStart(2, "0")}`;
-    streak = settings.lastCompleteDate === y ? streak + 1 : 1;
-  }
-  const karma = settings.karma + 10;
-  await setSetting("karma", String(karma));
-  await setSetting("streak", String(streak));
-  await setSetting("last_complete_date", today);
-  return { karma, streak };
+export async function awardKarma(
+  sourceType: string,
+  sourceId: string,
+  action = "complete",
+  points = 10,
+): Promise<void> {
+  const db = await getDb();
+  await ensureKarmaBase();
+  const result = await db.execute(
+    `INSERT OR IGNORE INTO karma_ledger
+      (id, source_type, source_id, action, points, entry_date, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [createId(), sourceType, sourceId, action, points, todayDateString(), nowIso()],
+  );
+  if (result.rowsAffected) await refreshKarmaFromLedger();
 }
 
+export async function revokeKarma(
+  sourceType: string,
+  sourceId: string,
+  action = "complete",
+): Promise<void> {
+  const db = await getDb();
+  await ensureKarmaBase();
+  const result = await db.execute(
+    "DELETE FROM karma_ledger WHERE source_type=$1 AND source_id=$2 AND action=$3",
+    [sourceType, sourceId, action],
+  );
+  if (result.rowsAffected) await refreshKarmaFromLedger();
+}
+
+async function ensureKarmaBase(): Promise<void> {
+  const base = await getSetting("karma_base");
+  if (base == null || base === "") {
+    await setSetting("karma_base", (await getSetting("karma")) ?? "0");
+  }
+  const streakBase = await getSetting("karma_streak_base");
+  if (streakBase == null || streakBase === "") {
+    await setSetting("karma_streak_base", (await getSetting("streak")) ?? "0");
+  }
+  const streakLastDate = await getSetting("karma_streak_last_date");
+  if (streakLastDate == null) {
+    await setSetting("karma_streak_last_date", (await getSetting("last_complete_date")) ?? "");
+  }
+}
+
+export async function refreshKarmaFromLedger(): Promise<void> {
+  const db = await getDb();
+  const base = Number((await getSetting("karma_base")) ?? 0) || 0;
+  const sumRows = await db.select<{ total: number }[]>(
+    "SELECT COALESCE(SUM(points), 0) as total FROM karma_ledger",
+  );
+  const dates = await db.select<{ entry_date: string }[]>(
+    "SELECT DISTINCT entry_date FROM karma_ledger",
+  );
+  const legacyStreak = Math.max(0, Number((await getSetting("karma_streak_base")) ?? 0) || 0);
+  const legacyLastDate = await getSetting("karma_streak_last_date");
+  const allDates = mergeLegacyStreakDates(
+    dates.map((row) => row.entry_date),
+    legacyStreak,
+    legacyLastDate,
+  );
+  const { streak, lastCompleteDate } = recomputeStreak(
+    allDates,
+    todayDateString(),
+  );
+  await setSetting("karma", String(base + Number(sumRows[0]?.total ?? 0)));
+  await setSetting("streak", String(streak));
+  await setSetting("last_complete_date", lastCompleteDate ?? "");
+}
+
+const ACTIVE_FOCUS_KEY = "active_focus";
+
+export type ActiveFocusState = {
+  sessionId: string;
+  taskId: string | null;
+  endsAt: number;
+  plannedSec: number;
+  lastHeartbeatAt?: number;
+  hiddenAt?: number | null;
+};
+
+export async function saveActiveFocus(state: ActiveFocusState | null): Promise<void> {
+  await setSetting(ACTIVE_FOCUS_KEY, state ? JSON.stringify(state) : "");
+}
+
+export async function loadActiveFocus(): Promise<ActiveFocusState | null> {
+  const raw = await getSetting(ACTIVE_FOCUS_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as ActiveFocusState;
+    if (!parsed?.sessionId || typeof parsed.endsAt !== "number") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}

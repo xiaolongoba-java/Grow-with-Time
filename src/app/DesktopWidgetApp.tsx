@@ -3,15 +3,9 @@ import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  createMemo,
-  createTask,
-  fetchAnniversaries,
-  fetchMemos,
-  fetchTasks,
-  toggleTaskComplete,
-  updateMemo,
-} from "@/lib/db";
+import { createTask, fetchTasks, toggleTaskComplete } from "@/lib/db/tasks";
+import { createMemo, fetchMemos, updateMemo } from "@/lib/db/memos";
+import { fetchAnniversaries } from "@/lib/db/moments";
 import {
   anniversaryDatesInMonth,
   formatAnniversaryAnchor,

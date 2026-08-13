@@ -13,6 +13,7 @@ import { TodayTimeline } from "@/components/TodayTimeline";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import { CommandPalette } from "@/components/CommandPalette";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
+import { FocusRecoveryDialog } from "@/components/FocusRecoveryDialog";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { GlassTitlebar } from "@/components/GlassTitlebar";
 import {
@@ -34,9 +35,30 @@ import {
   applyPrivacyToReminderPlans,
   buildMissedReminderPlans,
   buildNativeReminderPlans,
+  missedReminderNeedsPopup,
+  OS_REMINDER_LIMIT,
+  selectOsReminderWindow,
+  type ReminderSyncStatus,
 } from "@/lib/nativeReminders";
 
 const NAV_COLLAPSE_KEY = "minimal.navCollapsed";
+const REMINDER_RESYNC_MS = 6 * 60 * 60 * 1000;
+
+type OsReminderSyncResult = {
+  ok: boolean;
+  scheduledCount: number;
+  overflowCount: number;
+  truncated: boolean;
+  error: string | null;
+  hostedIds?: string[];
+};
+
+type OsHostState = {
+  osOk: boolean;
+  hostedIds: Set<string>;
+};
+
+const EMPTY_OS_HOST: OsHostState = { osOk: false, hostedIds: new Set() };
 
 export function MainApp() {
   const bootstrap = useAppStore((s) => s.bootstrap);
@@ -70,7 +92,128 @@ export function MainApp() {
     }
   });
 
-  const osRemindersRef = useRef(false);
+  const setReminderSync = useAppStore((s) => s.setReminderSync);
+  const lastOsHostRef = useRef<OsHostState>(EMPTY_OS_HOST);
+  const reminderPassRef = useRef(Promise.resolve());
+  const runFullReminderPassRef = useRef<() => Promise<void>>(async () => undefined);
+
+  const enqueueReminderPass = (fn: () => Promise<void>) => {
+    const run = reminderPassRef.current.then(fn, fn);
+    reminderPassRef.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  };
+
+  const syncOsReminders = async (): Promise<OsHostState> => {
+    const status: ReminderSyncStatus = {
+      osAvailable: false,
+      permissionGranted: false,
+      scheduledCount: 0,
+      overflowCount: 0,
+      truncated: false,
+      totalUpcoming: 0,
+      lastOkAt: useAppStore.getState().reminderSync.lastOkAt,
+      lastError: null,
+    };
+    try {
+      let granted = await isPermissionGranted();
+      if (!granted) {
+        const perm = await requestPermission();
+        granted = perm === "granted";
+      }
+      status.permissionGranted = granted;
+      const snapshot = useAppStore.getState();
+      const scheduled = applyPrivacyToReminderPlans(
+        buildNativeReminderPlans(snapshot.tasks, snapshot.settings.notifyAhead),
+        snapshot.settings.privacyMode,
+      );
+      status.totalUpcoming = scheduled.length;
+      if (!granted) {
+        await invoke("sync_native_notifications", { reminders: [] });
+        status.lastError = "未授予通知权限";
+        lastOsHostRef.current = EMPTY_OS_HOST;
+        setReminderSync(status);
+        return EMPTY_OS_HOST;
+      }
+      const result = await invoke<OsReminderSyncResult>("sync_native_notifications", {
+        reminders: scheduled,
+      });
+      const hostedIds = result.ok
+        ? new Set(
+            Array.isArray(result.hostedIds)
+              ? result.hostedIds
+              : selectOsReminderWindow(scheduled).windowed.map((item) => item.reminderId),
+          )
+        : new Set<string>();
+      const host: OsHostState = { osOk: result.ok, hostedIds };
+      lastOsHostRef.current = host;
+      status.osAvailable = result.ok;
+      status.scheduledCount = result.scheduledCount;
+      status.overflowCount = result.overflowCount;
+      status.truncated = result.truncated;
+      if (result.ok) {
+        status.lastOkAt = Date.now();
+        status.lastError = result.truncated
+          ? `系统队列上限 ${OS_REMINDER_LIMIT} 条 / 90 天，其余在应用运行时补发`
+          : null;
+      } else {
+        status.lastError = result.error || "系统提醒登记失败，已改用应用内调度";
+      }
+      setReminderSync(status);
+      return host;
+    } catch (error) {
+      lastOsHostRef.current = EMPTY_OS_HOST;
+      status.lastError = error instanceof Error ? error.message : "系统提醒同步失败";
+      setReminderSync(status);
+      return EMPTY_OS_HOST;
+    }
+  };
+
+  const scanMissedReminders = async (host: OsHostState) => {
+    const snapshot = useAppStore.getState();
+    const now = Date.now();
+    const stored = await getSetting("native_reminder_last_scan_at");
+    const lastScan = stored ? Number(stored) : now;
+    const missed = buildMissedReminderPlans(
+      snapshot.tasks,
+      snapshot.settings.notifyAhead,
+      lastScan,
+      now,
+    );
+    for (const item of missed) {
+      const created = await ensureReminderRecord({
+        taskId: item.taskId,
+        title: item.title,
+        body: item.body,
+        scheduledAt: new Date(item.fireAtMs).toISOString(),
+      });
+      if (created && missedReminderNeedsPopup(item, host.osOk, host.hostedIds)) {
+        const copy = privacySafeNotification(
+          snapshot.settings.privacyMode,
+          item.title,
+          item.body,
+        );
+        sendNotification(copy);
+      }
+    }
+    await setSetting("native_reminder_last_scan_at", String(now));
+    if (missed.length) {
+      window.dispatchEvent(new Event("notifications:changed"));
+    }
+  };
+
+  const runFullReminderPass = () =>
+    enqueueReminderPass(async () => {
+      const host = await syncOsReminders();
+      await scanMissedReminders(host);
+    });
+  const runMissedOnlyPass = () =>
+    enqueueReminderPass(async () => {
+      await scanMissedReminders(lastOsHostRef.current);
+    });
+  runFullReminderPassRef.current = runFullReminderPass;
 
   useEffect(() => {
     void bootstrap();
@@ -82,13 +225,19 @@ export function MainApp() {
     const id = window.setInterval(() => tickFocus(), 1000);
     const onVisible = () => {
       if (document.visibilityState === "visible") tickFocus();
+      else useAppStore.getState().persistFocusHeartbeat(true);
+    };
+    const onPageHide = () => {
+      useAppStore.getState().persistFocusHeartbeat(true);
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
+    window.addEventListener("pagehide", onPageHide);
     return () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener("pagehide", onPageHide);
     };
   }, [focusRunning, tickFocus]);
 
@@ -209,74 +358,18 @@ export function MainApp() {
   ]);
 
   useEffect(() => {
-    const schedule = async () => {
-      try {
-        let granted = await isPermissionGranted();
-        if (!granted) {
-          const perm = await requestPermission();
-          granted = perm === "granted";
-        }
-        if (!granted) {
-          await invoke("sync_native_notifications", { reminders: [] });
-          return;
-        }
-
-        const scheduled = applyPrivacyToReminderPlans(
-          buildNativeReminderPlans(tasks, settings.notifyAhead),
-          settings.privacyMode,
-        );
-        osRemindersRef.current = Boolean(
-          await invoke("sync_native_notifications", {
-            reminders: scheduled,
-          }),
-        );
-      } catch {
-        /* ignore */
-      }
-    };
-    void schedule();
-  }, [tasks, settings.notifyAhead, settings.privacyMode]);
-
-  useEffect(() => {
     if (!ready) return;
-    const recoverMissedReminders = async () => {
-      const now = Date.now();
-      const stored = await getSetting("native_reminder_last_scan_at");
-      const lastScan = stored ? Number(stored) : now;
-      const missed = buildMissedReminderPlans(
-        tasks,
-        settings.notifyAhead,
-        lastScan,
-        now,
-      );
-      for (const item of missed) {
-        const created = await ensureReminderRecord({
-          taskId: item.taskId,
-          title: item.title,
-          body: item.body,
-          scheduledAt: new Date(item.fireAtMs).toISOString(),
-        });
-        if (created && item.showSystemNotification && !osRemindersRef.current) {
-          const copy = privacySafeNotification(
-            settings.privacyMode,
-            item.title,
-            item.body,
-          );
-          sendNotification(copy);
-        }
-      }
-      await setSetting("native_reminder_last_scan_at", String(now));
-      if (missed.length) {
-        window.dispatchEvent(new Event("notifications:changed"));
-      }
-    };
-    void recoverMissedReminders().catch(() => undefined);
-    const timer = window.setInterval(() => {
-      // Advance the watermark only after a real scan. This preserves the sleep
-      // interval when Windows/macOS suspends the process between callbacks.
-      void recoverMissedReminders().catch(() => undefined);
+    void runFullReminderPass().catch(() => undefined);
+    const fullTimer = window.setInterval(() => {
+      void runFullReminderPassRef.current().catch(() => undefined);
+    }, REMINDER_RESYNC_MS);
+    const missedTimer = window.setInterval(() => {
+      void runMissedOnlyPass().catch(() => undefined);
     }, 60_000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(fullTimer);
+      window.clearInterval(missedTimer);
+    };
   }, [ready, tasks, settings.notifyAhead, settings.privacyMode]);
 
   useEffect(() => {
@@ -297,7 +390,10 @@ export function MainApp() {
       }).then(() =>
         window.dispatchEvent(new Event("notifications:changed")),
       );
-      void setSetting("native_reminder_last_scan_at", String(Date.now()));
+      void (async () => {
+        await setSetting("native_reminder_last_scan_at", String(Date.now()));
+        await runFullReminderPassRef.current();
+      })().catch(() => undefined);
     }).then((fn) => {
       unlisten = fn;
     });
@@ -514,6 +610,7 @@ export function MainApp() {
       {!detailOpen ? <TodayTimeline /> : null}
       <CommandPalette />
       {createTaskOpen ? <CreateTaskDialog /> : null}
+      <FocusRecoveryDialog />
       <OnboardingGuide />
       {toast ? (
         <div className="toast" role="status" aria-live="polite">

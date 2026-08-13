@@ -82,6 +82,8 @@ export interface Task {
   actual_minutes: number;
   goal_id: string | null;
   goal_contribution: number;
+  /** Repeat occurrence spawned when completing another task. */
+  generated_from_id: string | null;
 }
 
 export interface Tag {
@@ -190,6 +192,7 @@ export interface TaskDraft {
   goal_id?: string | null;
   goal_contribution?: number;
   tagIds?: string[];
+  generated_from_id?: string | null;
 }
 
 export interface TaskUpdate {
@@ -449,8 +452,18 @@ export interface AppNotification {
   created_at: string;
 }
 
+export interface KarmaLedgerEntry {
+  id: string;
+  source_type: string;
+  source_id: string;
+  action: string;
+  points: number;
+  entry_date: string;
+  created_at: string;
+}
+
 export interface BackupPayload {
-  version: 2 | 3 | 4 | 5 | 6;
+  version: 2 | 3 | 4 | 5 | 6 | 7;
   exportedAt: string;
   tasks: Task[];
   tags: Tag[];
@@ -476,5 +489,6 @@ export interface BackupPayload {
   inspirations?: Inspiration[];
   futureLetters?: FutureLetter[];
   anniversaries?: Anniversary[];
+  karmaLedger?: KarmaLedgerEntry[];
   settings: Record<string, string>;
 }

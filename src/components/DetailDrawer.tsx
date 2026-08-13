@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { getSubtasks, subtaskProgress } from "@/lib/tasks";
-import { parseRepeatRule, stringifyRepeatRule, describeRepeatRule, weeklyRuleFromDate, nextDateMatchingWeekdays } from "@/lib/repeat";
+import { parseRepeatRule, stringifyRepeatRule, describeRepeatRule, weeklyRuleFromDate, monthlyRuleFromDate, nextDateMatchingWeekdays } from "@/lib/repeat";
 import { RepeatWeekdayPicker } from "@/components/RepeatWeekdayPicker";
 import type {
   Attachment,
@@ -817,6 +817,8 @@ export function DetailDrawer() {
                   });
                 else if (v === "weekly")
                   setRepeat(weeklyRuleFromDate(dueDate || todayDateString()));
+                else if (v === "monthly")
+                  setRepeat(monthlyRuleFromDate(dueDate || todayDateString()));
                 else
                   setRepeat({
                     frequency: v as RepeatRule["frequency"],
