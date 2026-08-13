@@ -1,3 +1,5 @@
+mod os_reminders;
+
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
@@ -880,21 +882,34 @@ fn cancel_native_notification(
 fn sync_native_notifications(
     scheduled: tauri::State<'_, Arc<ReminderScheduler>>,
     reminders: Vec<NativeReminder>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
+    let os_reminders: Vec<os_reminders::OsReminder> = reminders
+        .iter()
+        .map(|item| os_reminders::OsReminder {
+            id: item.reminder_id.clone(),
+            title: item.title.clone(),
+            body: item.body.clone(),
+            fire_at_ms: item.fire_at_ms,
+        })
+        .collect();
+    let os_ok = os_reminders::sync(&os_reminders);
+
     let mut guard = scheduled.reminders.lock().map_err(|e| e.to_string())?;
     guard.clear();
-    guard.extend(
-        reminders
-            .into_iter()
-            .map(|item| (item.reminder_id.clone(), item)),
-    );
+    if !os_ok {
+        guard.extend(
+            reminders
+                .into_iter()
+                .map(|item| (item.reminder_id.clone(), item)),
+        );
+    }
     drop(guard);
     scheduled.changed.notify_all();
-    Ok(())
+    Ok(os_ok)
 }
 
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
-    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "退出应用", true, None::<&str>)?;
     let show = MenuItem::with_id(app, "show", "打开主窗口", true, None::<&str>)?;
     let float = MenuItem::with_id(app, "float", "桌面浮窗", true, None::<&str>)?;
     let dashboard = MenuItem::with_id(app, "dashboard", "桌面仪表盘", true, None::<&str>)?;
@@ -1018,6 +1033,7 @@ pub fn run() {
                         api.prevent_close();
                         if let Some(w) = app_handle.get_webview_window("main") {
                             let _ = w.hide();
+                            let _ = app_handle.emit("main:hidden-to-tray", ());
                         }
                     }
                 });

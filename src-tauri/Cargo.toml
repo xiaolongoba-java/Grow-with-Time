@@ -1,6 +1,6 @@
 [package]
 name = "minimal-todo"
-version = "1.5.16"
+version = "1.5.17"
 description = "日进·拾光 (Grow with Time) desktop app"
 authors = ["you"]
 edition = "2021"
@@ -24,6 +24,14 @@ tauri-plugin-fs = "2"
 tauri-plugin-http = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+  "Data_Xml_Dom",
+  "Foundation",
+  "UI_Notifications",
+  "Win32_UI_Shell"
+] }
 
 [profile.release]
 panic = "abort"

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.16",
+  "version": "1.5.17",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",

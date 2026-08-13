@@ -185,7 +185,9 @@ export function SettingsView() {
           </button>
         </div>
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
-          关闭主窗口后会驻留系统托盘；全局快捷键 Ctrl/Cmd+Shift+N。
+          关闭主窗口会放到托盘，不会退出；彻底退出请用托盘「退出应用」。
+          系统会登记到期提醒，完全退出后仍可能弹出。若系统通知权限被关，则无法保证准点。
+          全局快捷键 Ctrl/Cmd+Shift+N。
         </p>
       </section>
 

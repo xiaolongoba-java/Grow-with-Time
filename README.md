@@ -66,7 +66,7 @@
 - 循环提醒适合喝水、活动和护眼等周期事项
 - 事项倒计时适合会议、发布和阶段节点
 - 番茄钟专注基于绝对结束时间结算，休眠或卡顿后唤醒仍按真实经过时间扣减
-- **准时提醒依赖应用正在运行或托盘驻留**；完全退出后不会由系统代发，下次打开会受控补发
+- **准时提醒**：关闭窗口会放到托盘；完全退出后，Windows / macOS 仍会由系统弹出已登记的到期提醒（需系统通知权限）。下次打开会把错过的记录写入通知中心，避免重复弹窗。
 - 应用重新打开时会受控补发错过的提醒，较早提醒只进入通知中心，避免集中弹窗
 
 ### 桌面体验
@@ -110,9 +110,24 @@
 
 > **Windows**：安装包不再捆绑或下载 WebView2。Windows 10/11 通常已随 Edge 自带运行时；极少数干净系统若无法启动，请自行安装 [Microsoft Edge WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)。当前未购买 Windows 代码签名证书，Edge/Chrome 可能提示「通常不会下载…」——请从本页或 GitHub Releases 下载后，在下载栏点 ⋯ → **保留**，若 SmartScreen 再拦一次选「详细信息 → 仍要运行」。  
 > **macOS**：当前为 ad-hoc 签名、尚未公证；首次打开若被 Gatekeeper 拦截，请在「系统设置 → 隐私与安全性」中允许。  
-> **提醒**：要准点收到桌面提醒，请保持应用运行或托盘驻留；完全退出后不会由系统代发，下次启动会补发。
+> **提醒**：关闭窗口会驻留托盘。完全退出后，已登记的到期提醒仍由系统弹出（需通知权限）；若权限被关则无法保证准点。
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
+
+#### v1.5.17 退出后仍能提醒
+
+- 关闭主窗口放到托盘；托盘「退出应用」才会真正退出。
+- Windows / macOS 把到期提醒登记到系统，完全退出后仍可弹出。
+- 引导可选开机自启；发版检查增加 `cargo check`。
+
+### v1.5.17
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.17_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.17/Grow.with.Time_1.5.17_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.17_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.17/Grow.with.Time_1.5.17_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.17) 或 Actions Artifacts 下载。
 
 #### v1.5.16 Windows 安装包不再处理 WebView2
 

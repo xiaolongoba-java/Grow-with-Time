@@ -1,4 +1,6 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
 const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
@@ -42,3 +44,22 @@ if (failures.length) {
 }
 
 console.log(`发布静态检查通过：v${pkg.version} · README / Cargo / Tauri / 拾光迁移与备份覆盖一致`);
+
+const cargoCheck = spawnSync(
+  "cargo",
+  ["check", "--manifest-path", "src-tauri/Cargo.toml"],
+  {
+    cwd: fileURLToPath(root),
+    stdio: "inherit",
+    shell: false,
+  },
+);
+if (cargoCheck.error) {
+  console.error(`发布检查失败：无法启动 cargo check（${cargoCheck.error.message}）`);
+  process.exit(1);
+}
+if (cargoCheck.status !== 0) {
+  console.error("发布检查失败：cargo check 未通过");
+  process.exit(1);
+}
+console.log("cargo check 通过");

@@ -15,7 +15,8 @@ export type AppIconName =
   | "search"
   | "sparkle"
   | "brand"
-  | "tag";
+  | "tag"
+  | "bell";
 
 const paths: Record<AppIconName, ReactNode> = {
   memo: <><path d="M5 4.75A1.75 1.75 0 0 1 6.75 3h7.5A1.75 1.75 0 0 1 16 4.75v10.5A1.75 1.75 0 0 1 14.25 17h-7.5A1.75 1.75 0 0 1 5 15.25z" /><path d="M8 7h5M8 10h5M8 13h3" /></>,
@@ -34,6 +35,7 @@ const paths: Record<AppIconName, ReactNode> = {
   /** 日进·拾光品牌标：朝阳 + 地平线 */
   brand: <><circle cx="10" cy="8.2" r="3.1" /><path d="M10 2.6v1.15M4.7 8.2H3.55M16.45 8.2H15.3M5.85 4.05l.82.82M14.15 4.05l-.82.82" /><path d="M3.8 15.2c1.7-2.05 3.8-3.1 6.2-3.1s4.5 1.05 6.2 3.1" /></>,
   tag: <><path d="M3.5 4.5v5l6.5 6.5 6-6-6.5-6.5z" /><circle cx="7.25" cy="7.25" r=".8" fill="currentColor" stroke="none" /></>,
+  bell: <><path d="M10 2.75a4.5 4.5 0 0 1 4.5 4.5c0 3.2 1.25 4.5 1.25 4.5H4.25s1.25-1.3 1.25-4.5A4.5 4.5 0 0 1 10 2.75Z" /><path d="M8 16.2a2 2 0 0 0 4 0" /></>,
 };
 
 export function AppIcon({

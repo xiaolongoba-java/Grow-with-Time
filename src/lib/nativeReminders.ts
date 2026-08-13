@@ -1,3 +1,4 @@
+import { privacySafeNotification } from "@/lib/privacy";
 import type { Task } from "@/types";
 
 export type NativeReminderPlan = {
@@ -46,6 +47,16 @@ export function buildNativeReminderPlans(
     }
   }
   return plans;
+}
+
+export function applyPrivacyToReminderPlans(
+  plans: NativeReminderPlan[],
+  privacyMode: boolean,
+): NativeReminderPlan[] {
+  return plans.map((plan) => {
+    const copy = privacySafeNotification(privacyMode, plan.title, plan.body);
+    return { ...plan, title: copy.title, body: copy.body };
+  });
 }
 
 export function buildMissedReminderPlans(

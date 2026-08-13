@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { register, isRegistered } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -31,6 +31,7 @@ import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
 import { todayDateString } from "@/lib/dates";
 import {
+  applyPrivacyToReminderPlans,
   buildMissedReminderPlans,
   buildNativeReminderPlans,
 } from "@/lib/nativeReminders";
@@ -68,6 +69,8 @@ export function MainApp() {
       return false;
     }
   });
+
+  const osRemindersRef = useRef(false);
 
   useEffect(() => {
     void bootstrap();
@@ -143,6 +146,22 @@ export function MainApp() {
   }, [setNav]);
 
   useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen("main:hidden-to-tray", () => {
+      try {
+        if (sessionStorage.getItem("minimal.trayHint")) return;
+        sessionStorage.setItem("minimal.trayHint", "1");
+      } catch {
+        /* ignore */
+      }
+      setToast("已放到托盘，提醒会继续。彻底退出请用托盘「退出应用」。");
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [setToast]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const typing =
@@ -202,19 +221,21 @@ export function MainApp() {
           return;
         }
 
-        const scheduled = buildNativeReminderPlans(
-          tasks,
-          settings.notifyAhead,
+        const scheduled = applyPrivacyToReminderPlans(
+          buildNativeReminderPlans(tasks, settings.notifyAhead),
+          settings.privacyMode,
         );
-        await invoke("sync_native_notifications", {
-          reminders: scheduled,
-        });
+        osRemindersRef.current = Boolean(
+          await invoke("sync_native_notifications", {
+            reminders: scheduled,
+          }),
+        );
       } catch {
         /* ignore */
       }
     };
     void schedule();
-  }, [tasks, settings.notifyAhead]);
+  }, [tasks, settings.notifyAhead, settings.privacyMode]);
 
   useEffect(() => {
     if (!ready) return;
@@ -235,7 +256,7 @@ export function MainApp() {
           body: item.body,
           scheduledAt: new Date(item.fireAtMs).toISOString(),
         });
-        if (created && item.showSystemNotification) {
+        if (created && item.showSystemNotification && !osRemindersRef.current) {
           const copy = privacySafeNotification(
             settings.privacyMode,
             item.title,

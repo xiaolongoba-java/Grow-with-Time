@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/types";
 import {
+  applyPrivacyToReminderPlans,
   buildMissedReminderPlans,
   buildNativeReminderPlans,
 } from "./nativeReminders";
@@ -104,5 +105,13 @@ describe("native reminder lifecycle", () => {
         new Date("2026-07-30T09:45:00").getTime(),
       ),
     ).toEqual([]);
+  });
+
+  it("masks reminder copy when privacy mode is on", () => {
+    const raw = buildNativeReminderPlans([task({})], 30, now);
+    const masked = applyPrivacyToReminderPlans(raw, true);
+    expect(masked[0].title).toBe("日进·拾光");
+    expect(masked[0].body).toBe("你有一条提醒");
+    expect(applyPrivacyToReminderPlans(raw, false)[0].body).toContain("发布版本");
   });
 });
