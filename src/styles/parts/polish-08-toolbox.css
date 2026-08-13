@@ -1,0 +1,237 @@
+.desktop-organizer .workspace-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.toolbox-page {
+  min-width: 0;
+  overflow: auto;
+}
+
+.toolbox-kicker {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+}
+
+.toolbox-back {
+  margin: 0 0 10px;
+  padding: 0;
+  min-height: 0;
+  color: var(--text-secondary);
+}
+
+.toolbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 8px 0 40px;
+}
+
+.toolbox-card {
+  display: grid;
+  gap: 8px;
+  padding: 22px 20px 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  color: inherit;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft, 0 10px 30px rgba(20, 24, 38, 0.06));
+}
+
+.toolbox-card:hover {
+  border-color: var(--border-strong);
+}
+
+.toolbox-card.is-soon {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.toolbox-card-glyph {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 18px;
+}
+
+.toolbox-card strong {
+  font-size: 17px;
+}
+
+.toolbox-card p,
+.workspace-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.toolbox-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.toolbox-mode {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.toolbox-mode button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+}
+
+.toolbox-mode button.is-active {
+  color: var(--text-primary);
+  background: var(--accent-soft);
+}
+
+.toolbox-error {
+  color: #c45b4a;
+}
+
+.organizer-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 18px;
+  padding-bottom: 48px;
+}
+
+.organizer-board.is-list {
+  grid-template-columns: 1fr;
+}
+
+.organizer-col header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.organizer-col header em {
+  font-style: normal;
+  opacity: 0.7;
+}
+
+.organizer-col ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.organizer-board.is-list .organizer-col ul {
+  grid-template-columns: 1fr;
+}
+
+.organizer-col li {
+  position: relative;
+}
+
+.organizer-item {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 6px;
+  border: 0;
+  border-radius: 12px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+}
+
+.organizer-board.is-list .organizer-item {
+  grid-template-columns: 28px 1fr;
+  justify-items: start;
+  text-align: left;
+}
+
+.organizer-item:hover {
+  background: var(--accent-soft);
+}
+
+.organizer-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 210, 90, 0.18);
+  font-size: 22px;
+}
+
+.organizer-icon.kind-document { background: rgba(90, 140, 255, 0.16); }
+.organizer-icon.kind-image { background: rgba(80, 180, 140, 0.16); }
+.organizer-icon.kind-archive { background: rgba(180, 120, 70, 0.16); }
+.organizer-icon.kind-shortcut { background: rgba(120, 110, 200, 0.16); }
+.organizer-icon.kind-other { background: var(--accent-soft); }
+
+.organizer-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organizer-tip {
+  position: absolute;
+  z-index: 4;
+  left: 8px;
+  top: calc(100% - 6px);
+  display: grid;
+  gap: 4px;
+  min-width: 160px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #f4f1ea;
+  background: rgba(22, 24, 32, 0.92);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.organizer-tip strong {
+  font-size: 13px;
+}
+
+.organizer-tip span {
+  color: rgba(244, 241, 234, 0.72);
+  font-size: 12px;
+}
+
+.organize-preview {
+  max-height: 180px;
+  margin: 0 0 8px;
+  padding: 0 0 0 18px;
+  overflow: auto;
+  color: var(--text-secondary);
+}

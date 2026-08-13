@@ -33,7 +33,8 @@ export type NavId =
   | "trash"
   | "settings"
   | "projects"
-  | "smart";
+  | "smart"
+  | "toolbox";
 
 /** @deprecated use NavId */
 export type ViewId = NavId;

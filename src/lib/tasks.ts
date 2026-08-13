@@ -157,6 +157,8 @@ export function getViewTitle(view: string): string {
     inspirations: "拾念箱",
     "future-letters": "拾光变迁",
     anniversaries: "纪念日",
+    projects: "项目与模板",
+    toolbox: "工具箱",
     trash: "回收站",
     settings: "设置",
     smart: "智能列表",

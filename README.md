@@ -79,6 +79,7 @@
 - 可拖拽的今日时间轴入口
 - 桌面组件可展示日历、今日任务和备忘内容，并支持透明度与配色调整
 - 命令面板用于快速切换页面和执行常用操作
+- 工具箱提供桌面收纳等便利工具，与日进、拾光主线分开
 
 ### 备忘录与数据管理
 
@@ -113,6 +114,21 @@
 > **提醒**：关闭窗口会驻留托盘。完全退出后，已登记的到期提醒仍由系统弹出（需通知权限）；若权限被关则无法保证准点。
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
+
+#### v1.5.19 工具箱与桌面收纳
+
+- 侧栏新增「工具箱」，专门放日进/拾光之外的便利工具。
+- 桌面收纳可预览后把桌面顶层文件移入「日进收纳」分类文件夹，支持撤销。
+- 整理只移动桌面顶层，跳过系统文件与收纳目录本身，重名不会覆盖。
+
+### v1.5.19
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.19_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.19/Grow.with.Time_1.5.19_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.19_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.19/Grow.with.Time_1.5.19_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.19) 或 Actions Artifacts 下载。
 
 #### v1.5.18 事务、积分、重复与备份修复
 

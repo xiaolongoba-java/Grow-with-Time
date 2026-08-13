@@ -76,6 +76,11 @@ const AnniversariesView = lazy(() =>
     default: module.AnniversariesView,
   })),
 );
+const ToolboxView = lazy(() =>
+  import("@/components/ToolboxView").then((module) => ({
+    default: module.ToolboxView,
+  })),
+);
 
 function BoardView({ tasks }: { tasks: Task[] }) {
   const cols = boardColumns(tasks);
@@ -1291,6 +1296,13 @@ export function MainWorkspace() {
     return (
       <Suspense fallback={<div className="empty-state">正在打开项目…</div>}>
         <ProjectsView />
+      </Suspense>
+    );
+  }
+  if (nav === "toolbox") {
+    return (
+      <Suspense fallback={<div className="empty-state">正在打开工具箱…</div>}>
+        <ToolboxView />
       </Suspense>
     );
   }

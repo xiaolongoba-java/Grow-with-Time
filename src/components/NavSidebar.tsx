@@ -35,7 +35,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const [tagName, setTagName] = useState("");
   const [hints, setHints] = useState<string[]>([]);
   const [momentsOpen, setMomentsOpen] = useState(["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav));
-  const [moreOpen, setMoreOpen] = useState(["completed", "all", "habits", "reminders", "review", "memos", "projects"].includes(nav));
+  const [moreOpen, setMoreOpen] = useState(["completed", "all", "habits", "reminders", "review", "memos", "projects", "toolbox"].includes(nav));
   const draftRef = useRef<HTMLInputElement>(null);
 
   const counts = useMemo(() => {
@@ -157,6 +157,13 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         onClick={() => setNav("growth")}
       >
         <span className="nav-item-label"><AppIcon name="sparkle" size={17} />成长</span>
+      </button>
+      <button
+        type="button"
+        className={`nav-item ${nav === "toolbox" ? "active" : ""}`}
+        onClick={() => setNav("toolbox")}
+      >
+        <span className="nav-item-label"><AppIcon name="layers" size={17} />工具箱</span>
       </button>
       <div className="nav-section-label">拾光</div>
       <button type="button" className={`nav-item nav-group-trigger ${["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav) ? "active" : ""}`} aria-expanded={momentsOpen} onClick={() => { setMomentsOpen((value) => !value); if (!["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav)) setNav("daily-reflection"); }}>

@@ -1,5 +1,10 @@
 mod os_reminders;
+mod desktop_organize;
 
+use desktop_organize::{
+    apply_desktop_organize, open_desktop_item, preview_desktop_organize, scan_desktop,
+    undo_desktop_organize,
+};
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
@@ -1091,7 +1096,12 @@ pub fn run() {
             list_database_backups,
             schedule_database_restore,
             open_data_directory,
-            restart_app
+            restart_app,
+            scan_desktop,
+            preview_desktop_organize,
+            apply_desktop_organize,
+            undo_desktop_organize,
+            open_desktop_item
         ])
         .setup(|app| {
             let scheduler = Arc::clone(app.state::<Arc<ReminderScheduler>>().inner());

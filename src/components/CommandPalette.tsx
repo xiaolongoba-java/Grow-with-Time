@@ -16,6 +16,7 @@ const destinations: { id: NavId; label: string }[] = [
   { id: "anniversaries", label: "打开纪念日" },
   { id: "reminders", label: "打开提醒" },
   { id: "review", label: "打开复盘" },
+  { id: "toolbox", label: "打开工具箱" },
   { id: "settings", label: "打开设置" },
 ];
 
