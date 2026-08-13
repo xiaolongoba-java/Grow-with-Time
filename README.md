@@ -108,11 +108,24 @@
 
 最新版本：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 
-> **Windows**：安装包体积偏小，首次安装在尚未具备 WebView2 的干净系统上**可能需要联网下载 Microsoft WebView2 Runtime**。当前未购买 Windows 代码签名证书，Edge/Chrome 可能提示「通常不会下载…」——请从本页或 GitHub Releases 下载后，在下载栏点 ⋯ → **保留**，若 SmartScreen 再拦一次选「详细信息 → 仍要运行」。  
+> **Windows**：安装包不再捆绑或下载 WebView2。Windows 10/11 通常已随 Edge 自带运行时；极少数干净系统若无法启动，请自行安装 [Microsoft Edge WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)。当前未购买 Windows 代码签名证书，Edge/Chrome 可能提示「通常不会下载…」——请从本页或 GitHub Releases 下载后，在下载栏点 ⋯ → **保留**，若 SmartScreen 再拦一次选「详细信息 → 仍要运行」。  
 > **macOS**：当前为 ad-hoc 签名、尚未公证；首次打开若被 Gatekeeper 拦截，请在「系统设置 → 隐私与安全性」中允许。  
 > **提醒**：要准点收到桌面提醒，请保持应用运行或托盘驻留；完全退出后不会由系统代发，下次启动会补发。
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
+
+#### v1.5.16 Windows 安装包不再处理 WebView2
+
+- Windows NSIS 安装包改为 `skip`，不再下载或内嵌 WebView2 Runtime。
+
+### v1.5.16
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.16_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.16/Grow.with.Time_1.5.16_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.16_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.16/Grow.with.Time_1.5.16_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.16) 或 Actions Artifacts 下载。
 
 #### v1.5.15 修复桌面组件发版编译
 

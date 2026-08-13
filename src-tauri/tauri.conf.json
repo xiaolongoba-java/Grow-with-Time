@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.15",
+  "version": "1.5.16",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -171,8 +171,7 @@
     ],
     "windows": {
       "webviewInstallMode": {
-        "type": "downloadBootstrapper",
-        "silent": true
+        "type": "skip"
       },
       "nsis": {
         "languages": [

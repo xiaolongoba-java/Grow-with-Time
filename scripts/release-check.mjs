@@ -29,8 +29,8 @@ if (
 ) {
   failures.push("备份测试未覆盖完整拾光数据");
 }
-if (tauri.bundle?.windows?.webviewInstallMode?.type !== "downloadBootstrapper") {
-  failures.push("Windows 安装包必须使用 WebView2 downloadBootstrapper，以保持最小体积");
+if (tauri.bundle?.windows?.webviewInstallMode?.type !== "skip") {
+  failures.push("Windows 安装包不得捆绑或下载 WebView2（webviewInstallMode 必须为 skip）");
 }
 if (tauri.bundle?.windows?.nsis?.template) {
   failures.push("Windows 安装包应使用 Tauri 标准 NSIS 模板，避免自定义安装壳依赖");
