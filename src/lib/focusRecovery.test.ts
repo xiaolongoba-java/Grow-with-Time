@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FocusSession } from "@/types";
-import { interpretOpenFocus } from "./focusRecovery";
+import { interpretOpenFocus, toSafeIso } from "./focusRecovery";
 
 const session = (startedAt: string): FocusSession => ({
   id: "sess-1",
@@ -57,5 +57,31 @@ describe("interpretOpenFocus", () => {
     expect(result.activitySettleAt).toBe(startedMs + 5 * 60 * 1000);
     expect(result.plannedSettleAt).toBe(startedMs + 25 * 60 * 1000);
     expect(result.canContinue).toBe(false);
+  });
+
+  it("ignores invalid heartbeat when computing activity settle", () => {
+    const started = "2026-08-13T10:00:00.000Z";
+    const startedMs = Date.parse(started);
+    const result = interpretOpenFocus(
+      session(started),
+      {
+        sessionId: "sess-1",
+        taskId: "task-1",
+        endsAt: startedMs + 25 * 60 * 1000,
+        plannedSec: 25 * 60,
+        lastHeartbeatAt: Number.NaN,
+      },
+      Date.parse("2026-08-14T09:00:00.000Z"),
+    );
+    expect(Number.isFinite(result.activitySettleAt)).toBe(true);
+    expect(result.activitySettleAt).toBe(startedMs);
+  });
+});
+
+describe("toSafeIso", () => {
+  it("falls back instead of throwing on NaN", () => {
+    expect(toSafeIso(Number.NaN, "2026-08-13T10:00:00.000Z")).toBe(
+      "2026-08-13T10:00:00.000Z",
+    );
   });
 });

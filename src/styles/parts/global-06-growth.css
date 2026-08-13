@@ -547,6 +547,27 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
 .create-task-time-card span { color: var(--text-muted); font-size: 12px; }
 .create-task-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .create-task-actions .btn-primary, .create-task-actions .btn-ghost { width: auto; min-width: 112px; }
+.modal-backdrop.focus-recovery-backdrop {
+  z-index: 200;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+.focus-recovery-modal,
+.focus-recovery-modal button {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+.focus-recovery-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-content: stretch;
+  gap: 8px;
+}
+.focus-recovery-actions .btn-primary,
+.focus-recovery-actions .btn-ghost {
+  width: 100%;
+  min-width: 0;
+}
 @media (max-width: 620px) { .create-task-grid { grid-template-columns: 1fr; } .create-task-time-card > div:first-child { display: grid; } }
 
 .project-edit-modal label {

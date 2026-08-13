@@ -11,7 +11,7 @@ export type PersistedFocus = {
 
 export type FocusRecovery = {
   session: FocusSession;
-  endsAt: number | null;
+  endsAt: number;
   remainingSec: number;
   canContinue: boolean;
   activitySettleAt: number;
@@ -19,6 +19,25 @@ export type FocusRecovery = {
   extraCount: number;
   extras: FocusSession[];
 };
+
+export function toSafeIso(ms: number, fallbackIso?: string): string {
+  if (Number.isFinite(ms)) {
+    try {
+      return new Date(ms).toISOString();
+    } catch {
+      /* fall through */
+    }
+  }
+  if (fallbackIso) {
+    const fallbackMs = Date.parse(fallbackIso);
+    if (Number.isFinite(fallbackMs)) return new Date(fallbackMs).toISOString();
+  }
+  return new Date().toISOString();
+}
+
+function finiteMs(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
 
 export function interpretOpenFocus(
   session: FocusSession,
@@ -28,31 +47,30 @@ export function interpretOpenFocus(
   extras: FocusSession[] = [],
 ): FocusRecovery {
   const startedMs = new Date(session.started_at).getTime();
+  const started = Number.isFinite(startedMs) ? startedMs : nowMs;
+  const matched = Boolean(persisted && persisted.sessionId === session.id);
   const plannedSec =
-    persisted?.sessionId === session.id
+    matched &&
+    persisted &&
+    finiteMs(persisted.plannedSec) != null &&
+    persisted.plannedSec > 0
       ? persisted.plannedSec
       : defaultPlannedSec;
-  const endsAt =
-    persisted?.sessionId === session.id
-      ? persisted.endsAt
-      : Number.isFinite(startedMs)
-        ? startedMs + plannedSec * 1000
-        : null;
-  const remainingSec = endsAt == null ? 0 : Math.max(0, Math.ceil((endsAt - nowMs) / 1000));
+  const persistedEnds = matched && persisted ? finiteMs(persisted.endsAt) : null;
+  const endsAt = persistedEnds ?? started + plannedSec * 1000;
+  const remainingSec = Math.max(0, Math.ceil((endsAt - nowMs) / 1000));
   const lastAlive =
-    persisted?.sessionId === session.id
-      ? persisted.lastHeartbeatAt ?? persisted.hiddenAt ?? null
+    matched && persisted
+      ? finiteMs(persisted.lastHeartbeatAt) ?? finiteMs(persisted.hiddenAt)
       : null;
-  const started = Number.isFinite(startedMs) ? startedMs : nowMs;
   const activitySettleAt = Math.max(started, lastAlive ?? started);
-  const plannedSettleAt = endsAt ?? started + plannedSec * 1000;
   return {
     session,
     endsAt,
     remainingSec,
-    canContinue: remainingSec > 0,
+    canContinue: Number.isFinite(startedMs) && remainingSec > 0,
     activitySettleAt,
-    plannedSettleAt,
+    plannedSettleAt: endsAt,
     extraCount: extras.length,
     extras,
   };

@@ -115,6 +115,21 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.20 专注恢复不再卡住
+
+- 未结束的专注结算失败时仍会关掉弹窗，并清理卡住的会话。
+- 无效心跳或时间戳不再导致按钮点了没反应。
+- 恢复弹窗按钮改为竖排，支持 Esc 和点击遮罩放弃。
+
+### v1.5.20
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.20_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.20/Grow.with.Time_1.5.20_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.20_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.20/Grow.with.Time_1.5.20_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.20) 或 Actions Artifacts 下载。
+
 #### v1.5.19 工具箱与桌面收纳
 
 - 侧栏新增「工具箱」，专门放日进/拾光之外的便利工具。

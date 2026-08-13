@@ -346,14 +346,13 @@ export async function finishFocusSession(
     );
     if (!rows.length || rows[0].ended_at) return false;
     const session = rows[0];
-    const ended = endedAt;
-    const durationSec = Math.max(
-      0,
-      Math.round(
-        (new Date(ended).getTime() - new Date(session.started_at).getTime()) /
-          1000,
-      ),
-    );
+    const endedMs = new Date(endedAt).getTime();
+    const startedMs = new Date(session.started_at).getTime();
+    const ended = Number.isFinite(endedMs) ? endedAt : nowIso();
+    const durationSec =
+      Number.isFinite(endedMs) && Number.isFinite(startedMs)
+        ? Math.max(0, Math.round((endedMs - startedMs) / 1000))
+        : 0;
     const result = await db.execute(
       `UPDATE focus_sessions
        SET ended_at = $1, duration_sec = $2, interruption_reason = $3

@@ -208,7 +208,13 @@ export async function loadActiveFocus(): Promise<ActiveFocusState | null> {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as ActiveFocusState;
-    if (!parsed?.sessionId || typeof parsed.endsAt !== "number") return null;
+    if (!parsed?.sessionId || !Number.isFinite(parsed.endsAt)) return null;
+    if (parsed.lastHeartbeatAt != null && !Number.isFinite(parsed.lastHeartbeatAt)) {
+      delete parsed.lastHeartbeatAt;
+    }
+    if (parsed.hiddenAt != null && !Number.isFinite(parsed.hiddenAt)) {
+      parsed.hiddenAt = null;
+    }
     return parsed;
   } catch {
     return null;
