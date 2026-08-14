@@ -115,6 +115,21 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.22 修复完成任务没反应
+
+- 勾选完成会立刻更新，失败时显示具体原因。
+- 同一条任务不会被连点对冲掉。
+- 嵌套写入不再互相卡住。
+
+### v1.5.22
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.22_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.22/Grow.with.Time_1.5.22_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.22_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.22/Grow.with.Time_1.5.22_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.22) 或 Actions Artifacts 下载。
+
 #### v1.5.21 修复新建任务失败
 
 - 不再通过连接池发送 BEGIN/COMMIT，避免「创建失败」。

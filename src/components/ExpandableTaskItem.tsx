@@ -57,6 +57,7 @@ export function ExpandableTaskItem({
           className="task-check"
           onClick={(e) => {
             e.stopPropagation();
+            e.preventDefault();
             void toggleComplete(task.id);
           }}
         >

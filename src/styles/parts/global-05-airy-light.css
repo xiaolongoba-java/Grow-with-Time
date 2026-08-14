@@ -630,13 +630,21 @@ select {
 }
 
 .task-check {
-  width: 18px;
-  height: 18px;
+  position: relative;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   border: 1.5px solid var(--border-strong);
   border-radius: 5px;
   display: grid;
   place-items: center;
   font-size: 11px;
+  cursor: pointer;
+}
+.task-check::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
 }
 
 .task-row.is-completed .task-check {
@@ -1373,7 +1381,7 @@ html[data-timeline="collapsed"] .app-body {
 
 .expand-task-row {
   display: grid;
-  grid-template-columns: 18px 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto;
   gap: 10px;
   align-items: center;
   padding: 12px 10px;

@@ -21,7 +21,7 @@ import type {
   DateScope,
 } from "@/types";
 import * as db from "@/lib/db";
-import { addDays, todayDateString } from "@/lib/dates";
+import { addDays, nowIso, todayDateString } from "@/lib/dates";
 import {
   focusEndsAtFromRemaining,
   remainingFocusSeconds,
@@ -43,6 +43,8 @@ const emptyFilter = (): FilterState => ({
   priorities: [],
   tagIds: [],
 });
+
+const pendingCompleteIds = new Set<string>();
 
 interface AppStore {
   ready: boolean;
@@ -410,17 +412,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
         }));
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "保存失败";
+      const msg = errorMessage(e, "保存失败");
       set({ error: msg, toast: msg });
       throw e;
     }
   },
 
   toggleComplete: async (id) => {
+    if (pendingCompleteIds.has(id)) return;
     const before = get().tasks.find((task) => task.id === id);
-    const { task } = await db.toggleTaskComplete(id);
-    await get().refreshAll();
-    if (before) {
+    if (!before) return;
+    const nextStatus = before.status === "completed" ? "pending" : "completed";
+    pendingCompleteIds.add(id);
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.id === id
+          ? {
+              ...task,
+              status: nextStatus,
+              completed_at: nextStatus === "completed" ? nowIso() : null,
+            }
+          : task,
+      ),
+    }));
+    try {
+      const { task } = await db.toggleTaskComplete(id);
       set({
         toast: task?.status === "completed" ? "任务已完成" : "已恢复为待办",
         canUndo: true,
@@ -429,6 +445,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
           await get().refreshAll();
         },
       });
+      try {
+        await get().refreshAll();
+      } catch (e) {
+        set({ toast: errorMessage(e, "已保存，但刷新列表失败") });
+      }
+    } catch (e) {
+      const msg = errorMessage(e, "完成任务失败");
+      set((state) => ({
+        tasks: state.tasks.map((task) => (task.id === id ? before : task)),
+        error: msg,
+        toast: msg,
+      }));
+    } finally {
+      pendingCompleteIds.delete(id);
     }
   },
 
@@ -451,16 +481,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
       .tasks.filter((task) => ids.includes(task.id) && task.status !== "completed")
       .map((task) => task.id);
     if (!toComplete.length) return;
-    await db.batchSetTaskStatus(toComplete, "completed");
-    await get().refreshAll();
-    set({
-      toast: `已完成 ${toComplete.length} 项任务`,
-      canUndo: true,
-      _undoAction: async () => {
-        await db.batchSetTaskStatus(toComplete, "pending");
-        await get().refreshAll();
-      },
-    });
+    try {
+      await db.batchSetTaskStatus(toComplete, "completed");
+      await get().refreshAll();
+      set({
+        toast: `已完成 ${toComplete.length} 项任务`,
+        canUndo: true,
+        _undoAction: async () => {
+          await db.batchSetTaskStatus(toComplete, "pending");
+          await get().refreshAll();
+        },
+      });
+    } catch (e) {
+      const msg = errorMessage(e, "批量完成失败");
+      set({ error: msg, toast: msg });
+    }
   },
 
   batchDelete: async (ids) => {

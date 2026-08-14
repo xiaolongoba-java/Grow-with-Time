@@ -120,15 +120,25 @@ export async function getDb(): Promise<Database> {
 }
 
 let txQueue: Promise<unknown> = Promise.resolve();
+let txDepth = 0;
 
 /**
  * Serialize writes on the JS side.
  * Do not issue BEGIN/COMMIT through tauri-plugin-sql: it uses a sqlx pool, so
  * those statements can land on different connections and fail with
  * "cannot start a transaction within a transaction".
+ * Nested calls run immediately on the same queue turn (no deadlock).
  */
 export function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
-  const run = txQueue.then(() => fn());
+  if (txDepth > 0) return fn();
+  const run = txQueue.then(async () => {
+    txDepth += 1;
+    try {
+      return await fn();
+    } finally {
+      txDepth -= 1;
+    }
+  });
   txQueue = run.then(
     () => undefined,
     () => undefined,
