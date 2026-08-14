@@ -65,8 +65,8 @@ describe("backup coverage", () => {
     expect(source).toContain("payload.futureLetters");
     expect(source).toContain("saveTaskPlanningMetadata(task)");
     expect(source).not.toContain("saveTaskPlanningMetadata(mapTask(task))");
-    expect(source).toContain("BEGIN IMMEDIATE");
-    expect(source).toContain("ROLLBACK");
+    expect(source).toContain("txQueue");
+    expect(source).toContain("withTransaction");
     expect(source).toContain("sanitizeBackupPayload");
     const barrel = readFileSync("src/lib/db.ts", "utf8");
     expect(barrel).toContain("summarizeBackupRestore");

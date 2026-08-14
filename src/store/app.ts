@@ -220,6 +220,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const today = todayDateString();
       const rolled = await db.rolloverOverdueTasks();
       await db.backfillGeneratedFromIds();
+      const staleFocusClosed = await db.abandonStaleOpenFocusSessions();
       await get().refreshAll();
       applyTheme(get().settings.theme);
       const openFocus = await db.fetchOpenFocusSessions();
@@ -243,9 +244,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ready: true,
         error: null,
         calendarCursor: today,
-        ...(rolled > 0
-          ? { toast: `已将 ${rolled} 项逾期任务加入今日计划，截止日期未改` }
-          : {}),
+        ...(staleFocusClosed > 0
+          ? { toast: `已清理 ${staleFocusClosed} 条过期未结束的专注` }
+          : rolled > 0
+            ? { toast: `已将 ${rolled} 项逾期任务加入今日计划，截止日期未改` }
+            : {}),
       });
     } catch (e) {
       const detail = errorMessage(e, "初始化失败");
@@ -391,7 +394,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set({ toast: "已创建任务" });
       return task;
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : "创建失败" });
+      set({ error: errorMessage(e, "创建失败") });
       return null;
     }
   },

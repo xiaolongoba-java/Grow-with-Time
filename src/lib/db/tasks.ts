@@ -402,6 +402,31 @@ export async function fetchOpenFocusSessions(): Promise<FocusSession[]> {
   );
 }
 
+const STALE_OPEN_FOCUS_MS = 12 * 60 * 60 * 1000;
+
+/** Close leftover focus rows that can no longer be continued. */
+export async function abandonStaleOpenFocusSessions(
+  nowMs = Date.now(),
+  maxAgeMs = STALE_OPEN_FOCUS_MS,
+): Promise<number> {
+  const open = await fetchOpenFocusSessions();
+  let closed = 0;
+  for (const session of open) {
+    const started = Date.parse(session.started_at);
+    if (Number.isFinite(started) && nowMs - started < maxAgeMs) continue;
+    const endedAt = Number.isFinite(started)
+      ? new Date(started).toISOString()
+      : session.started_at;
+    try {
+      await finishFocusSession(session.id, "异常退出，已放弃", endedAt);
+      closed += 1;
+    } catch {
+      /* retry on next launch */
+    }
+  }
+  return closed;
+}
+
 export async function fetchFocusSessions(
   taskId?: string,
 ): Promise<FocusSession[]> {

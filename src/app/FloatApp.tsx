@@ -10,6 +10,7 @@ import { createMemo, deleteMemo, fetchMemos, updateMemo } from "@/lib/db/memos";
 import { fetchTimers, pauseTimer, resetTimer, startTimer } from "@/lib/db/timers";
 import { rolloverOverdueTasks } from "@/lib/db/settings";
 import { formatDueDate, isOverdue, todayDateString } from "@/lib/dates";
+import { errorMessage } from "@/lib/errors";
 import { parseNaturalInput } from "@/lib/nlp";
 import { formatCountdown, liveRemaining } from "@/lib/timers";
 import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
@@ -142,7 +143,7 @@ export function FloatApp() {
       await refresh();
       void emitDataChanged("task");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "创建失败");
+      setError(errorMessage(e, "创建失败"));
     } finally {
       setBusy(false);
     }

@@ -115,6 +115,21 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.21 修复新建任务失败
+
+- 不再通过连接池发送 BEGIN/COMMIT，避免「创建失败」。
+- 启动时自动清理超过 12 小时仍未结束的专注会话。
+- 创建失败时显示具体错误，不再只提示「创建失败」。
+
+### v1.5.21
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.21_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.21/Grow.with.Time_1.5.21_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.21_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.21/Grow.with.Time_1.5.21_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.21) 或 Actions Artifacts 下载。
+
 #### v1.5.20 专注恢复不再卡住
 
 - 未结束的专注结算失败时仍会关掉弹窗，并清理卡住的会话。

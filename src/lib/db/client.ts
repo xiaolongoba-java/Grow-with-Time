@@ -108,6 +108,11 @@ export async function getDb(): Promise<Database> {
          (task_id, reminder_minutes_json, estimated_minutes)
          SELECT id, COALESCE(reminder_minutes_json, '[]'), estimated_minutes FROM tasks`,
       );
+      try {
+        await db.execute("PRAGMA busy_timeout = 5000");
+      } catch {
+        /* ignore */
+      }
       return db;
     });
   }
@@ -116,24 +121,14 @@ export async function getDb(): Promise<Database> {
 
 let txQueue: Promise<unknown> = Promise.resolve();
 
-/** Serialize SQLite transactions. Nested work must use *WithinTransaction helpers. */
+/**
+ * Serialize writes on the JS side.
+ * Do not issue BEGIN/COMMIT through tauri-plugin-sql: it uses a sqlx pool, so
+ * those statements can land on different connections and fail with
+ * "cannot start a transaction within a transaction".
+ */
 export function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
-  const run = txQueue.then(async () => {
-    const db = await getDb();
-    await db.execute("BEGIN IMMEDIATE");
-    try {
-      const result = await fn();
-      await db.execute("COMMIT");
-      return result;
-    } catch (error) {
-      try {
-        await db.execute("ROLLBACK");
-      } catch {
-        /* ignore */
-      }
-      throw error;
-    }
-  });
+  const run = txQueue.then(() => fn());
   txQueue = run.then(
     () => undefined,
     () => undefined,
