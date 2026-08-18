@@ -115,6 +115,20 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.24 应用图标与品牌标
+
+- 桌面图标和应用内品牌标改为「完成勾选 + 拾光」，不再用朝阳地平线。
+- 品牌标在浅色 / 深色 / 玻璃主题下都保持原色，不被主题滤镜盖住。
+
+### v1.5.24
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.24_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.24/Grow.with.Time_1.5.24_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.24_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.24/Grow.with.Time_1.5.24_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.24) 或 Actions Artifacts 下载。
+
 #### v1.5.23 今日计划与两页分工
 
 - 「今日」按截止日期列出逾期和到期项，「我的一天」只显示主动安排，专注、排程和收尾都在后者。

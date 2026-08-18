@@ -1,0 +1,21 @@
+<svg width="1280" height="360" viewBox="0 0 1280 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(32 28) scale(.296875)">
+    <defs>
+      <linearGradient id="path" x1="206" y1="680" x2="836" y2="392" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#82B1FF"/><stop offset="1" stop-color="#2F6FED"/>
+      </linearGradient>
+      <linearGradient id="sun" x1="390" y1="310" x2="644" y2="608" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#FFE28A"/><stop offset=".72" stop-color="#FFC857"/><stop offset="1" stop-color="#FF8A65"/>
+      </linearGradient>
+    </defs>
+    <circle cx="512" cy="482" r="208" fill="url(#sun)"/>
+    <path d="M174 646C270 739 386 786 510 786C652 786 770 720 846 605L805 594C742 671 651 714 546 718C432 721 333 682 249 600L174 646Z" fill="#1D4ED8" opacity=".9"/>
+    <path d="M166 602C275 713 390 764 515 764C660 764 784 685 858 526L799 555C731 656 642 704 541 706C427 708 329 658 236 559L166 602Z" fill="url(#path)"/>
+    <path d="M858 526L836 650L785 591L858 526Z" fill="#2F6FED"/>
+    <path d="M512 150C521 189 541 210 580 220C541 229 521 250 512 289C502 250 481 229 443 220C481 210 502 189 512 150Z" fill="#FF8A65"/>
+    <path d="M512 176C518 198 529 210 552 220C529 226 518 239 512 263C505 239 493 226 470 220C493 210 505 198 512 176Z" fill="#FFE16A"/>
+  </g>
+  <text x="382" y="166" fill="#13213A" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="82" font-weight="700" letter-spacing="1">日进·拾光</text>
+  <text x="388" y="230" fill="#2F6FED" font-family="Segoe UI, sans-serif" font-size="34" font-weight="600" letter-spacing="4">GROW WITH TIME</text>
+  <text x="389" y="285" fill="#64748B" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="26">日有所进，时有所拾</text>
+</svg>
