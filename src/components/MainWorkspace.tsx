@@ -140,6 +140,8 @@ function DayBoard() {
   const cursor = useAppStore((s) => s.calendarCursor);
   const setCalendarCursor = useAppStore((s) => s.setCalendarCursor);
   const today = todayDateString();
+  const isPlan = nav === "myday";
+  const isDeadline = nav === "today";
   const batchComplete = useAppStore((s) => s.batchComplete);
   const batchDelete = useAppStore((s) => s.batchDelete);
   const selectTask = useAppStore((s) => s.selectTask);
@@ -196,6 +198,14 @@ function DayBoard() {
   const done = dayTasks.filter((t) => t.status === "completed").length;
   const total = pending + done;
   const completion = total ? Math.round((done / total) * 100) : 0;
+  const dueOnCursor = dayTasks.filter((task) => task.due_date === cursor);
+  const overdueTasks = isDeadline && cursor === today
+    ? dayTasks.filter(
+        (task) =>
+          isActiveTask(task) && Boolean(task.due_date) && task.due_date! < today,
+      )
+    : [];
+  const dueActive = dueOnCursor.filter(isActiveTask).length;
   const conflictIds = findTimeConflictIds(dayTasks);
   const nextTask = useMemo(() => {
     const active = dayTasks.filter(isActiveTask);
@@ -353,63 +363,267 @@ function DayBoard() {
     useAppStore.getState().setToast(message);
   };
 
+  const renderDayTask = (task: Task) => (
+    <ExpandableTaskItem
+      key={task.id}
+      task={task}
+      selection={{
+        active: selecting,
+        selected: selectedIds.includes(task.id),
+        onToggle: () =>
+          setSelectedIds((ids) =>
+            ids.includes(task.id)
+              ? ids.filter((id) => id !== task.id)
+              : [...ids, task.id],
+          ),
+      }}
+      meta={
+        <>
+          <span>{formatTimeRange(task.due_time, task.end_time)}</span>
+          <span>{priorityLabel(task.priority)}</span>
+          {isPlan ? (
+            <span
+              className={`day-source-chip ${
+                task.due_date === cursor ? "is-due" : "is-planned"
+              }`}
+            >
+              {task.due_date === cursor
+                ? "今天到期"
+                : task.due_date
+                  ? `计划中 · 截止 ${task.due_date}`
+                  : "仅加入今日计划"}
+            </span>
+          ) : isDeadline ? (
+            <span
+              className={`day-source-chip ${
+                task.my_day_date === today ? "is-planned" : "is-due"
+              }`}
+            >
+              {task.my_day_date === today ? "已在我的一天" : "未排进今天"}
+            </span>
+          ) : null}
+          {conflictIds.has(task.id) ? (
+            <span className="conflict-chip">时间冲突</span>
+          ) : null}
+        </>
+      }
+      actions={
+        !selecting && isActiveTask(task) ? (
+          <>
+            {isPlan ? (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  if (focusRunning && focusTaskId !== task.id) {
+                    useAppStore
+                      .getState()
+                      .setToast("已有专注任务正在进行，请先暂停后再切换");
+                    return;
+                  }
+                  setFocusTask(task.id);
+                  if (task.status !== "in_progress") {
+                    void saveTask(task.id, { status: "in_progress" });
+                  }
+                  if (!focusRunning) void toggleFocus();
+                }}
+              >
+                专注
+              </button>
+            ) : isDeadline && task.my_day_date !== today ? (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() =>
+                  void saveTask(task.id, { my_day_date: today }).then(() =>
+                    useAppStore.getState().setToast("已加入我的一天"),
+                  )
+                }
+              >
+                加入我的一天
+              </button>
+            ) : isDeadline ? (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setNav("myday")}
+              >
+                查看计划
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  if (focusRunning && focusTaskId !== task.id) {
+                    useAppStore
+                      .getState()
+                      .setToast("已有专注任务正在进行，请先暂停后再切换");
+                    return;
+                  }
+                  setFocusTask(task.id);
+                  if (task.status !== "in_progress") {
+                    void saveTask(task.id, { status: "in_progress" });
+                  }
+                  if (!focusRunning) void toggleFocus();
+                }}
+              >
+                专注
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() =>
+                void saveTask(
+                  task.id,
+                  buildDeferredDateUpdate(
+                    isPlan ? "myday" : "due",
+                    addDays(cursor, 1),
+                  ),
+                )
+              }
+            >
+              明天
+            </button>
+            {isPlan ? (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => void saveTask(task.id, { my_day_date: null })}
+              >
+                移出计划
+              </button>
+            ) : null}
+          </>
+        ) : null
+      }
+    />
+  );
+
   return (
-    <div className="scope-board">
-      <section className="today-hero">
+    <div className={`scope-board ${isDeadline ? "is-deadline" : isPlan ? "is-plan" : ""}`}>
+      <section className={`today-hero ${isDeadline ? "is-deadline" : "is-plan"}`}>
         <div className="today-hero-copy">
           <span className="today-eyebrow">
-            {cursor === today ? "TODAY · 今日成长" : "DAILY PLAN · 当日计划"}
+            {isDeadline
+              ? cursor === today
+                ? "截止 · 今日到期"
+                : "截止 · 当日到期"
+              : cursor === today
+                ? isPlan
+                  ? "安排 · 我的一天"
+                  : "TODAY · 今日成长"
+                : "安排 · 当日计划"}
           </span>
-          <h3>{done ? "做得很好，继续保持节奏。" : "从一件小事开始今天。"}</h3>
-          {conflictIds.size ? (
+          <h3>
+            {isDeadline
+              ? overdueTasks.length
+                ? `${overdueTasks.length} 项已经过了截止日期`
+                : dueActive
+                  ? `${cursor === today ? "今天" : "这天"}有 ${dueActive} 项要到期`
+                  : cursor === today
+                    ? "今天没有到期任务"
+                    : "这一天没有到期任务"
+              : done
+                ? "做得很好，继续保持节奏。"
+                : "从一件小事开始今天。"}
+          </h3>
+          <p className="today-hero-note">
+            {isDeadline
+              ? "这里按截止日期列出该交的事。要今天做，请加入「我的一天」。"
+              : isPlan
+                ? "这里只显示你主动排进来的事。截止日期不会被改掉。"
+                : "从下一项开始，保持今天的节奏。"}
+          </p>
+          {!isDeadline && conflictIds.size ? (
             <span className="plan-warning">
               {conflictIds.size} 项任务存在时间冲突
             </span>
           ) : null}
           <div className="today-hero-actions">
-            <div className="today-focus-block">
+            {isDeadline ? (
               <button
                 type="button"
-                className={`today-focus-action ${focusRunning ? "is-running" : ""}`}
-                onClick={startNextTask}
-                disabled={!focusRunning && !nextTask}
+                className="btn-primary"
+                onClick={() => {
+                  setCalendarCursor(today);
+                  setNav("myday");
+                }}
               >
-                <span aria-hidden="true">{focusRunning ? "●" : "▶"}</span>
-                <span className="today-focus-label">
-                  {focusRunning
-                    ? `专注中 ${focusClock}`
-                    : nextTask
-                      ? `开始：${nextTask.title}`
-                      : "今天已完成"}
-                </span>
+                去我的一天
               </button>
-              {focusRunning && focusTask ? (
-                <p className="today-focus-status">
-                  「{focusTask.title}」· 点击打开计时
-                </p>
-              ) : null}
-            </div>
+            ) : (
+              <div className="today-focus-block">
+                <button
+                  type="button"
+                  className={`today-focus-action ${focusRunning ? "is-running" : ""}`}
+                  onClick={startNextTask}
+                  disabled={!focusRunning && !nextTask}
+                >
+                  <span aria-hidden="true">{focusRunning ? "●" : "▶"}</span>
+                  <span className="today-focus-label">
+                    {focusRunning
+                      ? `专注中 ${focusClock}`
+                      : nextTask
+                        ? `开始：${nextTask.title}`
+                        : "今天已完成"}
+                  </span>
+                </button>
+                {focusRunning && focusTask ? (
+                  <p className="today-focus-status">
+                    「{focusTask.title}」· 点击打开计时
+                  </p>
+                ) : null}
+              </div>
+            )}
             {cursor === today ? (
-              <button
-                type="button"
-                className="btn-ghost today-moment-action"
-                onClick={() => setNav("daily-reflection")}
-              >
-                今日拾光
-              </button>
+              <>
+                {isPlan ? (
+                  <button
+                    type="button"
+                    className="btn-ghost today-moment-action"
+                    onClick={() => void useAppStore.getState().openMorningPlan()}
+                  >
+                    今日计划
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn-ghost today-moment-action"
+                  onClick={() => setNav("daily-reflection")}
+                >
+                  今日拾光
+                </button>
+              </>
             ) : null}
           </div>
         </div>
-        <div
-          className="today-progress-ring"
-          style={{ "--progress": completion } as CSSProperties}
-          aria-label={`完成进度 ${completion}%`}
-        >
-          <div>
-            <strong>{completion}%</strong>
-            <span>已完成</span>
+        {isDeadline ? (
+          <div className="deadline-stats">
+            {cursor === today ? (
+              <div className="deadline-stat is-overdue">
+                <span>已逾期</span>
+                <strong>{overdueTasks.length}</strong>
+              </div>
+            ) : null}
+            <div className="deadline-stat">
+              <span>{cursor === today ? "今天到期" : "当日到期"}</span>
+              <strong>{dueActive}</strong>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className="today-progress-ring"
+            style={{ "--progress": completion } as CSSProperties}
+            aria-label={`完成进度 ${completion}%`}
+          >
+            <div>
+              <strong>{completion}%</strong>
+              <span>已完成</span>
+            </div>
+          </div>
+        )}
       </section>
       <div className="scope-nav">
         <button
@@ -444,7 +658,7 @@ function DayBoard() {
         >
           {selecting ? "退出批量" : "批量管理"}
         </button>
-        {(nav === "today" || nav === "myday") ? (
+        {isPlan ? (
           <button
             type="button"
             className="btn-ghost schedule-action"
@@ -715,114 +929,78 @@ function DayBoard() {
       ) : null}
 
       <div className="scope-summary">
-        <div className="scope-card">
-          <span>待办</span>
-          <strong>{pending}</strong>
-        </div>
-        <div className="scope-card">
-          <span>已完成</span>
-          <strong>{done}</strong>
-        </div>
+        {isDeadline ? (
+          <>
+            {cursor === today ? (
+              <div className="scope-card is-overdue">
+                <span>已逾期</span>
+                <strong>{overdueTasks.length}</strong>
+              </div>
+            ) : null}
+            <div className="scope-card">
+              <span>{cursor === today ? "今天到期" : "当日到期"}</span>
+              <strong>{dueOnCursor.length}</strong>
+            </div>
+            <div className="scope-card">
+              <span>已在我的一天</span>
+              <strong>
+                {dayTasks.filter((task) => task.my_day_date === today).length}
+              </strong>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="scope-card">
+              <span>待办</span>
+              <strong>{pending}</strong>
+            </div>
+            <div className="scope-card">
+              <span>已完成</span>
+              <strong>{done}</strong>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="day-agenda">
         <h3 className="scope-section-title">
-          {nav === "myday"
-            ? "我的一天"
-            : cursor === today
-              ? "今日安排"
-              : "当日安排"}
+          {isDeadline
+            ? cursor === today
+              ? "到期清单"
+              : "当日到期"
+            : isPlan
+              ? "今天要做"
+              : cursor === today
+                ? "今日安排"
+                : "当日安排"}
         </h3>
         {!dayTasks.length ? (
-          <div className="scope-empty">这一天暂无任务</div>
+          <div className="scope-empty">
+            {isPlan
+              ? getEmptyMessage("myday")
+              : isDeadline && cursor === today
+                ? getEmptyMessage("today")
+                : "这一天暂无任务"}
+          </div>
+        ) : isDeadline ? (
+          <>
+            {overdueTasks.length ? (
+              <section className="day-agenda-group is-overdue">
+                <h4>已逾期 · {overdueTasks.length}</h4>
+                {overdueTasks.map(renderDayTask)}
+              </section>
+            ) : null}
+            <section className="day-agenda-group">
+              <h4>
+                {cursor === today ? "今天到期" : "当日到期"} · {dueOnCursor.length}
+              </h4>
+              {dueOnCursor.length
+                ? dueOnCursor.map(renderDayTask)
+                : <div className="scope-empty">没有到期项</div>}
+            </section>
+          </>
         ) : (
-          dayTasks.map((task) => (
-            <ExpandableTaskItem
-              key={task.id}
-              task={task}
-              selection={{
-                active: selecting,
-                selected: selectedIds.includes(task.id),
-                onToggle: () =>
-                  setSelectedIds((ids) =>
-                    ids.includes(task.id)
-                      ? ids.filter((id) => id !== task.id)
-                      : [...ids, task.id],
-                  ),
-              }}
-              meta={
-                <>
-                  <span>{formatTimeRange(task.due_time, task.end_time)}</span>
-                  <span>{priorityLabel(task.priority)}</span>
-                  {nav === "myday" ? (
-                    <span
-                      className={`day-source-chip ${
-                        task.due_date === cursor ? "is-due" : "is-planned"
-                      }`}
-                    >
-                      {task.due_date === cursor
-                        ? "今天到期"
-                        : task.due_date
-                          ? `今日计划 · 截止 ${task.due_date}`
-                          : "仅加入今日计划"}
-                    </span>
-                  ) : null}
-                  {conflictIds.has(task.id) ? (
-                    <span className="conflict-chip">时间冲突</span>
-                  ) : null}
-                </>
-              }
-              actions={
-                !selecting && isActiveTask(task) ? (
-                  <>
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      onClick={() => {
-                        if (focusRunning && focusTaskId !== task.id) {
-                          useAppStore
-                            .getState()
-                            .setToast("已有专注任务正在进行，请先暂停后再切换");
-                          return;
-                        }
-                        setFocusTask(task.id);
-                        if (task.status !== "in_progress") {
-                          void saveTask(task.id, { status: "in_progress" });
-                        }
-                        if (!focusRunning) void toggleFocus();
-                      }}
-                    >
-                      专注
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      onClick={() =>
-                        void saveTask(
-                          task.id,
-                          buildDeferredDateUpdate(
-                            nav === "myday" ? "myday" : "due",
-                            addDays(cursor, 1),
-                          ),
-                        )
-                      }
-                    >
-                      明天
-                    </button>
-                    {nav === "myday" ? (
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        onClick={() => void saveTask(task.id, { my_day_date: null })}
-                      >
-                        移出今日
-                      </button>
-                    ) : null}
-                  </>
-                ) : null
-              }
-            />
-          ))
+          dayTasks.map(renderDayTask)
         )}
       </div>
     </div>
@@ -1322,7 +1500,15 @@ export function MainWorkspace() {
   return (
     <main className="main-workspace">
       <div className="workspace-top">
-        <h2>{getViewTitle(nav)}</h2>
+        <div>
+          <h2>{getViewTitle(nav)}</h2>
+          {nav === "today" ? (
+            <p className="workspace-subtitle">按截止日期看今天该交什么，不会自动变成今日计划。</p>
+          ) : null}
+          {nav === "myday" ? (
+            <p className="workspace-subtitle">只列出你主动排进今天的事。截止日期仍留在「今日」。</p>
+          ) : null}
+        </div>
         <div className="top-controls">
           {useScopeBoard ? (
             <div className="seg">

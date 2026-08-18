@@ -75,6 +75,111 @@
   letter-spacing: 0.11em;
 }
 
+.today-hero-note {
+  margin: 8px 0 0;
+  max-width: 36em;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.today-hero.is-deadline {
+  border-color: color-mix(in srgb, #c9844a 24%, var(--border));
+  background:
+    radial-gradient(circle at 12% 18%, rgba(232, 161, 108, 0.2), transparent 34%),
+    radial-gradient(circle at 94% 88%, rgba(180, 87, 77, 0.08), transparent 28%),
+    linear-gradient(120deg, #f6f1e8 0%, #fbf8f3 68%, #ffffff 100%);
+}
+
+.today-hero.is-deadline::after {
+  border-color: color-mix(in srgb, #c9844a 18%, transparent);
+  box-shadow:
+    0 0 0 22px color-mix(in srgb, #c9844a 5%, transparent),
+    0 0 0 48px color-mix(in srgb, #c9844a 3%, transparent);
+}
+
+.today-hero.is-deadline .today-eyebrow {
+  color: #9a5b2c;
+}
+
+.deadline-stats {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  min-width: 132px;
+}
+
+.deadline-stat {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+}
+
+.deadline-stat span,
+.scope-card.is-overdue span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.deadline-stat strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.deadline-stat.is-overdue,
+.scope-card.is-overdue {
+  border-color: color-mix(in srgb, #b4574d 28%, var(--border));
+  background: color-mix(in srgb, #b4574d 8%, var(--bg-panel));
+}
+
+.deadline-stat.is-overdue strong,
+.scope-card.is-overdue strong {
+  color: #b4574d;
+}
+
+.day-agenda-group {
+  display: grid;
+  gap: 6px;
+}
+
+.day-agenda-group > h4 {
+  margin: 6px 0 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.day-agenda-group.is-overdue > h4 {
+  color: #b4574d;
+}
+
+:root[data-theme="dark"] .today-hero.is-deadline,
+:root[data-theme="glass"] .today-hero.is-deadline {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(232, 161, 108, 0.16), transparent 34%),
+    radial-gradient(circle at 94% 88%, rgba(180, 87, 77, 0.1), transparent 28%),
+    linear-gradient(120deg, #2a221c 0%, #1c1f27 72%, #182130 100%);
+}
+
+:root[data-theme="dark"] .today-hero.is-deadline .today-eyebrow,
+:root[data-theme="glass"] .today-hero.is-deadline .today-eyebrow,
+:root[data-theme="dawn"] .today-hero.is-deadline .today-eyebrow {
+  color: #e0b089;
+}
+
+:root[data-theme="dawn"] .today-hero.is-deadline {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(232, 161, 108, 0.22), transparent 34%),
+    linear-gradient(120deg, #f3e6d4 0%, #f7efe4 70%, #fffaf3 100%);
+}
+
 .today-progress-ring {
   --progress: 0;
   position: relative;
@@ -827,8 +932,22 @@ html[data-nav="collapsed"] .timeline-drawer {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
+}
+
+.notification-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.notification-header-actions .btn-ghost {
+  width: auto;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 .notification-list {
@@ -1324,6 +1443,33 @@ html[data-nav="collapsed"] .timeline-drawer {
 
 .milestone-list input {
   width: auto;
+}
+
+.milestone-compose {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.milestone-list .milestone-compose input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  background: var(--surface);
+  font: inherit;
+  font-size: 12px;
+}
+
+.milestone-compose .btn-primary {
+  width: auto;
+  min-width: 52px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .onboarding-backdrop {

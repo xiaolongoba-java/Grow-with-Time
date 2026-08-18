@@ -26,7 +26,40 @@ export function ProjectsView() {
   const [editDueDate, setEditDueDate] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [addingMilestoneFor, setAddingMilestoneFor] = useState<string | null>(
+    null,
+  );
+  const [milestoneTitle, setMilestoneTitle] = useState("");
+  const [savingMilestone, setSavingMilestone] = useState(false);
+  const milestoneInputRef = useRef<HTMLInputElement>(null);
   const refreshMilestones = async () => setMilestones(await fetchMilestones());
+
+  const beginAddMilestone = (projectId: string) => {
+    setAddingMilestoneFor(projectId);
+    setMilestoneTitle("");
+  };
+
+  const cancelAddMilestone = () => {
+    if (savingMilestone) return;
+    setAddingMilestoneFor(null);
+    setMilestoneTitle("");
+  };
+
+  const submitMilestone = async (projectId: string) => {
+    const title = milestoneTitle.trim();
+    if (!title || savingMilestone) return;
+    setSavingMilestone(true);
+    try {
+      await createMilestone(projectId, title);
+      await refreshMilestones();
+      setMilestoneTitle("");
+      milestoneInputRef.current?.focus();
+    } catch {
+      useAppStore.getState().setToast("添加里程碑失败");
+    } finally {
+      setSavingMilestone(false);
+    }
+  };
   const createProject = async () => {
     const projectName = name.trim();
     if (!projectName) {
@@ -186,21 +219,48 @@ export function ProjectsView() {
                           <span>{item.title}</span>
                         </label>
                       ))}
-                    <button
-                      type="button"
-                      className="project-inline-action"
-                      onClick={() => {
-                        const title = window.prompt("里程碑名称");
-                        if (title?.trim()) {
-                          void createMilestone(
-                            project.id,
-                            title.trim(),
-                          ).then(refreshMilestones);
-                        }
-                      }}
-                    >
-                      ＋ 添加里程碑
-                    </button>
+                    {addingMilestoneFor === project.id ? (
+                      <form
+                        className="milestone-compose"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void submitMilestone(project.id);
+                        }}
+                      >
+                        <input
+                          ref={milestoneInputRef}
+                          className="field"
+                          value={milestoneTitle}
+                          placeholder="里程碑名称"
+                          autoFocus
+                          disabled={savingMilestone}
+                          onChange={(event) =>
+                            setMilestoneTitle(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              cancelAddMilestone();
+                            }
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          className="btn-primary"
+                          disabled={savingMilestone || !milestoneTitle.trim()}
+                        >
+                          添加
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        className="project-inline-action"
+                        onClick={() => beginAddMilestone(project.id)}
+                      >
+                        ＋ 添加里程碑
+                      </button>
+                    )}
                   </div>
                 </article>
               );

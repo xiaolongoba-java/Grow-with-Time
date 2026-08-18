@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AppNotification } from "@/types";
 import {
+  dismissAllNotifications,
   fetchNotifications,
   setNotificationStatus,
   snoozeNotification,
@@ -12,6 +13,7 @@ export function NotificationCenter() {
   const selectTask = useAppStore((state) => state.selectTask);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
+  const [clearing, setClearing] = useState(false);
 
   const refresh = async () => setItems(await fetchNotifications());
 
@@ -26,6 +28,18 @@ export function NotificationCenter() {
   const unread = items.filter(
     (item) => item.status === "delivered" || item.status === "pending",
   ).length;
+
+  const clearAll = async () => {
+    if (!items.length || clearing) return;
+    setClearing(true);
+    try {
+      await dismissAllNotifications();
+      window.dispatchEvent(new Event("notifications:changed"));
+      await refresh();
+    } finally {
+      setClearing(false);
+    }
+  };
 
   return (
     <div className="notification-center">
@@ -49,9 +63,19 @@ export function NotificationCenter() {
         <section className="notification-popover">
           <header>
             <strong>通知中心</strong>
-            <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>
-              关闭
-            </button>
+            <div className="notification-header-actions">
+              <button
+                type="button"
+                className="btn-ghost"
+                disabled={!items.length || clearing}
+                onClick={() => void clearAll()}
+              >
+                {clearing ? "清除中…" : "清除全部"}
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>
+                关闭
+              </button>
+            </div>
           </header>
           <div className="notification-list">
             {items.map((item) => (

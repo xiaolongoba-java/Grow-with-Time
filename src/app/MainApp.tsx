@@ -14,6 +14,7 @@ import { DetailDrawer } from "@/components/DetailDrawer";
 import { CommandPalette } from "@/components/CommandPalette";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
 import { FocusRecoveryDialog } from "@/components/FocusRecoveryDialog";
+import { MorningPlanDialog } from "@/components/MorningPlanDialog";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { GlassTitlebar } from "@/components/GlassTitlebar";
 import {
@@ -611,6 +612,7 @@ export function MainApp() {
       <CommandPalette />
       {createTaskOpen ? <CreateTaskDialog /> : null}
       <FocusRecoveryDialog />
+      <MorningPlanDialog />
       <OnboardingGuide />
       {toast ? (
         <div className="toast" role="status" aria-live="polite">

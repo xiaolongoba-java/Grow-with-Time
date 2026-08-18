@@ -115,6 +115,23 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.23 今日计划与两页分工
+
+- 「今日」按截止日期列出逾期和到期项，「我的一天」只显示主动安排，专注、排程和收尾都在后者。
+- 「我的一天」可打开「今日计划」，从已有任务、项目、周期任务勾选，也可自己写一项加入当天。
+- 项目里程碑改为卡片内输入，不再弹出系统对话框。
+- 通知中心支持清除全部。
+- 更换应用图标。
+
+### v1.5.23
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.23_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.23/Grow.with.Time_1.5.23_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.23_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.23/Grow.with.Time_1.5.23_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.23) 或 Actions Artifacts 下载。
+
 #### v1.5.22 修复完成任务没反应
 
 - 勾选完成会立刻更新，失败时显示具体原因。

@@ -568,6 +568,103 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
   width: 100%;
   min-width: 0;
 }
+.morning-plan-modal,
+.morning-plan-modal button,
+.morning-plan-modal label {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+.morning-plan-toolbar {
+  display: flex;
+  gap: 8px;
+}
+.morning-plan-toolbar .btn-ghost {
+  min-width: 0;
+  padding: 6px 10px;
+}
+.morning-plan-compose {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.morning-plan-modal .morning-plan-compose input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.morning-plan-compose .btn-primary {
+  width: auto;
+  min-width: 64px;
+  height: 38px;
+  padding: 0 12px;
+}
+.morning-plan-list {
+  display: grid;
+  gap: 6px;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+}
+.morning-plan-modal .morning-plan-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+}
+.morning-plan-modal .morning-plan-row.is-on {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.morning-plan-modal .morning-plan-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--accent);
+}
+.morning-plan-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.morning-plan-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+.morning-plan-copy small {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.morning-plan-modal .morning-plan-row em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.morning-plan-modal .morning-plan-row em.p1 { color: #e11d48; }
+.morning-plan-modal .morning-plan-row em.p2 { color: #ea580c; }
 @media (max-width: 620px) { .create-task-grid { grid-template-columns: 1fr; } .create-task-time-card > div:first-child { display: grid; } }
 
 .project-edit-modal label {

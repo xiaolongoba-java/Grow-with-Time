@@ -119,7 +119,9 @@ export function subtaskProgress(tasks: Task[], parentId: string): number {
 export function getEmptyMessage(view: string): string {
   switch (view) {
     case "today":
-      return "今天没有待办，享受片刻空闲。";
+      return "今天没有到期任务。到期的会出现在这里，要做的请排进「我的一天」。";
+    case "myday":
+      return "还没有安排今天。点「今日计划」把要做的事加进来。";
     case "inbox":
       return "待办箱是空的。";
     case "completed":

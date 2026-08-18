@@ -241,6 +241,14 @@ export async function setNotificationStatus(
   );
 }
 
+export async function dismissAllNotifications(): Promise<number> {
+  const db = await getDb();
+  const result = await db.execute(
+    "UPDATE app_notifications SET status = 'dismissed' WHERE status != 'dismissed'",
+  );
+  return result.rowsAffected ?? 0;
+}
+
 export async function snoozeNotification(
   id: string,
   minutes: number,

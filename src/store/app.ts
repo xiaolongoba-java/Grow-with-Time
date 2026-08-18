@@ -28,6 +28,7 @@ import {
 } from "@/lib/focusTimer";
 import { emitDataChanged } from "@/lib/widgetRefresh";
 import { interpretOpenFocus, toSafeIso, type FocusRecovery } from "@/lib/focusRecovery";
+import { buildMorningPlan, buildTodayPlanPicker, type MorningPlanItem } from "@/lib/morningPlan";
 import {
   EMPTY_REMINDER_SYNC,
   type ReminderSyncStatus,
@@ -77,6 +78,7 @@ interface AppStore {
   focusRunning: boolean;
   focusSessionId: string | null;
   pendingFocusRecovery: FocusRecovery | null;
+  pendingMorningPlan: MorningPlanItem[] | null;
   reminderSync: ReminderSyncStatus;
   toast: string | null;
   canUndo: boolean;
@@ -153,6 +155,11 @@ interface AppStore {
   resolveFocusRecovery: (
     action: "continue" | "settle_activity" | "settle_planned" | "abandon",
   ) => Promise<void>;
+  offerMorningPlan: () => Promise<void>;
+  openMorningPlan: () => Promise<void>;
+  resolveMorningPlan: (
+    payload: { taskIds: string[]; titles?: string[] } | null,
+  ) => Promise<void>;
   setReminderSync: (status: ReminderSyncStatus) => void;
 }
 
@@ -211,6 +218,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   focusRunning: false,
   focusSessionId: null,
   pendingFocusRecovery: null,
+  pendingMorningPlan: null,
   reminderSync: EMPTY_REMINDER_SYNC,
   toast: null,
   canUndo: false,
@@ -252,6 +260,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
             ? { toast: `已将 ${rolled} 项逾期任务加入今日计划，截止日期未改` }
             : {}),
       });
+      await get().offerMorningPlan();
     } catch (e) {
       const detail = errorMessage(e, "初始化失败");
       const diskHint =
@@ -282,6 +291,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
             : {}),
         });
       }
+      await get().offerMorningPlan();
     } catch {
       /* ignore rollover errors */
     }
@@ -753,6 +763,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           "onboarding_complete",
           String(patch.onboardingComplete),
         );
+        if (patch.onboardingComplete) void get().offerMorningPlan();
       }
     } catch (e) {
       set((state) => {
@@ -1007,6 +1018,58 @@ export const useAppStore = create<AppStore>((set, get) => ({
       } catch {
         /* ignore */
       }
+    }
+  },
+  offerMorningPlan: async () => {
+    if (!get().settings.onboardingComplete) return;
+    if (get().pendingMorningPlan) return;
+    const today = todayDateString();
+    const planned = await db.getSetting("last_morning_plan_date");
+    if (planned === today) return;
+    const candidates = buildMorningPlan(get().tasks, today);
+    if (candidates.length) set({ pendingMorningPlan: candidates });
+  },
+  openMorningPlan: async () => {
+    if (get().pendingMorningPlan) return;
+    set({
+      pendingMorningPlan: buildTodayPlanPicker(get().tasks, todayDateString()),
+    });
+  },
+  resolveMorningPlan: async (payload) => {
+    const today = todayDateString();
+    try {
+      const taskIds = payload?.taskIds ?? [];
+      const titles = (payload?.titles ?? [])
+        .map((title) => title.trim())
+        .filter(Boolean);
+      if (taskIds.length || titles.length) {
+        for (const id of taskIds) {
+          await db.updateTask(id, { my_day_date: today });
+        }
+        for (const title of titles) {
+          await db.createTask({
+            title,
+            due_date: null,
+            my_day_date: today,
+          });
+        }
+        await get().refreshAll();
+        const count = taskIds.length + titles.length;
+        set({
+          pendingMorningPlan: null,
+          nav: "myday",
+          calendarCursor: today,
+          toast: `已将 ${count} 项加入我的一天`,
+        });
+      } else {
+        set({ pendingMorningPlan: null });
+      }
+      await db.setSetting("last_morning_plan_date", today);
+    } catch (e) {
+      set({
+        toast: errorMessage(e, "加入我的一天失败"),
+        error: errorMessage(e, "加入我的一天失败"),
+      });
     }
   },
   setReminderSync: (reminderSync) => set({ reminderSync }),
