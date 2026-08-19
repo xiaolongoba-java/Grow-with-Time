@@ -115,6 +115,20 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.25 桌面与任务栏使用最新太阳标
+
+- 安装包、桌面快捷方式和任务栏改为最新太阳拾光标（蓝底、太阳、地平线箭头）。
+- 不再使用透明勾选线稿，避免在 Windows 上被套白底后看起来像 To Do。
+
+### v1.5.25
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.25_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.25/Grow.with.Time_1.5.25_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.25_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.25/Grow.with.Time_1.5.25_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.25) 或 Actions Artifacts 下载。
+
 #### v1.5.24 应用图标与品牌标
 
 - 桌面图标和应用内品牌标改为「完成勾选 + 拾光」，不再用朝阳地平线。
