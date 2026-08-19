@@ -115,6 +115,20 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.27 快捷方式与任务栏使用白底勾选标
+
+- 桌面快捷方式和任务栏改为白底圆角牌上的蓝勾金星。
+- 收入最终品牌稿 `grow-with-time-mark-final.png` 与系统图标 SVG。
+
+### v1.5.27
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.27_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.27/Grow.with.Time_1.5.27_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.27_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.27/Grow.with.Time_1.5.27_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.27) 或 Actions Artifacts 下载。
+
 #### v1.5.26 快捷方式与任务栏改为勾选拾光标
 
 - 桌面快捷方式和任务栏使用黑底蓝勾金星图标。

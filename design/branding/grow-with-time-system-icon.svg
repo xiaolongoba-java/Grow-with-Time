@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="blue" x1="220" y1="190" x2="790" y2="850" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4385F5"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="790" y1="180" x2="870" y2="290" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD267"/>
+      <stop offset="1" stop-color="#F4B942"/>
+    </linearGradient>
+  </defs>
+  <rect x="52" y="52" width="920" height="920" rx="226" fill="#F8FBFF"/>
+  <rect x="62" y="62" width="900" height="900" rx="216" stroke="#DCE8F7" stroke-width="20"/>
+  <path
+    d="M700 214H304c-49.7 0-90 40.3-90 90v416c0 49.7 40.3 90 90 90h416c49.7 0 90-40.3 90-90V418"
+    stroke="url(#blue)"
+    stroke-width="68"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M340 514l116 116 224-224"
+    stroke="url(#blue)"
+    stroke-width="64"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M820 180c7.5 40.5 29.5 62.5 70 70-40.5 7.5-62.5 29.5-70 70-7.5-40.5-29.5-62.5-70-70 40.5-7.5 62.5-29.5 70-70Z"
+    fill="url(#gold)"
+  />
+</svg>
