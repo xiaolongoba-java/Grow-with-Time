@@ -115,6 +115,19 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.28 去掉图标圆角外的黑底
+
+- 桌面快捷方式和任务栏图标保留透明通道，圆角外不再是黑块。
+
+### v1.5.28
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.28_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.28/Grow.with.Time_1.5.28_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.28_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.28/Grow.with.Time_1.5.28_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.28) 或 Actions Artifacts 下载。
+
 #### v1.5.27 快捷方式与任务栏使用白底勾选标
 
 - 桌面快捷方式和任务栏改为白底圆角牌上的蓝勾金星。

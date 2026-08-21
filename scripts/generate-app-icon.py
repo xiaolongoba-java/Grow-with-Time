@@ -36,8 +36,10 @@ def main() -> None:
     x = (SIZE - mark.width) // 2
     y = (SIZE - mark.height) // 2
     canvas.alpha_composite(mark, (x, y))
-    canvas.convert("RGB").save(OUT, "PNG")
-    print(f"wrote {OUT} {OUT.stat().st_size} bytes")
+    # Keep the rounded-plate corners transparent. Flattening to RGB fills them black,
+    # which shows up as a black square behind desktop/taskbar icons.
+    canvas.save(OUT, "PNG")
+    print(f"wrote {OUT} {OUT.stat().st_size} bytes mode={canvas.mode}")
 
 
 if __name__ == "__main__":
