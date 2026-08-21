@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -13,6 +12,7 @@ import {
 } from "@/lib/anniversaries";
 import { isOverdue, todayDateString } from "@/lib/dates";
 import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
+import { restoreWidgetPosition } from "@/lib/widgetWindow";
 import type { Anniversary, Memo, Task } from "@/types";
 
 type WidgetKind = "calendar" | "today" | "memo";
@@ -119,16 +119,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
     const unbind = bindVisibleDataRefresh(() => refresh(), { fallbackMs: 30_000 });
     const current = getCurrentWebviewWindow();
     const positionKey = `minimal.widget.position.${kind}`;
-    try {
-      const saved = JSON.parse(localStorage.getItem(positionKey) ?? "null") as
-        | { x: number; y: number }
-        | null;
-      if (saved) {
-        void current.setPosition(new PhysicalPosition(saved.x, saved.y));
-      }
-    } catch {
-      // Ignore invalid legacy window positions.
-    }
+    void restoreWidgetPosition(current, positionKey);
     let unlistenMoved: (() => void) | undefined;
     void current.onMoved(({ payload }) => {
       localStorage.setItem(

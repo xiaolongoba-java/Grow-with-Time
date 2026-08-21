@@ -764,24 +764,64 @@ fn hide_float(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn hide_labeled_windows(app: &AppHandle, labels: &[&str]) {
+    for label in labels {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.hide();
+        }
+    }
+}
+
+#[cfg(windows)]
+fn raise_widget_window(window: &tauri::WebviewWindow, stay_top: bool) {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    };
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    unsafe {
+        let _ = SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+        );
+        if !stay_top {
+            let _ = SetWindowPos(
+                hwnd,
+                Some(HWND_NOTOPMOST),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+            );
+        }
+    }
+}
+
 fn pin_desktop_widget(window: &tauri::WebviewWindow, layer: &str) -> Result<(), String> {
+    let stay_top = layer == "top";
     let _ = window.set_ignore_cursor_events(false);
     let _ = window.set_focusable(true);
     let _ = window.unminimize();
+    // Keep a tiny alpha so Windows layered hit-testing does not treat the
+    // whole webview as click-through.
+    let _ = window.set_background_color(Some(tauri::window::Color(12, 18, 26, 24)));
     window.show().map_err(|e| e.to_string())?;
 
-    if layer == "top" {
+    if stay_top {
         let _ = window.set_always_on_bottom(false);
-        window.set_always_on_top(true).map_err(|e| e.to_string())?;
+        let _ = window.set_always_on_top(true);
     } else {
         let _ = window.set_always_on_top(false);
-        // HWND_BOTTOM sits under Windows desktop icons, so clicks never reach
-        // the widget. Keep a normal z-order on Windows; macOS can still pin down.
         #[cfg(not(windows))]
         {
-            window
-                .set_always_on_bottom(true)
-                .map_err(|e| e.to_string())?;
+            let _ = window.set_always_on_bottom(true);
         }
         #[cfg(windows)]
         {
@@ -789,6 +829,8 @@ fn pin_desktop_widget(window: &tauri::WebviewWindow, layer: &str) -> Result<(), 
         }
     }
 
+    #[cfg(windows)]
+    raise_widget_window(window, stay_top);
     let _ = window.set_focus();
     Ok(())
 }
@@ -796,10 +838,16 @@ fn pin_desktop_widget(window: &tauri::WebviewWindow, layer: &str) -> Result<(), 
 #[tauri::command]
 fn show_desktop_widgets(app: AppHandle, layer: Option<String>) -> Result<(), String> {
     let layer = layer.unwrap_or_else(|| "bottom".into());
+    hide_labeled_windows(&app, &["widget-dashboard"]);
+    let mut shown = 0usize;
     for label in ["widget-calendar", "widget-today", "widget-memo"] {
         if let Some(window) = app.get_webview_window(label) {
             pin_desktop_widget(&window, &layer)?;
+            shown += 1;
         }
+    }
+    if shown == 0 {
+        return Err("经典桌面组件窗口还没创建，请重启应用后再试".into());
     }
     Ok(())
 }
@@ -807,10 +855,14 @@ fn show_desktop_widgets(app: AppHandle, layer: Option<String>) -> Result<(), Str
 #[tauri::command]
 fn show_dashboard_strip(app: AppHandle, layer: Option<String>) -> Result<(), String> {
     let layer = layer.unwrap_or_else(|| "bottom".into());
-    if let Some(window) = app.get_webview_window("widget-dashboard") {
-        pin_desktop_widget(&window, &layer)?;
-    }
-    Ok(())
+    hide_labeled_windows(
+        &app,
+        &["widget-calendar", "widget-today", "widget-memo"],
+    );
+    let Some(window) = app.get_webview_window("widget-dashboard") else {
+        return Err("桌面仪表盘窗口还没创建，请重启应用后再试".into());
+    };
+    pin_desktop_widget(&window, &layer)
 }
 
 #[tauri::command]

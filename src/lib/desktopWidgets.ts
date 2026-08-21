@@ -11,9 +11,12 @@ export async function openDesktopWidgets(
   try {
     if (mode === "classic") {
       await invoke("show_desktop_widgets", { layer });
-      return;
+    } else {
+      await invoke("show_dashboard_strip", { layer });
     }
-    await invoke("show_dashboard_strip", { layer });
+    useAppStore.getState().setToast(
+      mode === "classic" ? "已打开经典桌面组件" : "已打开桌面仪表盘",
+    );
   } catch (error) {
     useAppStore.getState().setToast(`桌面组件打开失败：${errorMessage(error, "未知错误")}`);
     throw error;

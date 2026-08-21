@@ -195,7 +195,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     autoBackupLastError: null,
     autoBackupFailStreak: 0,
     desktopWidgetMode: "dashboard",
-    desktopWidgetLayer: "bottom",
+    desktopWidgetLayer: "top",
     ai: { baseUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
     karma: 0,
     streak: 0,

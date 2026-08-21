@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.30",
+  "version": "1.5.31",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -89,6 +89,7 @@
         "transparent": true,
         "shadow": false,
         "skipTaskbar": true,
+        "backgroundColor": [12, 18, 26, 24],
         "focus": true
       },
       {
@@ -107,6 +108,7 @@
         "transparent": true,
         "shadow": false,
         "skipTaskbar": true,
+        "backgroundColor": [12, 18, 26, 24],
         "focus": true
       },
       {
@@ -125,6 +127,7 @@
         "transparent": true,
         "shadow": false,
         "skipTaskbar": true,
+        "backgroundColor": [12, 18, 26, 24],
         "focus": true
       },
       {
@@ -143,6 +146,7 @@
         "transparent": true,
         "shadow": false,
         "skipTaskbar": true,
+        "backgroundColor": [12, 18, 26, 24],
         "focus": true
       }
     ],

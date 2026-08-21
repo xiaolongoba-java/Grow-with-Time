@@ -60,7 +60,7 @@ export async function loadAppSettings(): Promise<AppSettings> {
     autoBackupLastError: s.auto_backup_last_error || null,
     autoBackupFailStreak: Number(s.auto_backup_fail_streak ?? 0),
     desktopWidgetMode: s.desktop_widget_mode === "classic" ? "classic" : "dashboard",
-    desktopWidgetLayer: s.desktop_widget_layer === "top" ? "top" : "bottom",
+    desktopWidgetLayer: s.desktop_widget_layer === "bottom" ? "bottom" : "top",
     ai: {
       baseUrl: s.ai_base_url || "https://api.openai.com/v1",
       apiKey: s.ai_api_key || "",

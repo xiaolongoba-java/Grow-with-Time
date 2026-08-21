@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { PhysicalPosition } from "@tauri-apps/api/dpi";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { fetchTasks } from "@/lib/db/tasks";
 import { createMemo, fetchMemos } from "@/lib/db/memos";
@@ -17,6 +16,7 @@ import {
   listUpcomingAnniversaries,
 } from "@/lib/anniversaries";
 import { emitDataChanged, bindVisibleDataRefresh } from "@/lib/widgetRefresh";
+import { restoreWidgetPosition } from "@/lib/widgetWindow";
 import { formatCountdown, liveRemaining } from "@/lib/timers";
 import type { Anniversary, Habit, HabitCheck, Memo, Task, Timer } from "@/types";
 
@@ -158,16 +158,7 @@ export function DashboardStripApp() {
 
     const current = getCurrentWebviewWindow();
     const positionKey = "minimal.dashboard.position";
-    try {
-      const saved = JSON.parse(localStorage.getItem(positionKey) ?? "null") as
-        | { x: number; y: number }
-        | null;
-      if (saved) {
-        void current.setPosition(new PhysicalPosition(saved.x, saved.y));
-      }
-    } catch {
-      /* ignore */
-    }
+    void restoreWidgetPosition(current, positionKey);
     let unlistenMoved: (() => void) | undefined;
     void current
       .onMoved(({ payload }) => {
