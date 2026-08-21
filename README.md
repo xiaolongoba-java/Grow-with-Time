@@ -115,6 +115,19 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.30 修复桌面组件点不到
+
+- Windows 上不再把组件钉到桌面图标下面，点击月历、备忘和仪表盘会重新有反应。
+
+### v1.5.30
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.30_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.30/Grow.with.Time_1.5.30_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.30_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.30/Grow.with.Time_1.5.30_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.30) 或 Actions Artifacts 下载。
+
 #### v1.5.29 快捷方式与安装包使用 BMP 透明图标
 
 - Windows 快捷方式和安装包左上角改用 32 位 BMP 图标，圆角外不再是黑块。

@@ -377,13 +377,22 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
               return (
                 <div
                   key={key}
+                  role="button"
+                  tabIndex={0}
                   className={[
                     "widget-calendar-day",
                     date.getMonth() !== month.getMonth() ? "is-outside" : "",
                     key === today ? "is-today" : "",
                     anniTitles.length ? "has-anni" : "",
                   ].join(" ")}
-                  title={tipParts.length ? tipParts.join("\n") : "暂无安排"}
+                  title={tipParts.length ? tipParts.join("\n") : "打开主窗口"}
+                  onClick={() => void openMain()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void openMain();
+                    }
+                  }}
                 >
                   <span>{date.getDate()}</span>
                   <div className="widget-calendar-dots">

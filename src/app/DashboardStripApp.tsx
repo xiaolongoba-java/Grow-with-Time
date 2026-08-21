@@ -367,7 +367,7 @@ export function DashboardStripApp() {
       ) : null}
 
       <div className="dashboard-strip-body">
-        <section className="dash-panel dash-greeting">
+        <section className="dash-panel dash-greeting" onClick={() => void openMain()}>
           <p className="dash-hello">{greeting}</p>
           <p className="dash-date">
             {formatLongDate(today)} · 周{weekdayLabel(new Date())}
@@ -492,7 +492,16 @@ export function DashboardStripApp() {
               return (
                 <span
                   key={key}
-                  title={anniTitles?.join("、")}
+                  title={anniTitles?.join("、") || "打开主窗口"}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => void openMain()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void openMain();
+                    }
+                  }}
                   className={[
                     "dash-cal-day",
                     inMonth ? "" : "is-out",

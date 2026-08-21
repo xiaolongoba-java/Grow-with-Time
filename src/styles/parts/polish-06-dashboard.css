@@ -39,6 +39,16 @@
   gap: 12px;
   padding: 8px 12px 0;
   min-height: 36px;
+  app-region: drag;
+  -webkit-app-region: drag;
+}
+
+.dashboard-strip-head .desktop-widget-actions,
+.dashboard-strip-body,
+.dashboard-palette {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
 }
 
 .dashboard-strip-head .desktop-widget-kicker {
@@ -265,6 +275,7 @@
   height: 16px;
   line-height: 16px;
   border-radius: 4px;
+  cursor: pointer;
 }
 
 .dash-cal-day.is-out {

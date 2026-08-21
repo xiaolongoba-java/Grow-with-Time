@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.29",
+  "version": "1.5.30",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -89,7 +89,7 @@
         "transparent": true,
         "shadow": false,
         "skipTaskbar": true,
-        "focus": false
+        "focus": true
       },
       {
         "label": "widget-today",
@@ -107,7 +107,7 @@
         "transparent": true,
         "shadow": false,
         "skipTaskbar": true,
-        "focus": false
+        "focus": true
       },
       {
         "label": "widget-memo",
@@ -125,7 +125,7 @@
         "transparent": true,
         "shadow": false,
         "skipTaskbar": true,
-        "focus": false
+        "focus": true
       },
       {
         "label": "widget-dashboard",
@@ -143,7 +143,7 @@
         "transparent": true,
         "shadow": false,
         "skipTaskbar": true,
-        "focus": false
+        "focus": true
       }
     ],
     "security": {

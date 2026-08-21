@@ -765,17 +765,31 @@ fn hide_float(app: AppHandle) -> Result<(), String> {
 }
 
 fn pin_desktop_widget(window: &tauri::WebviewWindow, layer: &str) -> Result<(), String> {
-    let pin_bottom = layer != "top";
-    if pin_bottom {
-        let _ = window.set_always_on_top(false);
-        window
-            .set_always_on_bottom(true)
-            .map_err(|e| e.to_string())?;
-    } else {
+    let _ = window.set_ignore_cursor_events(false);
+    let _ = window.set_focusable(true);
+    let _ = window.unminimize();
+    window.show().map_err(|e| e.to_string())?;
+
+    if layer == "top" {
         let _ = window.set_always_on_bottom(false);
         window.set_always_on_top(true).map_err(|e| e.to_string())?;
+    } else {
+        let _ = window.set_always_on_top(false);
+        // HWND_BOTTOM sits under Windows desktop icons, so clicks never reach
+        // the widget. Keep a normal z-order on Windows; macOS can still pin down.
+        #[cfg(not(windows))]
+        {
+            window
+                .set_always_on_bottom(true)
+                .map_err(|e| e.to_string())?;
+        }
+        #[cfg(windows)]
+        {
+            let _ = window.set_always_on_bottom(false);
+        }
     }
-    window.show().map_err(|e| e.to_string())?;
+
+    let _ = window.set_focus();
     Ok(())
 }
 
