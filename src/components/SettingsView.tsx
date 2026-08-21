@@ -215,7 +215,7 @@ export function SettingsView() {
       <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>桌面组件</h3>
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
-          默认模式决定侧栏「桌面组件」打开哪一种。点开后组件会浮到主窗口前面，可再拖到桌面。
+          默认模式决定侧栏「桌面组件」打开哪一种。置底时组件贴在主窗口后面，仍保留玻璃透明感。
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
           <button

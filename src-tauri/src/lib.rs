@@ -6,6 +6,7 @@ use desktop_organize::{
     undo_desktop_organize,
 };
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
+use tauri::webview::Color;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
 use tauri_plugin_notification::NotificationExt;
@@ -772,67 +773,76 @@ fn hide_labeled_windows(app: &AppHandle, labels: &[&str]) {
     }
 }
 
+fn make_webview_transparent(window: &tauri::WebviewWindow) {
+    let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
+}
+
 #[cfg(windows)]
-fn raise_widget_window(window: &tauri::WebviewWindow, stay_top: bool) {
-    use windows::Win32::UI::WindowsAndMessaging::{
-        SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+fn send_widget_behind_main(app: &AppHandle, window: &tauri::WebviewWindow) {
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
+    let Ok(widget_hwnd) = window.hwnd() else {
+        return;
     };
-    let Ok(hwnd) = window.hwnd() else {
+    let Some(main) = app.get_webview_window("main") else {
+        return;
+    };
+    if !main.is_visible().unwrap_or(false) {
+        return;
+    }
+    let Ok(main_hwnd) = main.hwnd() else {
         return;
     };
     unsafe {
         let _ = SetWindowPos(
-            hwnd,
-            Some(HWND_TOPMOST),
+            widget_hwnd,
+            Some(main_hwnd),
             0,
             0,
             0,
             0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
         );
-        if !stay_top {
-            let _ = SetWindowPos(
-                hwnd,
-                Some(HWND_NOTOPMOST),
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
-            );
-        }
     }
 }
 
-fn pin_desktop_widget(window: &tauri::WebviewWindow, layer: &str) -> Result<(), String> {
+fn pin_desktop_widget(
+    app: &AppHandle,
+    window: &tauri::WebviewWindow,
+    layer: &str,
+) -> Result<(), String> {
     let stay_top = layer == "top";
     let _ = window.set_ignore_cursor_events(false);
     let _ = window.set_focusable(true);
     let _ = window.unminimize();
-    // Keep a tiny alpha so Windows layered hit-testing does not treat the
-    // whole webview as click-through.
-    let _ = window.set_background_color(Some(tauri::window::Color(12, 18, 26, 24)));
+    make_webview_transparent(window);
     window.show().map_err(|e| e.to_string())?;
 
     if stay_top {
         let _ = window.set_always_on_bottom(false);
         let _ = window.set_always_on_top(true);
+        let _ = window.set_focus();
     } else {
         let _ = window.set_always_on_top(false);
+        let _ = window.set_always_on_bottom(false);
         #[cfg(not(windows))]
         {
-            let _ = window.set_always_on_bottom(true);
+            window
+                .set_always_on_bottom(true)
+                .map_err(|e| e.to_string())?;
         }
         #[cfg(windows)]
-        {
-            let _ = window.set_always_on_bottom(false);
-        }
+        send_widget_behind_main(app, window);
     }
 
-    #[cfg(windows)]
-    raise_widget_window(window, stay_top);
-    let _ = window.set_focus();
     Ok(())
+}
+
+fn widgets_visible(app: &AppHandle, labels: &[&str]) -> bool {
+    labels.iter().any(|label| {
+        app.get_webview_window(label)
+            .and_then(|window| window.is_visible().ok())
+            .unwrap_or(false)
+    })
 }
 
 #[tauri::command]
@@ -842,7 +852,7 @@ fn show_desktop_widgets(app: AppHandle, layer: Option<String>) -> Result<(), Str
     let mut shown = 0usize;
     for label in ["widget-calendar", "widget-today", "widget-memo"] {
         if let Some(window) = app.get_webview_window(label) {
-            pin_desktop_widget(&window, &layer)?;
+            pin_desktop_widget(&app, &window, &layer)?;
             shown += 1;
         }
     }
@@ -862,7 +872,33 @@ fn show_dashboard_strip(app: AppHandle, layer: Option<String>) -> Result<(), Str
     let Some(window) = app.get_webview_window("widget-dashboard") else {
         return Err("桌面仪表盘窗口还没创建，请重启应用后再试".into());
     };
-    pin_desktop_widget(&window, &layer)
+    pin_desktop_widget(&app, &window, &layer)
+}
+
+#[tauri::command]
+fn toggle_desktop_widgets(
+    app: AppHandle,
+    mode: String,
+    layer: Option<String>,
+) -> Result<bool, String> {
+    let classic = mode == "classic";
+    let labels: &[&str] = if classic {
+        &["widget-calendar", "widget-today", "widget-memo"]
+    } else {
+        &["widget-dashboard"]
+    };
+
+    if widgets_visible(&app, labels) {
+        hide_labeled_windows(&app, labels);
+        return Ok(false);
+    }
+
+    if classic {
+        show_desktop_widgets(app, layer)?;
+    } else {
+        show_dashboard_strip(app, layer)?;
+    }
+    Ok(true)
 }
 
 #[tauri::command]
@@ -1154,6 +1190,7 @@ pub fn run() {
             hide_float,
             show_desktop_widgets,
             show_dashboard_strip,
+            toggle_desktop_widgets,
             today_pending_count,
             schedule_native_notification,
             cancel_native_notification,
@@ -1208,6 +1245,7 @@ pub fn run() {
                 "widget-memo",
             ] {
                 if let Some(window) = app.get_webview_window(label) {
+                    make_webview_transparent(&window);
                     let app_handle = app.handle().clone();
                     let window_label = label.to_string();
                     window.on_window_event(move |event| {

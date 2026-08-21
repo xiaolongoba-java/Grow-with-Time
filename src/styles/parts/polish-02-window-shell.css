@@ -9,7 +9,13 @@ body,
   background: transparent !important;
 }
 
-#root {
+html:not([data-desktop-widget]),
+html:not([data-desktop-widget]) body,
+html:not([data-desktop-widget]) #root {
+  background: transparent !important;
+}
+
+html:not([data-desktop-widget]) #root {
   overflow: hidden;
   border-radius: var(--shell-radius);
   clip-path: inset(0 round var(--shell-radius));

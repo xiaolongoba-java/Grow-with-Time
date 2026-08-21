@@ -115,6 +115,21 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.32 修复桌面组件白底与四角白边
+
+- WebView 背景改为全透明，圆角外不再露出白色底。
+- Windows 上关闭桌面组件的毛玻璃，避免 WebView2 垫白层。
+- 侧栏「桌面组件」改为开关切换；默认贴主窗口底层显示。
+
+### v1.5.32
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.32_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.32/Grow.with.Time_1.5.32_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.32_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.32/Grow.with.Time_1.5.32_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.32) 或 Actions Artifacts 下载。
+
 #### v1.5.31 桌面组件打开后浮到前面
 
 - 点击侧栏「桌面组件」会把仪表盘/三件套提到主窗口前面，并给出成功提示。

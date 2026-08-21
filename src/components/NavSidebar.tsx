@@ -5,7 +5,7 @@ import { parseNaturalInput } from "@/lib/nlp";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { isActiveTask } from "@/lib/tasks";
 import { NotificationCenter } from "@/components/NotificationCenter";
-import { openDesktopWidgets } from "@/lib/desktopWidgets";
+import { toggleDesktopWidgets } from "@/lib/desktopWidgets";
 
 type NavSidebarProps = {
   onCollapse?: () => void;
@@ -286,7 +286,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       <footer className="nav-side-footer" aria-label="全局工具">
         <button type="button" className={nav === "settings" ? "active" : ""} onClick={() => setNav("settings")}><AppIcon name="settings" size={17} />设置</button>
         <button type="button" className={nav === "trash" ? "active" : ""} onClick={() => setNav("trash")}><AppIcon name="trash" size={17} />回收站</button>
-        <button type="button" onClick={() => { void openDesktopWidgets(desktopWidgetMode, desktopWidgetLayer); }}><AppIcon name="panel" size={17} />桌面组件</button>
+        <button type="button" onClick={() => { void toggleDesktopWidgets(desktopWidgetMode, desktopWidgetLayer); }}><AppIcon name="panel" size={17} />桌面组件</button>
       </footer>
       {onCollapse ? (
         <button

@@ -2,6 +2,7 @@ import { StrictMode, Component, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { detectDesktopPlatform } from "@/lib/platform";
 import "@/styles/index.css";
 
 function BootError({ message }: { message: string }) {
@@ -77,12 +78,20 @@ class ErrorBoundary extends Component<
 }
 
 document.documentElement.dataset.theme ||= "system";
+document.documentElement.dataset.platform = detectDesktopPlatform();
 
 let label = "main";
 try {
   label = getCurrentWebviewWindow().label;
 } catch {
   label = "main";
+}
+
+if (label.startsWith("widget-")) {
+  const kind =
+    label === "widget-dashboard" ? "dashboard" : label.slice("widget-".length);
+  document.documentElement.dataset.desktopWidget = kind;
+  document.body.dataset.desktopWidget = kind;
 }
 
 async function resolveApp() {

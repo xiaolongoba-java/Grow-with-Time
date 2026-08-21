@@ -1,7 +1,7 @@
 import type { NavId } from "@/types";
 import { useAppStore } from "@/store/app";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
-import { openDesktopWidgets } from "@/lib/desktopWidgets";
+import { toggleDesktopWidgets } from "@/lib/desktopWidgets";
 
 /** 仅保留侧栏没有的入口，避免与「视图」列表重复 */
 const BOTTOM: { id: NavId; label: string; icon: AppIconName }[] = [
@@ -22,12 +22,12 @@ export function IconRail() {
         className="rail-btn"
         title={
           desktopWidgetMode === "classic"
-            ? "打开经典桌面组件（月历 / 今日计划 / 备忘录）"
-            : "打开桌面横条仪表盘（备忘 / 打卡 / 月历 / 倒计时）"
+            ? "打开/关闭经典桌面组件（月历 / 今日计划 / 备忘录）"
+            : "打开/关闭桌面横条仪表盘（备忘 / 打卡 / 月历 / 倒计时）"
         }
         aria-label="打开桌面组件"
         onClick={() => {
-          void openDesktopWidgets(desktopWidgetMode, desktopWidgetLayer);
+          void toggleDesktopWidgets(desktopWidgetMode, desktopWidgetLayer);
         }}
       >
         <AppIcon name="panel" />
