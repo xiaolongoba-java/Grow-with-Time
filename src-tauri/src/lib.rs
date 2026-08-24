@@ -1,11 +1,16 @@
 mod os_reminders;
 mod desktop_organize;
+mod wallpaper;
 
 use desktop_organize::{
-    apply_desktop_organize, open_desktop_item, preview_desktop_organize, scan_desktop,
-    undo_desktop_organize,
+    apply_desktop_organize, list_desktop_shortcuts, open_desktop_item,
+    preview_desktop_organize, scan_desktop, undo_desktop_organize,
 };
-use tauri::{AppHandle, Emitter, Manager, WindowEvent};
+use wallpaper::{
+    apply_wallpaper, get_wallpaper_library, import_wallpapers, remove_wallpaper,
+    start_wallpaper_scheduler, update_wallpaper_settings,
+};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position, WindowEvent};
 use tauri::webview::Color;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
@@ -901,6 +906,47 @@ fn toggle_desktop_widgets(
     Ok(true)
 }
 
+fn position_shortcut_dock(window: &tauri::WebviewWindow) -> Result<(), String> {
+    let monitor = window
+        .primary_monitor()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "找不到主显示器".to_string())?;
+    let monitor_position = monitor.position();
+    let monitor_size = monitor.size();
+    let window_size = window.outer_size().map_err(|error| error.to_string())?;
+    let scale = monitor.scale_factor();
+    let bottom_margin = (72.0 * scale).round() as i32;
+    let x = monitor_position.x
+        + ((monitor_size.width as i32 - window_size.width as i32) / 2).max(0);
+    let y = monitor_position.y
+        + (monitor_size.height as i32 - window_size.height as i32 - bottom_margin).max(0);
+    window
+        .set_position(Position::Physical(PhysicalPosition::new(x, y)))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn show_shortcut_dock(app: AppHandle) -> Result<(), String> {
+    let Some(window) = app.get_webview_window("widget-shortcuts") else {
+        return Err("快捷方式停靠栏还没创建，请重启应用后再试".into());
+    };
+    position_shortcut_dock(&window)?;
+    pin_desktop_widget(&app, &window, "bottom")
+}
+
+#[tauri::command]
+fn toggle_shortcut_dock(app: AppHandle) -> Result<bool, String> {
+    let Some(window) = app.get_webview_window("widget-shortcuts") else {
+        return Err("快捷方式停靠栏还没创建，请重启应用后再试".into());
+    };
+    if window.is_visible().unwrap_or(false) {
+        window.hide().map_err(|error| error.to_string())?;
+        return Ok(false);
+    }
+    show_shortcut_dock(app)?;
+    Ok(true)
+}
+
 #[tauri::command]
 fn today_pending_count(count: i64) -> Result<i64, String> {
     Ok(count)
@@ -1191,6 +1237,8 @@ pub fn run() {
             show_desktop_widgets,
             show_dashboard_strip,
             toggle_desktop_widgets,
+            show_shortcut_dock,
+            toggle_shortcut_dock,
             today_pending_count,
             schedule_native_notification,
             cancel_native_notification,
@@ -1201,12 +1249,19 @@ pub fn run() {
             open_data_directory,
             restart_app,
             scan_desktop,
+            list_desktop_shortcuts,
             preview_desktop_organize,
             apply_desktop_organize,
             undo_desktop_organize,
-            open_desktop_item
+            open_desktop_item,
+            get_wallpaper_library,
+            import_wallpapers,
+            apply_wallpaper,
+            remove_wallpaper,
+            update_wallpaper_settings
         ])
         .setup(|app| {
+            start_wallpaper_scheduler(app.handle().clone());
             let scheduler = Arc::clone(app.state::<Arc<ReminderScheduler>>().inner());
             start_notification_scheduler(app.handle().clone(), scheduler);
             setup_tray(app.handle())?;
@@ -1240,6 +1295,7 @@ pub fn run() {
                 "quick-add",
                 "inspiration",
                 "widget-dashboard",
+                "widget-shortcuts",
                 "widget-calendar",
                 "widget-today",
                 "widget-memo",

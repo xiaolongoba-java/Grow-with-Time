@@ -6,7 +6,8 @@
     "widget-calendar",
     "widget-today",
     "widget-memo",
-    "widget-dashboard"
+    "widget-dashboard",
+    "widget-shortcuts"
   ],
   "permissions": [
     "core:default",

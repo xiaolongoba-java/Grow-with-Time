@@ -303,6 +303,26 @@ pub fn scan_desktop(app: AppHandle) -> Result<DesktopScan, String> {
 }
 
 #[tauri::command]
+pub fn list_desktop_shortcuts(app: AppHandle) -> Result<Vec<DesktopItem>, String> {
+    let desktop = desktop_dir(&app)?;
+    let mut items = scan_items(&desktop)?
+        .into_iter()
+        .filter(|item| item.kind == "shortcut")
+        .collect::<Vec<_>>();
+    let organized = desktop.join(ROOT_FOLDER).join(category_folder("shortcut"));
+    if organized.exists() {
+        items.extend(
+            scan_items(&organized)?
+                .into_iter()
+                .filter(|item| item.kind == "shortcut"),
+        );
+    }
+    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    items.dedup_by(|a, b| a.path.eq_ignore_ascii_case(&b.path));
+    Ok(items)
+}
+
+#[tauri::command]
 pub fn preview_desktop_organize(app: AppHandle) -> Result<OrganizePlan, String> {
     let desktop = desktop_dir(&app)?;
     let items = scan_items(&desktop)?;

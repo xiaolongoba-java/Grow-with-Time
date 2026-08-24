@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.32",
+  "version": "1.5.33",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -148,9 +148,30 @@
         "backgroundColor": [0, 0, 0, 0],
         "skipTaskbar": true,
         "focus": true
+      },
+      {
+        "label": "widget-shortcuts",
+        "title": "桌面快捷方式",
+        "width": 720,
+        "height": 118,
+        "minWidth": 420,
+        "minHeight": 100,
+        "visible": false,
+        "alwaysOnTop": false,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "backgroundColor": [0, 0, 0, 0],
+        "skipTaskbar": true,
+        "focus": true
       }
     ],
     "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**"]
+      },
       "csp": {
         "default-src": "'self' customprotocol: asset:",
         "connect-src": "ipc: http://ipc.localhost https://** http://localhost:** http://127.0.0.1:**",

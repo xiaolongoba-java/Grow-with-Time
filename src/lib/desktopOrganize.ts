@@ -95,3 +95,11 @@ export function undoDesktopOrganize(): Promise<OrganizeResult> {
 export function openDesktopItem(path: string): Promise<void> {
   return invoke("open_desktop_item", { path });
 }
+
+export function listDesktopShortcuts(): Promise<DesktopItem[]> {
+  return invoke("list_desktop_shortcuts");
+}
+
+export function toggleShortcutDock(): Promise<boolean> {
+  return invoke("toggle_shortcut_dock");
+}

@@ -111,6 +111,10 @@ async function resolveApp() {
     const { DashboardStripApp } = await import("@/app/DashboardStripApp");
     return <DashboardStripApp />;
   }
+  if (label === "widget-shortcuts") {
+    const { ShortcutDockApp } = await import("@/app/ShortcutDockApp");
+    return <ShortcutDockApp />;
+  }
   if (label.startsWith("widget-")) {
     const { DesktopWidgetApp } = await import("@/app/DesktopWidgetApp");
     return (

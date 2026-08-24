@@ -33,6 +33,51 @@
   padding: 8px 0 40px;
 }
 
+.toolbox-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 390px;
+  margin-top: 18px;
+  padding: 48px 24px 104px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 72% 20%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 34%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface) 88%, white), color-mix(in srgb, var(--accent-soft) 76%, var(--surface)));
+  box-shadow: var(--shadow-soft, 0 18px 54px rgba(20, 24, 38, 0.08));
+}
+
+.toolbox-stage-copy { max-width: 520px; text-align: center; }
+.toolbox-stage-copy > span { color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: .18em; }
+.toolbox-stage-copy strong { display: block; margin: 12px 0 8px; font-size: clamp(25px, 4vw, 38px); line-height: 1.2; }
+.toolbox-stage-copy p { margin: 0; color: var(--text-secondary); }
+
+.toolbox-dock {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  display: flex;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, white);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  box-shadow: 0 14px 40px rgba(20, 24, 38, .13);
+  backdrop-filter: blur(18px) saturate(140%);
+  transform: translateX(-50%);
+}
+
+.toolbox-dock button { display: grid; justify-items: center; gap: 5px; min-width: 88px; padding: 8px 10px; border: 0; border-radius: 13px; color: var(--text-primary); background: transparent; font: inherit; font-size: 11px; cursor: pointer; transition: transform 180ms ease, background 180ms ease; }
+.toolbox-dock button:hover:not(:disabled) { background: var(--accent-soft); transform: translateY(-3px); }
+.toolbox-dock button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toolbox-dock button.is-soon { opacity: .48; cursor: default; }
+.toolbox-dock .toolbox-card-glyph { width: 44px; height: 44px; }
+.toolbox-card-glyph svg { width: 23px; height: 23px; }
+.toolbox-card-glyph.is-wallpaper { color: #356f9f; background: linear-gradient(145deg, #d9efff, #c8ddd6); }
+.toolbox-card-glyph.is-organize { color: #8b6825; background: linear-gradient(145deg, #fff0bb, #f4d69f); }
+
 .toolbox-card {
   display: grid;
   gap: 8px;
@@ -234,4 +279,39 @@
   padding: 0 0 0 18px;
   overflow: auto;
   color: var(--text-secondary);
+}
+
+.wallpaper-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.wallpaper-controls { display: grid; grid-template-columns: minmax(230px, 1fr) repeat(2, minmax(150px, .5fr)); gap: 12px; margin: 18px 0 22px; padding: 14px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+.wallpaper-controls > label { display: grid; gap: 7px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.wallpaper-controls select { min-height: 38px; padding: 0 11px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-primary); background: var(--surface); font: inherit; }
+.wallpaper-switch { grid-template-columns: auto 1fr; align-items: center; cursor: pointer; }
+.wallpaper-switch input { width: 40px; height: 22px; accent-color: var(--accent); }
+.wallpaper-switch span { display: grid; gap: 2px; }
+.wallpaper-switch strong { color: var(--text-primary); font-size: 14px; }
+.wallpaper-switch small { font-weight: 500; }
+.wallpaper-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; padding-bottom: 40px; }
+.wallpaper-card { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-soft, 0 9px 26px rgba(20, 24, 38, .07)); }
+.wallpaper-card.is-active { border-color: color-mix(in srgb, var(--accent) 62%, var(--border)); box-shadow: 0 0 0 2px var(--accent-soft); }
+.wallpaper-card > img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--accent-soft); }
+.wallpaper-card > div { display: grid; gap: 10px; padding: 12px; }
+.wallpaper-card > div > strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.wallpaper-current { position: absolute; top: 10px; left: 10px; padding: 5px 8px; border-radius: 999px; color: white; background: rgba(26, 37, 48, .72); font-size: 11px; font-weight: 750; backdrop-filter: blur(8px); }
+.wallpaper-actions { display: flex; gap: 7px; }
+.wallpaper-actions button { flex: 1; min-height: 34px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-primary); background: transparent; font: inherit; font-size: 12px; cursor: pointer; }
+.wallpaper-actions button:hover:not(:disabled) { background: var(--accent-soft); }
+.wallpaper-actions button.danger { flex: 0 0 auto; color: #b15147; }
+.wallpaper-actions button:disabled { opacity: .5; cursor: default; }
+.wallpaper-empty { display: grid; justify-items: center; gap: 8px; width: 100%; min-height: 250px; border: 1px dashed var(--border-strong); border-radius: 20px; color: var(--text-primary); background: color-mix(in srgb, var(--surface) 70%, transparent); font: inherit; cursor: pointer; }
+.wallpaper-empty > span:last-child { color: var(--text-secondary); font-size: 13px; }
+
+@media (max-width: 760px) {
+  .wallpaper-controls { grid-template-columns: 1fr; }
+  .wallpaper-head { flex-direction: column; }
+  .toolbox-dock { width: calc(100% - 36px); justify-content: center; }
+  .toolbox-dock button { min-width: 0; flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbox-dock button { transition: none; }
 }

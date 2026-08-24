@@ -115,6 +115,21 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.33 工具箱壁纸轮换与桌面快捷方式停靠栏
+
+- 工具箱新增壁纸库：导入图片、手动切换、定时随机轮换。
+- 桌面收纳可打开透明快捷方式停靠栏，一键启动桌面 `.lnk` / `.url`。
+- 清理过时的品牌草稿与旧图标脚本，减小仓库体积。
+
+### v1.5.33
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.33_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.33/Grow.with.Time_1.5.33_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.33_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.33/Grow.with.Time_1.5.33_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.33) 或 Actions Artifacts 下载。
+
 #### v1.5.32 修复桌面组件白底与四角白边
 
 - WebView 背景改为全透明，圆角外不再露出白色底。
