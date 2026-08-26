@@ -229,7 +229,7 @@ function DesktopOrganizer({ onBack }: { onBack: () => void }) {
           `${action === "apply" ? "已整理" : "已还原"} ${result.moved} 项，${result.failed.length} 项未完成`,
         );
       } else if (action === "apply") {
-        setToast(`已将 ${result.moved} 项移入「日进收纳」，可在本页撤销`);
+        setToast(`已将 ${result.moved} 项移入「日进收纳」，收纳篮已打开`);
       } else {
         setToast(`已还原 ${result.moved} 项到桌面`);
       }
@@ -257,9 +257,9 @@ function DesktopOrganizer({ onBack }: { onBack: () => void }) {
         </div>
         <div className="toolbox-toolbar">
           <button type="button" className="btn-ghost" disabled={busy} onClick={() => void toggleShortcutDock().then((visible) => {
-            setToast(visible ? "快捷方式已集中显示在桌面下方" : "快捷方式停靠栏已隐藏");
-          }).catch((cause) => setError(cause instanceof Error ? cause.message : "无法打开快捷方式停靠栏"))}>
-            快捷方式停靠栏
+            setToast(visible ? "已将桌面快捷方式收入收纳篮" : "收纳篮已隐藏");
+          }).catch((cause) => setError(cause instanceof Error ? cause.message : "无法打开收纳篮"))}>
+            快捷方式收纳篮
           </button>
           <button type="button" className="btn-ghost" disabled={busy} onClick={() => void refresh()}>
             刷新

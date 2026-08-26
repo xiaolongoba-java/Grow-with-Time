@@ -1,10 +1,17 @@
 mod os_reminders;
 mod desktop_organize;
+mod desktop_shell;
+#[allow(dead_code)]
+mod native_widget_host;
+mod shortcut_shell;
 mod wallpaper;
+#[allow(dead_code)]
+mod widget_bridge;
 
 use desktop_organize::{
-    apply_desktop_organize, list_desktop_shortcuts, open_desktop_item,
-    preview_desktop_organize, scan_desktop, undo_desktop_organize,
+    run_desktop_organize, list_desktop_shortcuts, collect_desktop_shortcuts, open_desktop_item,
+    preview_desktop_organize, scan_desktop, shortcut_dock_has_public_desktop, undo_desktop_organize,
+    warm_shortcut_metadata, OrganizeResult,
 };
 use wallpaper::{
     apply_wallpaper, get_wallpaper_library, import_wallpapers, remove_wallpaper,
@@ -709,6 +716,26 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 20,
+            description: "memo_archived",
+            sql: r#"
+ALTER TABLE memos ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '20');
+"#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 21,
+            description: "memo_format",
+            sql: r#"
+ALTER TABLE memos ADD COLUMN format TEXT NOT NULL DEFAULT 'markdown';
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '21');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -772,6 +799,8 @@ fn hide_float(app: AppHandle) -> Result<(), String> {
 
 fn hide_labeled_windows(app: &AppHandle, labels: &[&str]) {
     for label in labels {
+        #[cfg(windows)]
+        desktop_shell::mark_widget_desktop_pinned(label, false);
         if let Some(window) = app.get_webview_window(label) {
             let _ = window.hide();
         }
@@ -780,34 +809,6 @@ fn hide_labeled_windows(app: &AppHandle, labels: &[&str]) {
 
 fn make_webview_transparent(window: &tauri::WebviewWindow) {
     let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
-}
-
-#[cfg(windows)]
-fn send_widget_behind_main(app: &AppHandle, window: &tauri::WebviewWindow) {
-    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
-    let Ok(widget_hwnd) = window.hwnd() else {
-        return;
-    };
-    let Some(main) = app.get_webview_window("main") else {
-        return;
-    };
-    if !main.is_visible().unwrap_or(false) {
-        return;
-    }
-    let Ok(main_hwnd) = main.hwnd() else {
-        return;
-    };
-    unsafe {
-        let _ = SetWindowPos(
-            widget_hwnd,
-            Some(main_hwnd),
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-        );
-    }
 }
 
 fn pin_desktop_widget(
@@ -820,23 +821,38 @@ fn pin_desktop_widget(
     let _ = window.set_focusable(true);
     let _ = window.unminimize();
     make_webview_transparent(window);
-    window.show().map_err(|e| e.to_string())?;
 
     if stay_top {
+        #[cfg(windows)]
+        desktop_shell::mark_widget_desktop_pinned(window.label(), false);
         let _ = window.set_always_on_bottom(false);
         let _ = window.set_always_on_top(true);
+        window.show().map_err(|e| e.to_string())?;
         let _ = window.set_focus();
     } else {
         let _ = window.set_always_on_top(false);
-        let _ = window.set_always_on_bottom(false);
-        #[cfg(not(windows))]
-        {
-            window
-                .set_always_on_bottom(true)
-                .map_err(|e| e.to_string())?;
-        }
         #[cfg(windows)]
-        send_widget_behind_main(app, window);
+        {
+            let widget = window.label().trim_start_matches("widget-");
+            if native_widget_host::spawn_native_widget_from_window(
+                app,
+                window.label(),
+                widget,
+                window,
+            )
+            .is_ok()
+            {
+                desktop_shell::mark_widget_desktop_pinned(window.label(), false);
+                return Ok(());
+            }
+            desktop_shell::mark_widget_desktop_pinned(window.label(), true);
+        }
+        window
+            .set_always_on_bottom(true)
+            .map_err(|e| e.to_string())?;
+        window.show().map_err(|e| e.to_string())?;
+        #[cfg(windows)]
+        desktop_shell::place_widget_on_desktop(window);
     }
 
     Ok(())
@@ -906,6 +922,37 @@ fn toggle_desktop_widgets(
     Ok(true)
 }
 
+#[tauri::command]
+fn apply_desktop_organize(app: AppHandle) -> Result<OrganizeResult, String> {
+    let result = run_desktop_organize(&app)?;
+    let _ = show_shortcut_dock(app);
+    Ok(result)
+}
+
+fn shortcut_dock_flag(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|dir| dir.join("shortcut-dock.enabled"))
+}
+
+fn shortcut_dock_enabled(app: &AppHandle) -> bool {
+    shortcut_dock_flag(app)
+        .map(|path| path.exists())
+        .unwrap_or(false)
+}
+
+fn remember_shortcut_dock(app: &AppHandle, enabled: bool) {
+    let Some(path) = shortcut_dock_flag(app) else {
+        return;
+    };
+    if enabled {
+        let _ = std::fs::write(path, b"1");
+    } else {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 fn position_shortcut_dock(window: &tauri::WebviewWindow) -> Result<(), String> {
     let monitor = window
         .primary_monitor()
@@ -931,7 +978,13 @@ fn show_shortcut_dock(app: AppHandle) -> Result<(), String> {
         return Err("快捷方式停靠栏还没创建，请重启应用后再试".into());
     };
     position_shortcut_dock(&window)?;
-    pin_desktop_widget(&app, &window, "bottom")
+    pin_desktop_widget(&app, &window, "bottom")?;
+    remember_shortcut_dock(&app, true);
+    let _ = app.emit("shortcut-dock-refresh", ());
+    std::thread::spawn(move || {
+        warm_shortcut_metadata(app);
+    });
+    Ok(())
 }
 
 #[tauri::command]
@@ -941,6 +994,7 @@ fn toggle_shortcut_dock(app: AppHandle) -> Result<bool, String> {
     };
     if window.is_visible().unwrap_or(false) {
         window.hide().map_err(|error| error.to_string())?;
+        remember_shortcut_dock(&app, false);
         return Ok(false);
     }
     show_shortcut_dock(app)?;
@@ -1198,6 +1252,11 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+#[tauri::command]
+fn bump_widget_bridge_data() {
+    widget_bridge::bump_widget_data_version();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1229,6 +1288,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
+            bump_widget_bridge_data,
             show_quick_add,
             show_inspiration,
             show_float,
@@ -1250,6 +1310,8 @@ pub fn run() {
             restart_app,
             scan_desktop,
             list_desktop_shortcuts,
+            shortcut_dock_has_public_desktop,
+            collect_desktop_shortcuts,
             preview_desktop_organize,
             apply_desktop_organize,
             undo_desktop_organize,
@@ -1261,6 +1323,14 @@ pub fn run() {
             update_wallpaper_settings
         ])
         .setup(|app| {
+            if let Ok(app_data) = app.path().app_data_dir() {
+                let ui_root = app.path().resource_dir().ok().and_then(|root| {
+                    [root.join("ui"), root.join("_up_").join("dist"), root.join("dist")]
+                        .into_iter()
+                        .find(|candidate| candidate.join("index.html").exists())
+                });
+                widget_bridge::start_widget_bridge(app.handle().clone(), app_data.join("app.db"), ui_root);
+            }
             start_wallpaper_scheduler(app.handle().clone());
             let scheduler = Arc::clone(app.state::<Arc<ReminderScheduler>>().inner());
             start_notification_scheduler(app.handle().clone(), scheduler);
@@ -1305,15 +1375,27 @@ pub fn run() {
                     let app_handle = app.handle().clone();
                     let window_label = label.to_string();
                     window.on_window_event(move |event| {
-                        if let WindowEvent::CloseRequested { api, .. } = event {
-                            api.prevent_close();
-                            if let Some(w) = app_handle.get_webview_window(&window_label) {
-                                let _ = w.hide();
+                        match event {
+                            WindowEvent::CloseRequested { api, .. } => {
+                                api.prevent_close();
+                                if let Some(w) = app_handle.get_webview_window(&window_label) {
+                                    #[cfg(windows)]
+                                    desktop_shell::mark_widget_desktop_pinned(&window_label, false);
+                                    let _ = w.hide();
+                                }
                             }
+                            _ => {}
                         }
                     });
                 }
             }
+            if shortcut_dock_enabled(app.handle()) {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    let _ = show_shortcut_dock(handle);
+                });
+            }
+            desktop_shell::start_desktop_widget_guard(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

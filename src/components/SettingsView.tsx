@@ -215,7 +215,7 @@ export function SettingsView() {
       <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>桌面组件</h3>
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
-          默认模式决定侧栏「桌面组件」打开哪一种。置底时组件贴在主窗口后面，仍保留玻璃透明感。
+          默认模式决定侧栏「桌面组件」打开哪一种。「传统便签」贴在窗口底层，Win+D 显示桌面后会自动恢复；「始终置顶」浮在所有窗口之上。
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
           <button
@@ -242,7 +242,7 @@ export function SettingsView() {
             style={{ width: "auto" }}
             onClick={() => void updateSettings({ desktopWidgetLayer: "bottom" })}
           >
-            贴窗口底层
+            传统便签（贴桌面）
           </button>
           <button
             type="button"

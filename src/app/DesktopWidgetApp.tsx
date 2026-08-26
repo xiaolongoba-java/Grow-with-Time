@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { createTask, fetchTasks, toggleTaskComplete } from "@/lib/db/tasks";
-import { createMemo, fetchMemos, updateMemo } from "@/lib/db/memos";
-import { fetchAnniversaries } from "@/lib/db/moments";
+import { MemoContentView } from "@/components/MemoContentView";
+import {
+  widgetArchiveMemo,
+  widgetCreateMemo,
+  widgetCreateTask,
+  widgetLoadAnniversaries,
+  widgetLoadMemos,
+  widgetLoadTasks,
+  widgetToggleTask,
+  widgetUpdateMemo,
+} from "@/lib/widgetData";
+import { isNativeWidgetHost } from "@/lib/widgetBridgeApi";
 import {
   anniversaryDatesInMonth,
   formatAnniversaryAnchor,
@@ -13,6 +20,8 @@ import {
 import { isOverdue, todayDateString } from "@/lib/dates";
 import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
 import { restoreWidgetPosition } from "@/lib/widgetWindow";
+import { WidgetDayPopover } from "@/components/WidgetDayPopover";
+import { MemoArchiveIcon } from "@/components/MemoArchiveIcon";
 import type { Anniversary, Memo, Task } from "@/types";
 
 type WidgetKind = "calendar" | "today" | "memo";
@@ -89,6 +98,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
       return 82;
     }
   });
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -104,9 +114,9 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
 
   const refresh = async () => {
     const [nextTasks, nextMemos, nextAnniversaries] = await Promise.all([
-      fetchTasks(),
-      fetchMemos(),
-      fetchAnniversaries(),
+      widgetLoadTasks(),
+      widgetLoadMemos(),
+      widgetLoadAnniversaries(),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
@@ -116,22 +126,31 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   useEffect(() => {
     document.documentElement.dataset.desktopWidget = kind;
     document.body.dataset.desktopWidget = kind;
-    const unbind = bindVisibleDataRefresh(() => refresh(), { fallbackMs: 30_000 });
-    const current = getCurrentWebviewWindow();
-    const positionKey = `minimal.widget.position.${kind}`;
-    void restoreWidgetPosition(current, positionKey);
-    let unlistenMoved: (() => void) | undefined;
-    void current.onMoved(({ payload }) => {
-      localStorage.setItem(
-        positionKey,
-        JSON.stringify({ x: payload.x, y: payload.y }),
-      );
-    }).then((unlisten) => {
-      unlistenMoved = unlisten;
+    const unbind = bindVisibleDataRefresh(() => refresh(), {
+      fallbackMs: isNativeWidgetHost() ? 2_000 : 30_000,
     });
+    if (!isNativeWidgetHost()) {
+      const current = getCurrentWebviewWindow();
+      const positionKey = `minimal.widget.position.${kind}`;
+      void restoreWidgetPosition(current, positionKey);
+      let unlistenMoved: (() => void) | undefined;
+      void current.onMoved(({ payload }) => {
+        localStorage.setItem(
+          positionKey,
+          JSON.stringify({ x: payload.x, y: payload.y }),
+        );
+      }).then((unlisten) => {
+        unlistenMoved = unlisten;
+      });
+      return () => {
+        unbind();
+        unlistenMoved?.();
+        delete document.documentElement.dataset.desktopWidget;
+        delete document.body.dataset.desktopWidget;
+      };
+    }
     return () => {
       unbind();
-      unlistenMoved?.();
       delete document.documentElement.dataset.desktopWidget;
       delete document.body.dataset.desktopWidget;
     };
@@ -203,12 +222,27 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
     return map;
   }, [tasks]);
 
+  const activeMemos = useMemo(
+    () => memos.filter((memo) => !memo.archived),
+    [memos],
+  );
+
+  const selectedDayTasks = useMemo(
+    () => (selectedDay ? activeTasksByDate.get(selectedDay) ?? [] : []),
+    [activeTasksByDate, selectedDay],
+  );
+
+  const selectedDayAnniversaries = useMemo(() => {
+    if (!selectedDay) return [];
+    return anniversaryMonthDates.get(selectedDay) ?? [];
+  }, [anniversaryMonthDates, selectedDay]);
+
   const saveTask = async () => {
     const title = taskText.trim();
     if (!title || busy) return;
     setBusy(true);
     try {
-      await createTask({ title, due_date: today });
+      await widgetCreateTask(title, today);
       setTaskText("");
       await refresh();
       void emitDataChanged("task");
@@ -222,7 +256,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
     if (!content || busy) return;
     setBusy(true);
     try {
-      await createMemo(content);
+      await widgetCreateMemo(content);
       setMemoText("");
       await refresh();
       void emitDataChanged("memo");
@@ -376,12 +410,12 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                     key === today ? "is-today" : "",
                     anniTitles.length ? "has-anni" : "",
                   ].join(" ")}
-                  title={tipParts.length ? tipParts.join("\n") : "打开主窗口"}
-                  onClick={() => void openMain()}
+                  title={tipParts.length ? tipParts.join("\n") : "查看当天事项"}
+                  onClick={() => setSelectedDay(key)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      void openMain();
+                      setSelectedDay(key);
                     }
                   }}
                 >
@@ -462,7 +496,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                   type="button"
                   aria-label={`完成 ${task.title}`}
                   onClick={() =>
-                    void toggleTaskComplete(task.id).then(() => {
+                    void widgetToggleTask(task.id).then(() => {
                       void refresh();
                       void emitDataChanged("task");
                     })
@@ -514,36 +548,65 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
             </button>
           </div>
           <div className="widget-memo-list">
-            {[...memos]
+            {[...activeMemos]
               .sort((a, b) => b.pinned - a.pinned)
               .slice(0, 8)
               .map((memo) => (
                 <article key={memo.id} className="widget-memo-card">
-                  <button
-                    type="button"
-                    className="widget-pin"
-                    title={memo.pinned ? "取消置顶" : "置顶"}
-                    onClick={() =>
-                      void updateMemo(memo.id, {
-                        pinned: memo.pinned ? 0 : 1,
-                      }).then(() => {
-                        void refresh();
-                        void emitDataChanged("memo");
-                      })
-                    }
-                  >
-                    {memo.pinned ? "●" : "○"}
-                  </button>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {memo.content}
-                  </ReactMarkdown>
+                  <div className="widget-memo-card-actions">
+                    <button
+                      type="button"
+                      className="widget-pin"
+                      title={memo.pinned ? "取消置顶" : "置顶"}
+                      onClick={() =>
+                        void widgetUpdateMemo(memo.id, {
+                          pinned: memo.pinned ? 0 : 1,
+                        }).then(() => {
+                          void refresh();
+                          void emitDataChanged("memo");
+                        })
+                      }
+                    >
+                      {memo.pinned ? "●" : "○"}
+                    </button>
+                    <button
+                      type="button"
+                      className="widget-archive"
+                      title="归档"
+                      aria-label="归档备忘"
+                      onClick={() =>
+                        void widgetArchiveMemo(memo.id).then(() => {
+                          void refresh();
+                          void emitDataChanged("memo");
+                        })
+                      }
+                    >
+                      <MemoArchiveIcon />
+                    </button>
+                  </div>
+                  <MemoContentView content={memo.content} format={memo.format} />
                 </article>
               ))}
-            {!memos.length ? (
+            {!activeMemos.length ? (
               <div className="widget-empty">还没有备忘，写下第一条吧。</div>
             ) : null}
           </div>
         </section>
+      ) : null}
+
+      {selectedDay ? (
+        <WidgetDayPopover
+          dateKey={selectedDay}
+          tasks={selectedDayTasks}
+          anniversaryTitles={selectedDayAnniversaries}
+          onClose={() => setSelectedDay(null)}
+          onToggleTask={(taskId) =>
+            void widgetToggleTask(taskId).then(() => {
+              void refresh();
+              void emitDataChanged("task");
+            })
+          }
+        />
       ) : null}
     </main>
   );

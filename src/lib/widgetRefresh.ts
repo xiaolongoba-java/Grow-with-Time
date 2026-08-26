@@ -1,5 +1,6 @@
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { isNativeWidgetHost } from "@/lib/widgetBridgeApi";
 
 export const DATA_CHANGED_EVENT = "app:data-changed";
 
@@ -45,6 +46,25 @@ export function bindVisibleDataRefresh(
     if (disposed || document.visibilityState === "hidden") return;
     pollId = window.setInterval(run, fallbackMs);
   };
+
+  if (isNativeWidgetHost()) {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        run();
+        armPoll();
+      } else {
+        clearPoll();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    run();
+    armPoll();
+    return () => {
+      disposed = true;
+      clearPoll();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }
 
   void listen(DATA_CHANGED_EVENT, () => {
     if (document.visibilityState === "hidden") return;

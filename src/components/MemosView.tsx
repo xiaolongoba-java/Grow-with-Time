@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useAppStore } from "@/store/app";
 import {
+  archiveMemo,
   createMemo,
   deleteMemo,
   fetchMemos,
+  restoreMemo,
   updateMemo,
+  type MemoListFilter,
 } from "@/lib/db";
-import type { Memo } from "@/types";
+import type { Memo, MemoFormat } from "@/types";
 import { invoke } from "@tauri-apps/api/core";
+import { MemoArchiveIcon } from "@/components/MemoArchiveIcon";
+import { MemoContentView } from "@/components/MemoContentView";
+import { MemoRichEditor } from "@/components/MemoRichEditor";
+import { memoFormatLabel, memoPreview } from "@/lib/memoFormat";
 
 function formatMemoTime(iso: string): string {
   const d = new Date(iso);
@@ -25,12 +30,10 @@ function formatMemoTime(iso: string): string {
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-function preview(content: string): string {
-  const line = content
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .find(Boolean);
-  return line?.slice(0, 80) ?? "暂无内容";
+function isBlankMemo(memo: Pick<Memo, "title" | "content">) {
+  const title = memo.title.trim();
+  const content = memo.content.trim();
+  return (!title || title === "无标题备忘") && !content;
 }
 
 export function MemosView() {
@@ -41,8 +44,20 @@ export function MemosView() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [viewMode, setViewMode] = useState<"edit" | "split" | "preview">("split");
+  const [isEditing, setIsEditing] = useState(false);
+  const [listFilter, setListFilter] = useState<MemoListFilter>("active");
+  const [createPickerOpen, setCreatePickerOpen] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const isEditingRef = useRef(false);
+  const selectedIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    isEditingRef.current = isEditing;
+  }, [isEditing]);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const insertMarkdown = (before: string, after = "", fallback = "文本") => {
     const textarea = contentRef.current;
@@ -68,26 +83,45 @@ export function MemosView() {
     });
   };
 
-  const refresh = async (preferId?: string | null) => {
-    const list = await fetchMemos();
+  const loadMemo = (memo: Memo | null, editing = false) => {
+    setSelectedId(memo?.id ?? null);
+    setTitle(memo?.title ?? "");
+    setContent(memo?.content ?? "");
+    setDirty(false);
+    setIsEditing(editing);
+  };
+
+  const refresh = async (
+    preferId?: string | null,
+    opts?: { editing?: boolean },
+  ) => {
+    const list = await fetchMemos(listFilter);
     setMemos(list);
     const nextId =
       preferId && list.some((m) => m.id === preferId)
         ? preferId
-        : selectedId && list.some((m) => m.id === selectedId)
-          ? selectedId
+        : selectedIdRef.current && list.some((m) => m.id === selectedIdRef.current)
+          ? selectedIdRef.current
           : list[0]?.id ?? null;
-    setSelectedId(nextId);
     const cur = list.find((m) => m.id === nextId) ?? null;
-    setTitle(cur?.title ?? "");
-    setContent(cur?.content ?? "");
-    setDirty(false);
+    const sameMemo = cur?.id === selectedIdRef.current;
+    let nextEditing = false;
+    if (opts?.editing === true) {
+      nextEditing = true;
+    } else if (opts?.editing === false) {
+      nextEditing = false;
+    } else if (sameMemo) {
+      nextEditing = isEditingRef.current;
+    } else if (cur) {
+      nextEditing = isBlankMemo(cur);
+    }
+    loadMemo(cur, nextEditing);
   };
 
   useEffect(() => {
-    void refresh();
+    void refresh(undefined, { editing: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [listFilter]);
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
@@ -100,22 +134,20 @@ export function MemosView() {
   }, [memos, keyword]);
 
   const selected = memos.find((m) => m.id === selectedId) ?? null;
+  const isRich = selected?.format === "rich";
 
   const selectMemo = (memo: Memo) => {
-    if (dirty && selected) {
+    if (memo.id === selectedIdRef.current) return;
+    const applySelect = () => {
+      loadMemo(memo, isBlankMemo(memo));
+    };
+    if (dirty && selected && isEditing) {
       void updateMemo(selected.id, { title, content }).then(() => {
-        setSelectedId(memo.id);
-        setTitle(memo.title);
-        setContent(memo.content);
-        setDirty(false);
-        void refresh(memo.id);
+        applySelect();
       });
       return;
     }
-    setSelectedId(memo.id);
-    setTitle(memo.title);
-    setContent(memo.content);
-    setDirty(false);
+    applySelect();
   };
 
   const save = async () => {
@@ -124,20 +156,32 @@ export function MemosView() {
     await updateMemo(selected.id, { title: t, content });
     setTitle(t);
     setDirty(false);
+    setIsEditing(false);
     setToast("备忘录已保存");
-    await refresh(selected.id);
+    await refresh(selected.id, { editing: false });
   };
 
-  const createNew = async () => {
-    if (dirty && selected) {
+  const cancelEdit = () => {
+    if (!selected) return;
+    setTitle(selected.title);
+    setContent(selected.content);
+    setDirty(false);
+    setIsEditing(false);
+  };
+
+  const createNew = async (format: MemoFormat) => {
+    setCreatePickerOpen(false);
+    if (dirty && selected && isEditing) {
       await updateMemo(selected.id, {
         title: title.trim() || "无标题备忘",
         content,
       });
     }
-    const memo = await createMemo("", "无标题备忘");
-    setToast("已新建备忘录");
-    await refresh(memo.id);
+    const memo = await createMemo("", "无标题备忘", format);
+    setToast(`已新建${memoFormatLabel(format)}备忘录`);
+    const list = await fetchMemos(listFilter);
+    setMemos(list);
+    loadMemo(memo, true);
   };
 
   return (
@@ -145,14 +189,28 @@ export function MemosView() {
       <aside className="memo-list-pane">
         <div className="memo-list-head">
           <h2>备忘录</h2>
-          <button
-            type="button"
-            className="btn-primary"
-            style={{ width: "auto", padding: "8px 12px" }}
-            onClick={() => void createNew()}
-          >
-            + 新建
-          </button>
+          <div className="memo-create-wrap">
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ width: "auto", padding: "8px 12px" }}
+              onClick={() => setCreatePickerOpen((open) => !open)}
+            >
+              + 新建
+            </button>
+            {createPickerOpen ? (
+              <div className="memo-create-menu" role="menu" aria-label="选择备忘录格式">
+                <button type="button" role="menuitem" onClick={() => void createNew("markdown")}>
+                  <strong>Markdown</strong>
+                  <span>适合代码、清单与纯文本排版</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => void createNew("rich")}>
+                  <strong>富文本</strong>
+                  <span>所见即所得，适合快速记录</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
         <input
           className="field"
@@ -160,6 +218,23 @@ export function MemosView() {
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
         />
+        <div className="memo-list-tabs" role="tablist" aria-label="备忘录筛选">
+          {([
+            ["active", "进行中"],
+            ["archived", "已归档"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={listFilter === value}
+              className={listFilter === value ? "active" : ""}
+              onClick={() => setListFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="memo-list">
           {filtered.map((memo) => (
             <button
@@ -171,8 +246,11 @@ export function MemosView() {
               <div className="memo-list-title">
                 {memo.pinned ? "📌 " : ""}
                 {memo.title || "无标题备忘"}
+                <span className="memo-format-badge">{memoFormatLabel(memo.format)}</span>
               </div>
-              <div className="memo-list-preview">{preview(memo.content)}</div>
+              <div className="memo-list-preview">
+                {memoPreview(memo.content, memo.format)}
+              </div>
               <div className="memo-list-meta">
                 {formatMemoTime(memo.updated_at)}
               </div>
@@ -191,24 +269,39 @@ export function MemosView() {
           <>
             <div className="memo-editor-toolbar">
               <span className="memo-editor-status">
-                {dirty ? "未保存" : "已保存"} · {formatMemoTime(selected.updated_at)}
+                {isEditing ? (dirty ? "未保存" : "编辑中") : "阅读"} ·{" "}
+                {memoFormatLabel(selected.format)} · {formatMemoTime(selected.updated_at)}
               </span>
               <div className="memo-editor-actions">
-                <div className="memo-view-switch" aria-label="Markdown 显示模式">
-                  {(["edit", "split", "preview"] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={viewMode === mode ? "active" : ""}
-                      onClick={() => setViewMode(mode)}
-                    >
-                      {mode === "edit" ? "编辑" : mode === "split" ? "分屏" : "预览"}
+                {isEditing ? (
+                  <>
+                    <button type="button" className="btn-ghost" onClick={cancelEdit}>
+                      取消
                     </button>
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      style={{ width: "auto", padding: "8px 14px" }}
+                      disabled={!dirty}
+                      onClick={() => void save()}
+                    >
+                      保存
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ width: "auto", padding: "8px 14px" }}
+                    onClick={() => setIsEditing(true)}
+                  >
+                    编辑
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-ghost"
+                  disabled={isEditing}
                   onClick={() =>
                     void updateMemo(selected.id, {
                       pinned: selected.pinned ? 0 : 1,
@@ -217,30 +310,53 @@ export function MemosView() {
                 >
                   {selected.pinned ? "取消置顶" : "置顶"}
                 </button>
+                {selected.archived ? (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    disabled={isEditing}
+                    onClick={() =>
+                      void restoreMemo(selected.id).then(() => {
+                        setToast("已恢复至进行中");
+                        void refresh(null, { editing: false });
+                      })
+                    }
+                  >
+                    恢复
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-ghost memo-archive-btn"
+                    disabled={isEditing}
+                    onClick={() =>
+                      void archiveMemo(selected.id).then(() => {
+                        setToast("已归档");
+                        void refresh(null, { editing: false });
+                      })
+                    }
+                  >
+                    <MemoArchiveIcon size={15} />
+                    归档
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-ghost"
+                  disabled={isEditing}
                   onClick={() => void invoke("show_float")}
                 >
                   浮窗
                 </button>
                 <button
                   type="button"
-                  className="btn-primary"
-                  style={{ width: "auto", padding: "8px 14px" }}
-                  disabled={!dirty}
-                  onClick={() => void save()}
-                >
-                  保存
-                </button>
-                <button
-                  type="button"
                   className="btn-ghost danger"
+                  disabled={isEditing}
                   onClick={() => {
                     if (!window.confirm("删除这条备忘录？")) return;
                     void deleteMemo(selected.id).then(() => {
-                      setSelectedId(null);
-                      void refresh(null);
+                      loadMemo(null);
+                      void refresh(null, { editing: false });
                     });
                   }}
                 >
@@ -248,66 +364,70 @@ export function MemosView() {
                 </button>
               </div>
             </div>
-            <input
-              className="memo-title-input"
-              placeholder="标题"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                setDirty(true);
-              }}
-            />
-            {viewMode !== "preview" ? (
-              <div className="memo-markdown-tools">
-                <button type="button" title="标题" onClick={() => insertMarkdown("## ", "", "标题")}>H2</button>
-                <button type="button" title="粗体" onClick={() => insertMarkdown("**", "**")}>B</button>
-                <button type="button" title="引用" onClick={() => insertMarkdown("> ", "", "引用")}>❝</button>
-                <button type="button" title="无序列表" onClick={() => insertMarkdown("- ", "", "列表项")}>• 列表</button>
-                <button type="button" title="任务清单" onClick={() => insertMarkdown("- [ ] ", "", "待办")}>☐ 待办</button>
-                <button type="button" title="行内代码" onClick={() => insertMarkdown("`", "`", "代码")}>{"</>"}</button>
-                <button type="button" title="链接" onClick={() => insertMarkdown("[", "](https://)", "链接文字")}>🔗</button>
-              </div>
-            ) : null}
-            <div className={`memo-markdown-workspace mode-${viewMode}`}>
-              {viewMode !== "preview" ? (
-                <textarea
-                  ref={contentRef}
-                  className="memo-content-input"
-                  placeholder={"支持 Markdown：# 标题、- 列表、- [ ] 任务、```代码块```…"}
-                  value={content}
+
+            {isEditing ? (
+              <>
+                <input
+                  className="memo-title-input"
+                  placeholder="标题"
+                  value={title}
                   onChange={(e) => {
-                    setContent(e.target.value);
+                    setTitle(e.target.value);
                     setDirty(true);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
-                      e.preventDefault();
-                      void save();
-                    }
-                  }}
                 />
-              ) : null}
-              {viewMode !== "edit" ? (
-                <article className="memo-markdown-preview">
-                  {content.trim() ? (
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        a: ({ children, ...props }) => (
-                          <a {...props} target="_blank" rel="noreferrer">
-                            {children}
-                          </a>
-                        ),
+                {!isRich ? (
+                  <div className="memo-markdown-tools">
+                    <button type="button" title="标题" onClick={() => insertMarkdown("## ", "", "标题")}>H2</button>
+                    <button type="button" title="粗体" onClick={() => insertMarkdown("**", "**")}>B</button>
+                    <button type="button" title="引用" onClick={() => insertMarkdown("> ", "", "引用")}>❝</button>
+                    <button type="button" title="无序列表" onClick={() => insertMarkdown("- ", "", "列表项")}>• 列表</button>
+                    <button type="button" title="任务清单" onClick={() => insertMarkdown("- [ ] ", "", "待办")}>☐ 待办</button>
+                    <button type="button" title="行内代码" onClick={() => insertMarkdown("`", "`", "代码")}>{"</>"}</button>
+                    <button type="button" title="链接" onClick={() => insertMarkdown("[", "](https://)", "链接文字")}>🔗</button>
+                  </div>
+                ) : null}
+                <div className={`memo-markdown-workspace mode-edit${isRich ? " is-rich" : ""}`}>
+                  {isRich ? (
+                    <MemoRichEditor
+                      value={content}
+                      onChange={(html) => {
+                        setContent(html);
+                        setDirty(true);
                       }}
-                    >
-                      {content}
-                    </ReactMarkdown>
+                    />
                   ) : (
-                    <div className="memo-markdown-empty">Markdown 预览会显示在这里</div>
+                    <textarea
+                      ref={contentRef}
+                      className="memo-content-input"
+                      placeholder={"支持 Markdown：# 标题、- 列表、- [ ] 任务、```代码块```…"}
+                      value={content}
+                      onChange={(e) => {
+                        setContent(e.target.value);
+                        setDirty(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "s" && (e.ctrlKey || e.metaKey)) {
+                          e.preventDefault();
+                          void save();
+                        }
+                      }}
+                    />
                   )}
-                </article>
-              ) : null}
-            </div>
+                </div>
+              </>
+            ) : (
+              <article className="memo-read-view">
+                <h1 className="memo-title-display">{title.trim() || "无标题备忘"}</h1>
+                <div className="memo-read-body">
+                  {content.trim() ? (
+                    <MemoContentView content={content} format={selected.format} />
+                  ) : (
+                    <p className="memo-read-empty">暂无内容，点击「编辑」开始书写</p>
+                  )}
+                </div>
+              </article>
+            )}
           </>
         ) : (
           <div className="empty-state">选择或新建一条备忘录</div>

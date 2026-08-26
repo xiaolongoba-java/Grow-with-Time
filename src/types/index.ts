@@ -133,11 +133,15 @@ export interface HabitCheck {
   check_date: string;
 }
 
+export type MemoFormat = "markdown" | "rich";
+
 export interface Memo {
   id: string;
   title: string;
   content: string;
+  format: MemoFormat;
   pinned: number;
+  archived: number;
   created_at: string;
   updated_at: string;
 }

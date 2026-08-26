@@ -424,3 +424,31 @@
     flex: 1;
   }
 }
+
+.reminders-guide {
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+  background: rgba(98, 99, 168, 0.04);
+}
+
+.reminders-guide h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.reminders-guide ol {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.reminders-guide li + li {
+  margin-top: 6px;
+}
+
+.reminders-guide strong {
+  color: var(--text-primary);
+}

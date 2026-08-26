@@ -49,7 +49,7 @@ export async function exportBackup(): Promise<BackupPayload> {
   const smartLists = await fetchSmartLists();
   const habits = await fetchHabits();
   const habitChecks = await fetchHabitChecks();
-  const memos = await fetchMemos();
+  const memos = await fetchMemos("all");
   const projects = await db.select<Project[]>("SELECT * FROM projects");
   const taskTemplates = await fetchTaskTemplates();
   const notifications = await db.select<AppNotification[]>(
@@ -237,12 +237,14 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
   }
   for (const m of payload.memos ?? []) {
     await db.execute(
-      "INSERT INTO memos (id, title, content, pinned, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)",
+      "INSERT INTO memos (id, title, content, format, pinned, archived, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
       [
         m.id,
         m.title ?? "",
         m.content,
+        m.format ?? "markdown",
         m.pinned,
+        m.archived ?? 0,
         m.created_at,
         m.updated_at,
       ],

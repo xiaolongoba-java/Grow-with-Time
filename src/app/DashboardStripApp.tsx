@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { fetchTasks } from "@/lib/db/tasks";
-import { createMemo, fetchMemos } from "@/lib/db/memos";
 import {
-  fetchAnniversaries,
   fetchDailyReflections,
   fetchInspirations,
 } from "@/lib/db/moments";
@@ -18,6 +15,22 @@ import {
 import { emitDataChanged, bindVisibleDataRefresh } from "@/lib/widgetRefresh";
 import { restoreWidgetPosition } from "@/lib/widgetWindow";
 import { formatCountdown, liveRemaining } from "@/lib/timers";
+import { memoPreview } from "@/lib/memoFormat";
+import { WidgetDayPopover } from "@/components/WidgetDayPopover";
+import { MemoArchiveIcon } from "@/components/MemoArchiveIcon";
+import {
+  widgetArchiveMemo,
+  widgetCreateMemo,
+  widgetLoadAnniversaries,
+  widgetLoadMemos,
+  widgetLoadTasks,
+  widgetToggleTask,
+} from "@/lib/widgetData";
+import {
+  bridgeFetchDashboard,
+  bridgeToggleHabit,
+  isNativeWidgetHost,
+} from "@/lib/widgetBridgeApi";
 import type { Anniversary, Habit, HabitCheck, Memo, Task, Timer } from "@/types";
 
 const FALLBACK_QUOTES = [
@@ -103,6 +116,7 @@ export function DashboardStripApp() {
       return 84;
     }
   });
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -114,6 +128,8 @@ export function DashboardStripApp() {
   }, [color, opacity]);
 
   const refresh = async () => {
+    const native = isNativeWidgetHost();
+    const extra = native ? await bridgeFetchDashboard() : null;
     const [
       nextTasks,
       nextMemos,
@@ -124,14 +140,14 @@ export function DashboardStripApp() {
       inspirations,
       reflections,
     ] = await Promise.all([
-      fetchTasks(),
-      fetchMemos(),
-      fetchHabits(),
-      fetchHabitChecks(),
-      fetchTimers(),
-      fetchAnniversaries(),
-      fetchInspirations(false),
-      fetchDailyReflections(),
+      widgetLoadTasks(),
+      widgetLoadMemos(),
+      native ? Promise.resolve(extra!.habits as unknown as Habit[]) : fetchHabits(),
+      native ? Promise.resolve(extra!.checks as unknown as HabitCheck[]) : fetchHabitChecks(),
+      native ? Promise.resolve(extra!.timers as unknown as Timer[]) : fetchTimers(),
+      widgetLoadAnniversaries(),
+      native ? Promise.resolve(extra!.inspirations as never[]) : fetchInspirations(false),
+      native ? Promise.resolve(extra!.reflections as never[]) : fetchDailyReflections(),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
@@ -155,6 +171,15 @@ export function DashboardStripApp() {
     const tick = window.setInterval(() => {
       setNowMs(Date.now());
     }, 1_000);
+
+    if (isNativeWidgetHost()) {
+      return () => {
+        unbind();
+        window.clearInterval(tick);
+        delete document.documentElement.dataset.desktopWidget;
+        delete document.body.dataset.desktopWidget;
+      };
+    }
 
     const current = getCurrentWebviewWindow();
     const positionKey = "minimal.dashboard.position";
@@ -213,10 +238,38 @@ export function DashboardStripApp() {
   const pinnedMemos = useMemo(
     () =>
       [...memos]
+        .filter((memo) => !memo.archived)
         .sort((a, b) => b.pinned - a.pinned || b.updated_at.localeCompare(a.updated_at))
         .slice(0, 4),
     [memos],
   );
+
+  const activeTasksByDate = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const task of tasks) {
+      if (
+        !task.due_date ||
+        task.deleted_at ||
+        ["completed", "cancelled"].includes(task.status)
+      ) {
+        continue;
+      }
+      const list = map.get(task.due_date) ?? [];
+      list.push(task);
+      map.set(task.due_date, list);
+    }
+    return map;
+  }, [tasks]);
+
+  const selectedDayTasks = useMemo(
+    () => (selectedDay ? activeTasksByDate.get(selectedDay) ?? [] : []),
+    [activeTasksByDate, selectedDay],
+  );
+
+  const selectedDayAnniversaries = useMemo(() => {
+    if (!selectedDay) return [];
+    return anniversaryMonthDates.get(selectedDay) ?? [];
+  }, [anniversaryMonthDates, selectedDay]);
 
   const checkedToday = useMemo(() => {
     const set = new Set(
@@ -266,7 +319,7 @@ export function DashboardStripApp() {
     if (!content || busy) return;
     setBusy(true);
     try {
-      await createMemo(content);
+      await widgetCreateMemo(content);
       setMemoText("");
       await refresh();
       void emitDataChanged("memo");
@@ -276,12 +329,14 @@ export function DashboardStripApp() {
   };
 
   const toggleHabit = async (habitId: string) => {
-    await toggleHabitCheck(habitId, today);
+    if (isNativeWidgetHost()) await bridgeToggleHabit(habitId, today);
+    else await toggleHabitCheck(habitId, today);
     await refresh();
     void emitDataChanged("habit");
   };
 
   const openMain = async () => {
+    if (isNativeWidgetHost()) return;
     const main = await WebviewWindow.getByLabel("main");
     await main?.show();
     await main?.unminimize();
@@ -319,7 +374,10 @@ export function DashboardStripApp() {
           <button
             type="button"
             title="隐藏"
-            onClick={() => void getCurrentWebviewWindow().hide()}
+            onClick={() => {
+              if (isNativeWidgetHost()) window.close();
+              else void getCurrentWebviewWindow().hide();
+            }}
           >
             ×
           </button>
@@ -358,11 +416,16 @@ export function DashboardStripApp() {
       ) : null}
 
       <div className="dashboard-strip-body">
-        <section className="dash-panel dash-greeting" onClick={() => void openMain()}>
+        <section className="dash-panel dash-greeting">
           <p className="dash-hello">{greeting}</p>
-          <p className="dash-date">
+          <button
+            type="button"
+            className="dash-date dash-date-btn"
+            title="查看今日事项"
+            onClick={() => setSelectedDay(today)}
+          >
             {formatLongDate(today)} · 周{weekdayLabel(new Date())}
-          </p>
+          </button>
           <p className="dash-meta">今日待办 {pendingToday} 项</p>
           {upcomingAnniversaries[0] ? (
             <p className="dash-meta dash-anni">
@@ -383,8 +446,24 @@ export function DashboardStripApp() {
             ) : (
               pinnedMemos.map((memo) => (
                 <li key={memo.id}>
-                  {memo.pinned ? "📌 " : ""}
-                  {(memo.title || memo.content).slice(0, 28)}
+                  <span>
+                    {memo.pinned ? "📌 " : ""}
+                    {memoPreview(memo.content, memo.format).slice(0, 28)}
+                  </span>
+                  <button
+                    type="button"
+                    className="dash-memo-archive"
+                    title="归档"
+                    aria-label="归档备忘"
+                    onClick={() =>
+                      void widgetArchiveMemo(memo.id).then(() => {
+                        void refresh();
+                        void emitDataChanged("memo");
+                      })
+                    }
+                    >
+                      <MemoArchiveIcon size={12} />
+                    </button>
                 </li>
               ))
             )}
@@ -483,14 +562,14 @@ export function DashboardStripApp() {
               return (
                 <span
                   key={key}
-                  title={anniTitles?.join("、") || "打开主窗口"}
+                  title={anniTitles?.join("、") || "查看当天事项"}
                   role="button"
                   tabIndex={0}
-                  onClick={() => void openMain()}
+                  onClick={() => setSelectedDay(key)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      void openMain();
+                      setSelectedDay(key);
                     }
                   }}
                   className={[
@@ -513,7 +592,7 @@ export function DashboardStripApp() {
         <section className="dash-panel dash-timers">
           <div className="dash-panel-title">倒计时</div>
           {activeTimers.length === 0 ? (
-            <p className="dash-empty">暂无倒计时</p>
+            <p className="dash-empty">在「提醒」页创建循环提醒，或从任务详情启动</p>
           ) : (
             <ul>
               {activeTimers.map((timer) => (
@@ -532,6 +611,21 @@ export function DashboardStripApp() {
       <footer className="dashboard-strip-quote" data-tauri-drag-region>
         {quote}
       </footer>
+
+      {selectedDay ? (
+        <WidgetDayPopover
+          dateKey={selectedDay}
+          tasks={selectedDayTasks}
+          anniversaryTitles={selectedDayAnniversaries}
+          onClose={() => setSelectedDay(null)}
+          onToggleTask={(taskId) =>
+            void widgetToggleTask(taskId).then(() => {
+              void refresh();
+              void emitDataChanged("task");
+            })
+          }
+        />
+      ) : null}
     </main>
   );
 }

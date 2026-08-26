@@ -55,6 +55,20 @@ export async function getDb(): Promise<Database> {
         /* already exists */
       }
       try {
+        await db.execute(
+          "ALTER TABLE memos ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+        );
+      } catch {
+        /* already exists */
+      }
+      try {
+        await db.execute(
+          "ALTER TABLE memos ADD COLUMN format TEXT NOT NULL DEFAULT 'markdown'",
+        );
+      } catch {
+        /* already exists */
+      }
+      try {
         await db.execute(`CREATE TABLE IF NOT EXISTS timers (
           id TEXT PRIMARY KEY,
           kind TEXT NOT NULL,

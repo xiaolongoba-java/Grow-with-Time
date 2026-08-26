@@ -59,12 +59,28 @@ export function RemindersView() {
           onReset={() => void resetTimer(active.id)}
         />
       ) : (
-        <div className="reminders-context">
-          <span>循环提醒</span>
-          <i aria-hidden />
-          <span>事项倒计时</span>
-          <small>到点后通过系统通知提醒</small>
-        </div>
+        <>
+          <div className="reminders-context">
+            <span>循环提醒</span>
+            <i aria-hidden />
+            <span>事项倒计时</span>
+            <small>到点后通过系统通知提醒</small>
+          </div>
+          <section className="reminders-guide" aria-label="倒计时使用说明">
+            <h3>怎么用？</h3>
+            <ol>
+              <li>
+                <strong>循环提醒</strong>：选「喝水」等模板 → 设置间隔 → 点「开始提醒」。到点会通知，并自动开始下一轮。
+              </li>
+              <li>
+                <strong>事项倒计时</strong>：打开任务详情抽屉 → 点 5 / 15 / 25 分钟，适合专注完成单个任务。
+              </li>
+              <li>
+                <strong>桌面组件</strong>：仪表盘里的「倒计时」面板会显示正在运行的计时。
+              </li>
+            </ol>
+          </section>
+        </>
       )}
 
       <section className="reminders-composer" aria-label="新建循环提醒">
