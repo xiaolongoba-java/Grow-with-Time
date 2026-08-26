@@ -8,7 +8,6 @@ import {
   shortcutDockHasPublicDesktop,
   type DesktopItem,
 } from "@/lib/desktopOrganize";
-import { bridgeShortcutIconUrl, isNativeWidgetHost } from "@/lib/widgetBridgeApi";
 
 const SCROLL_STEP = 220;
 
@@ -62,11 +61,9 @@ export function ShortcutDockApp() {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 15_000);
     let unlisten: (() => void) | undefined;
-    if (!isNativeWidgetHost()) {
-      void listen("shortcut-dock-refresh", () => void refresh()).then((fn) => {
-        unlisten = fn;
-      });
-    }
+    void listen("shortcut-dock-refresh", () => void refresh()).then((fn) => {
+      unlisten = fn;
+    });
     return () => {
       window.clearInterval(timer);
       unlisten?.();
@@ -93,8 +90,7 @@ export function ShortcutDockApp() {
         <div>
           <button type="button" title="刷新" aria-label="刷新快捷方式" onClick={() => void refresh()}>↻</button>
           <button type="button" title="隐藏" aria-label="隐藏快捷方式停靠栏" onClick={() => {
-            if (isNativeWidgetHost()) window.close();
-            else void getCurrentWindow().hide();
+            void getCurrentWindow().hide();
           }}>×</button>
         </div>
       </header>
@@ -115,11 +111,7 @@ export function ShortcutDockApp() {
           <div className="shortcut-dock-items" ref={scrollerRef}>
             {items.map((item, index) => {
               const label = labelFor(item);
-              const iconSrc = item.iconPath
-                ? isNativeWidgetHost()
-                  ? bridgeShortcutIconUrl(item.iconPath)
-                  : convertFileSrc(item.iconPath)
-                : null;
+              const iconSrc = item.iconPath ? convertFileSrc(item.iconPath) : null;
               return (
                 <button
                   type="button"

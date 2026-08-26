@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.35",
+  "version": "1.5.36",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -183,7 +183,6 @@
   },
   "bundle": {
     "active": true,
-    "resources": ["../dist/**/*"],
     "targets": "all",
     "shortDescription": "本地优先的待办与时间管理",
     "longDescription": "日进·拾光（Grow with Time）— 让每日进步与灵感回忆都被看见的本地个人成长工具。",

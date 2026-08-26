@@ -11,7 +11,6 @@ import {
   widgetToggleTask,
   widgetUpdateMemo,
 } from "@/lib/widgetData";
-import { isNativeWidgetHost } from "@/lib/widgetBridgeApi";
 import {
   anniversaryDatesInMonth,
   formatAnniversaryAnchor,
@@ -126,31 +125,22 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   useEffect(() => {
     document.documentElement.dataset.desktopWidget = kind;
     document.body.dataset.desktopWidget = kind;
-    const unbind = bindVisibleDataRefresh(() => refresh(), {
-      fallbackMs: isNativeWidgetHost() ? 2_000 : 30_000,
+    const unbind = bindVisibleDataRefresh(() => refresh());
+    const current = getCurrentWebviewWindow();
+    const positionKey = `minimal.widget.position.${kind}`;
+    void restoreWidgetPosition(current, positionKey);
+    let unlistenMoved: (() => void) | undefined;
+    void current.onMoved(({ payload }) => {
+      localStorage.setItem(
+        positionKey,
+        JSON.stringify({ x: payload.x, y: payload.y }),
+      );
+    }).then((unlisten) => {
+      unlistenMoved = unlisten;
     });
-    if (!isNativeWidgetHost()) {
-      const current = getCurrentWebviewWindow();
-      const positionKey = `minimal.widget.position.${kind}`;
-      void restoreWidgetPosition(current, positionKey);
-      let unlistenMoved: (() => void) | undefined;
-      void current.onMoved(({ payload }) => {
-        localStorage.setItem(
-          positionKey,
-          JSON.stringify({ x: payload.x, y: payload.y }),
-        );
-      }).then((unlisten) => {
-        unlistenMoved = unlisten;
-      });
-      return () => {
-        unbind();
-        unlistenMoved?.();
-        delete document.documentElement.dataset.desktopWidget;
-        delete document.body.dataset.desktopWidget;
-      };
-    }
     return () => {
       unbind();
+      unlistenMoved?.();
       delete document.documentElement.dataset.desktopWidget;
       delete document.body.dataset.desktopWidget;
     };

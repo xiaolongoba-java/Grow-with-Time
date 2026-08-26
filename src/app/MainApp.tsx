@@ -32,7 +32,6 @@ import { privacySafeNotification } from "@/lib/privacy";
 import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
 import { todayDateString } from "@/lib/dates";
-import { emitDataChanged } from "@/lib/widgetRefresh";
 import {
   applyPrivacyToReminderPlans,
   buildMissedReminderPlans,
@@ -295,46 +294,6 @@ export function MainApp() {
     });
     return () => unlisten?.();
   }, [setNav]);
-
-  useEffect(() => {
-    let disposed = false;
-    const cleanups: Array<() => void> = [];
-    const finishWidgetAction = async (reason: string) => {
-      await invoke("bump_widget_bridge_data");
-      await emitDataChanged(reason);
-    };
-    void listen<{ id: string }>("widget:toggle-task", async ({ payload }) => {
-      if (!payload?.id) return;
-      let state = useAppStore.getState();
-      if (!state.tasks.some((task) => task.id === payload.id)) {
-        await state.refreshAll();
-        state = useAppStore.getState();
-      }
-      if (!state.tasks.some((task) => task.id === payload.id)) return;
-      await state.toggleComplete(payload.id);
-      await finishWidgetAction("task");
-    }).then((cleanup) => {
-      if (disposed) cleanup();
-      else cleanups.push(cleanup);
-    });
-    void listen<{ habit_id: string; check_date: string }>(
-      "widget:toggle-habit",
-      async ({ payload }) => {
-        if (!payload?.habit_id || !payload?.check_date) return;
-        await useAppStore
-          .getState()
-          .toggleHabitDay(payload.habit_id, payload.check_date);
-        await finishWidgetAction("habit");
-      },
-    ).then((cleanup) => {
-      if (disposed) cleanup();
-      else cleanups.push(cleanup);
-    });
-    return () => {
-      disposed = true;
-      cleanups.forEach((cleanup) => cleanup());
-    };
-  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;

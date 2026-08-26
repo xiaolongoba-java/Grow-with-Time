@@ -26,11 +26,6 @@ import {
   widgetLoadTasks,
   widgetToggleTask,
 } from "@/lib/widgetData";
-import {
-  bridgeFetchDashboard,
-  bridgeToggleHabit,
-  isNativeWidgetHost,
-} from "@/lib/widgetBridgeApi";
 import type { Anniversary, Habit, HabitCheck, Memo, Task, Timer } from "@/types";
 
 const FALLBACK_QUOTES = [
@@ -128,8 +123,6 @@ export function DashboardStripApp() {
   }, [color, opacity]);
 
   const refresh = async () => {
-    const native = isNativeWidgetHost();
-    const extra = native ? await bridgeFetchDashboard() : null;
     const [
       nextTasks,
       nextMemos,
@@ -142,12 +135,12 @@ export function DashboardStripApp() {
     ] = await Promise.all([
       widgetLoadTasks(),
       widgetLoadMemos(),
-      native ? Promise.resolve(extra!.habits as unknown as Habit[]) : fetchHabits(),
-      native ? Promise.resolve(extra!.checks as unknown as HabitCheck[]) : fetchHabitChecks(),
-      native ? Promise.resolve(extra!.timers as unknown as Timer[]) : fetchTimers(),
+      fetchHabits(),
+      fetchHabitChecks(),
+      fetchTimers(),
       widgetLoadAnniversaries(),
-      native ? Promise.resolve(extra!.inspirations as never[]) : fetchInspirations(false),
-      native ? Promise.resolve(extra!.reflections as never[]) : fetchDailyReflections(),
+      fetchInspirations(false),
+      fetchDailyReflections(),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
@@ -171,15 +164,6 @@ export function DashboardStripApp() {
     const tick = window.setInterval(() => {
       setNowMs(Date.now());
     }, 1_000);
-
-    if (isNativeWidgetHost()) {
-      return () => {
-        unbind();
-        window.clearInterval(tick);
-        delete document.documentElement.dataset.desktopWidget;
-        delete document.body.dataset.desktopWidget;
-      };
-    }
 
     const current = getCurrentWebviewWindow();
     const positionKey = "minimal.dashboard.position";
@@ -329,14 +313,12 @@ export function DashboardStripApp() {
   };
 
   const toggleHabit = async (habitId: string) => {
-    if (isNativeWidgetHost()) await bridgeToggleHabit(habitId, today);
-    else await toggleHabitCheck(habitId, today);
+    await toggleHabitCheck(habitId, today);
     await refresh();
     void emitDataChanged("habit");
   };
 
   const openMain = async () => {
-    if (isNativeWidgetHost()) return;
     const main = await WebviewWindow.getByLabel("main");
     await main?.show();
     await main?.unminimize();
@@ -375,8 +357,7 @@ export function DashboardStripApp() {
             type="button"
             title="隐藏"
             onClick={() => {
-              if (isNativeWidgetHost()) window.close();
-              else void getCurrentWebviewWindow().hide();
+              void getCurrentWebviewWindow().hide();
             }}
           >
             ×

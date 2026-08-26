@@ -1,10 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import {
-  bridgeFetchShortcuts,
-  bridgeOpenShortcut,
-  bridgeShortcutHasPublicDesktop,
-  isNativeWidgetHost,
-} from "@/lib/widgetBridgeApi";
 
 export type DesktopKind =
   | "folder"
@@ -101,19 +95,14 @@ export function undoDesktopOrganize(): Promise<OrganizeResult> {
 }
 
 export function openDesktopItem(path: string): Promise<void> {
-  if (isNativeWidgetHost()) return bridgeOpenShortcut(path);
   return invoke("open_desktop_item", { path });
 }
 
 export async function listDesktopShortcuts(): Promise<DesktopItem[]> {
-  if (isNativeWidgetHost()) {
-    return (await bridgeFetchShortcuts()) as unknown as DesktopItem[];
-  }
   return invoke("list_desktop_shortcuts");
 }
 
 export function shortcutDockHasPublicDesktop(): Promise<boolean> {
-  if (isNativeWidgetHost()) return bridgeShortcutHasPublicDesktop();
   return invoke("shortcut_dock_has_public_desktop");
 }
 

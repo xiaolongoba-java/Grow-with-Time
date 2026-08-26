@@ -1,12 +1,8 @@
 mod os_reminders;
 mod desktop_organize;
 mod desktop_shell;
-#[allow(dead_code)]
-mod native_widget_host;
 mod shortcut_shell;
 mod wallpaper;
-#[allow(dead_code)]
-mod widget_bridge;
 
 use desktop_organize::{
     run_desktop_organize, list_desktop_shortcuts, collect_desktop_shortcuts, open_desktop_item,
@@ -812,7 +808,6 @@ fn make_webview_transparent(window: &tauri::WebviewWindow) {
 }
 
 fn pin_desktop_widget(
-    app: &AppHandle,
     window: &tauri::WebviewWindow,
     layer: &str,
 ) -> Result<(), String> {
@@ -833,18 +828,6 @@ fn pin_desktop_widget(
         let _ = window.set_always_on_top(false);
         #[cfg(windows)]
         {
-            let widget = window.label().trim_start_matches("widget-");
-            if native_widget_host::spawn_native_widget_from_window(
-                app,
-                window.label(),
-                widget,
-                window,
-            )
-            .is_ok()
-            {
-                desktop_shell::mark_widget_desktop_pinned(window.label(), false);
-                return Ok(());
-            }
             desktop_shell::mark_widget_desktop_pinned(window.label(), true);
         }
         window
@@ -873,7 +856,7 @@ fn show_desktop_widgets(app: AppHandle, layer: Option<String>) -> Result<(), Str
     let mut shown = 0usize;
     for label in ["widget-calendar", "widget-today", "widget-memo"] {
         if let Some(window) = app.get_webview_window(label) {
-            pin_desktop_widget(&app, &window, &layer)?;
+            pin_desktop_widget(&window, &layer)?;
             shown += 1;
         }
     }
@@ -893,7 +876,7 @@ fn show_dashboard_strip(app: AppHandle, layer: Option<String>) -> Result<(), Str
     let Some(window) = app.get_webview_window("widget-dashboard") else {
         return Err("桌面仪表盘窗口还没创建，请重启应用后再试".into());
     };
-    pin_desktop_widget(&app, &window, &layer)
+    pin_desktop_widget(&window, &layer)
 }
 
 #[tauri::command]
@@ -978,7 +961,7 @@ fn show_shortcut_dock(app: AppHandle) -> Result<(), String> {
         return Err("快捷方式停靠栏还没创建，请重启应用后再试".into());
     };
     position_shortcut_dock(&window)?;
-    pin_desktop_widget(&app, &window, "bottom")?;
+    pin_desktop_widget(&window, "bottom")?;
     remember_shortcut_dock(&app, true);
     let _ = app.emit("shortcut-dock-refresh", ());
     std::thread::spawn(move || {
@@ -1252,11 +1235,6 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-#[tauri::command]
-fn bump_widget_bridge_data() {
-    widget_bridge::bump_widget_data_version();
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1288,7 +1266,6 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
-            bump_widget_bridge_data,
             show_quick_add,
             show_inspiration,
             show_float,
@@ -1323,14 +1300,6 @@ pub fn run() {
             update_wallpaper_settings
         ])
         .setup(|app| {
-            if let Ok(app_data) = app.path().app_data_dir() {
-                let ui_root = app.path().resource_dir().ok().and_then(|root| {
-                    [root.join("ui"), root.join("_up_").join("dist"), root.join("dist")]
-                        .into_iter()
-                        .find(|candidate| candidate.join("index.html").exists())
-                });
-                widget_bridge::start_widget_bridge(app.handle().clone(), app_data.join("app.db"), ui_root);
-            }
             start_wallpaper_scheduler(app.handle().clone());
             let scheduler = Arc::clone(app.state::<Arc<ReminderScheduler>>().inner());
             start_notification_scheduler(app.handle().clone(), scheduler);

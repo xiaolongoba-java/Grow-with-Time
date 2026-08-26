@@ -128,6 +128,22 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.36 桌面组件稳定性收敛
+
+- 撤回实验性的独立 `widget-host` / WorkerW 子进程方案，所有桌面组件统一由 Tauri 窗口承载，避免 WebView 重挂载引起闪退。
+- 移除本地 HTTP Bridge、URL 会话令牌和第二套 SQLite 写入链路，桌面组件直接复用主应用数据层与事件机制。
+- 托盘显示/隐藏、组件关闭、可见状态与窗口位置恢复重新统一，不再产生孤儿进程或开发版/发布版行为差异。
+- 保留安全的 Windows 桌面层级与 `Win + D` 恢复守护；该能力会尽力恢复组件显示，实际行为仍可能受 Windows Explorer 状态影响。
+
+### v1.5.36
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.36_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.36/Grow.with.Time_1.5.36_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.36_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.36/Grow.with.Time_1.5.36_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.36) 或 Actions Artifacts 下载。
+
 #### v1.5.35 macOS 构建兼容性修复
 
 - 修复原生桌面宿主模块的非 Windows 类型导入，使同一代码库可继续在 macOS 构建。
