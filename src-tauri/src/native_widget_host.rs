@@ -9,6 +9,8 @@ use std::sync::{Mutex, OnceLock};
 
 #[cfg(windows)]
 use tauri::{AppHandle, Manager, WebviewWindow};
+#[cfg(not(windows))]
+use tauri::{AppHandle, WebviewWindow};
 
 #[cfg(windows)]
 use crate::widget_bridge::{bridge_token, BRIDGE_PORT};

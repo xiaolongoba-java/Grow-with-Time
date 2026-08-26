@@ -128,6 +128,21 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.35 macOS 构建兼容性修复
+
+- 修复原生桌面宿主模块的非 Windows 类型导入，使同一代码库可继续在 macOS 构建。
+- Windows 专属的 WorkerW 桌面宿主保持条件编译，macOS 继续使用原有 Tauri 桌面组件实现。
+- v1.5.34 的功能与安全修复完整保留；本版本作为跨平台发布修订版。
+
+### v1.5.35
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.35_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.35/Grow.with.Time_1.5.35_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.35_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.35/Grow.with.Time_1.5.35_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.35) 或 Actions Artifacts 下载。
+
 #### v1.5.34 桌面组件可靠性与备忘录增强
 
 - Windows 桌面组件改用独立原生宿主，可固定在桌面层并在 `Win + D` 后保持显示。
