@@ -1,7 +1,7 @@
 {
   "name": "minimal-todo",
   "private": true,
-  "version": "1.5.37",
+  "version": "1.5.38",
   "type": "module",
   "scripts": {
     "dev": "vite",

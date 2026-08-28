@@ -2459,13 +2459,11 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "minimal-todo"
-version = "1.5.37"
+version = "1.5.38"
 dependencies = [
  "chrono",
- "raw-window-handle",
  "serde",
  "serde_json",
- "tao",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",
@@ -2477,7 +2475,6 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-sql",
  "windows",
- "wry",
 ]
 
 [[package]]

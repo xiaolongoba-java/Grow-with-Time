@@ -7,6 +7,7 @@ nul
 .tmp-clean/
 *.tsbuildinfo
 src-tauri/target
+src-tauri/widget-host/target
 .cargo-check-target
 .tauri-dev-*.log
 src-tauri/.cargo/config.toml

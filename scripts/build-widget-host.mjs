@@ -10,12 +10,12 @@ const triple = process.arch === "arm64"
 const cargo = process.env.CARGO ?? "cargo";
 const build = spawnSync(
   cargo,
-  ["build", "--manifest-path", "src-tauri/Cargo.toml", "--bin", "widget-host", "--release"],
+  ["build", "--manifest-path", "src-tauri/widget-host/Cargo.toml", "--release", "--locked"],
   { cwd: resolve("."), stdio: "inherit", shell: false },
 );
 if (build.status !== 0) process.exit(build.status ?? 1);
 
-const source = resolve("src-tauri", "target", "release", "widget-host.exe");
+const source = resolve("src-tauri", "widget-host", "target", "release", "grow-with-time-widget-host.exe");
 const target = resolve("src-tauri", "binaries", `widget-host-${triple}.exe`);
 if (!existsSync(source)) throw new Error(`widget-host build output missing: ${source}`);
 mkdirSync(dirname(target), { recursive: true });
