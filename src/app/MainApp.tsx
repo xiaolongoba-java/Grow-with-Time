@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { register, isRegistered } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   isPermissionGranted,
   requestPermission,
@@ -27,7 +28,12 @@ import {
   setSetting,
   setNotificationStatus,
   markFutureLetterDelivered,
+  archiveMemo,
+  createMemo,
+  createTask,
+  updateMemo,
 } from "@/lib/db";
+import { toggleHabitCheck } from "@/lib/db/taxonomy";
 import { privacySafeNotification } from "@/lib/privacy";
 import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
@@ -41,6 +47,8 @@ import {
   selectOsReminderWindow,
   type ReminderSyncStatus,
 } from "@/lib/nativeReminders";
+import { emitDataChanged } from "@/lib/widgetRefresh";
+import { publishNativeWidgetSnapshots } from "@/lib/nativeWidgetSnapshot";
 
 const NAV_COLLAPSE_KEY = "minimal.navCollapsed";
 const REMINDER_RESYNC_MS = 6 * 60 * 60 * 1000;
@@ -219,6 +227,88 @@ export function MainApp() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const timer = window.setTimeout(() => {
+      void publishNativeWidgetSnapshots(useAppStore.getState().tasks).catch(() => undefined);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [ready, tasks]);
+
+  useEffect(() => {
+    type NativeCommand = {
+      label: string;
+      payload?: Record<string, unknown>;
+    };
+    let unlisten: (() => void) | undefined;
+    void listen<NativeCommand>("native-widget-command", async ({ payload: message }) => {
+      const command = message.payload ?? {};
+      const action = typeof command.action === "string" ? command.action : "";
+      try {
+        if (action === "open_main") {
+          const main = getCurrentWebviewWindow();
+          await main.show();
+          await main.unminimize();
+          await main.setFocus();
+          return;
+        }
+        if (action === "hide") {
+          await invoke("stop_native_widget", { label: message.label });
+          return;
+        }
+        if (
+          action === "native_position" &&
+          typeof command.x === "number" &&
+          typeof command.y === "number"
+        ) {
+          await invoke("save_native_widget_position", {
+            label: message.label,
+            x: Math.round(command.x),
+            y: Math.round(command.y),
+          });
+          return;
+        }
+        if (action === "toggle_task" && typeof command.id === "string") {
+          await useAppStore.getState().toggleComplete(command.id);
+        } else if (action === "create_task" && typeof command.title === "string") {
+          await createTask({
+            title: command.title.trim(),
+            due_date: typeof command.dueDate === "string" ? command.dueDate : todayDateString(),
+          });
+          await useAppStore.getState().refreshAll();
+        } else if (action === "toggle_habit" && typeof command.habitId === "string") {
+          await toggleHabitCheck(
+            command.habitId,
+            typeof command.date === "string" ? command.date : todayDateString(),
+          );
+          await useAppStore.getState().refreshAll();
+        } else if (action === "create_memo" && typeof command.content === "string") {
+          await createMemo(command.content);
+        } else if (action === "archive_memo" && typeof command.id === "string") {
+          await archiveMemo(command.id);
+        } else if (action === "update_memo" && typeof command.id === "string") {
+          await updateMemo(command.id, {
+            ...(typeof command.title === "string" ? { title: command.title } : {}),
+            ...(typeof command.content === "string" ? { content: command.content } : {}),
+            ...(typeof command.pinned === "number" ? { pinned: command.pinned } : {}),
+            ...(typeof command.archived === "number" ? { archived: command.archived } : {}),
+          });
+        } else if (action === "open_shortcut" && typeof command.path === "string") {
+          await invoke("open_desktop_item", { path: command.path });
+        } else {
+          return;
+        }
+        await emitDataChanged("native-widget-command");
+        await publishNativeWidgetSnapshots(useAppStore.getState().tasks);
+      } catch (cause) {
+        setToast(cause instanceof Error ? cause.message : "桌面组件操作失败");
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [setToast]);
 
   // Single global focus ticker — uses absolute endsAt so sleep gaps are settled.
   useEffect(() => {

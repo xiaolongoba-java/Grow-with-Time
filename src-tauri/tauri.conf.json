@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.5.36",
+  "version": "1.5.37",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build && npm run build:widget-host"
   },
   "app": {
     "windows": [
@@ -182,6 +182,7 @@
     }
   },
   "bundle": {
+    "resources": ["../dist/**/*"],
     "active": true,
     "targets": "all",
     "shortDescription": "本地优先的待办与时间管理",

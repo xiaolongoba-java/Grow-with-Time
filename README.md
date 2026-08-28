@@ -128,6 +128,25 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.37 原生桌面组件架构
+
+- Windows 桌面组件改用独立原生宿主：窗口在 WebView2 创建前直接加入 Explorer 桌面层，按 `Win + D` 时不会被当作普通应用窗口最小化。
+- 删除旧的轮询恢复、Win+D 守护和“消失后再拉回”逻辑；组件常驻依靠正确的 Windows 桌面窗口层级，而不是事后自愈。
+- 主应用通过当前进程专用的 Windows Named Pipe 向组件提供只读快照并接收操作，取消 TCP 端口、URL 令牌和第二个 SQLite 写连接。
+- 任务完成、习惯打卡、备忘编辑、快捷方式打开等操作仍由主程序统一处理，避免桌面组件与主界面数据分叉。
+- 原生宿主通过 Job Object 绑定主程序生命周期，托盘关闭、组件关闭和应用退出都会回收对应进程，不留下孤儿窗口。
+- 组件 UI 随安装包离线内置；支持原生拖拽并持久保存位置，不依赖 Vite、HTTP 服务或网络连接。
+- Windows 发布只生成最小化 NSIS 离线安装包，不触发 WiX/MSI 工具下载，也不在安装时联网拉取依赖。
+
+### v1.5.37
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.37_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.37/Grow.with.Time_1.5.37_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.37_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.37/Grow.with.Time_1.5.37_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.37) 或 Actions Artifacts 下载。
+
 #### v1.5.36 桌面组件稳定性收敛
 
 - 撤回实验性的独立 `widget-host` / WorkerW 子进程方案，所有桌面组件统一由 Tauri 窗口承载，避免 WebView 重挂载引起闪退。

@@ -1,5 +1,6 @@
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { isNativeWidget } from "@/lib/nativeWidgetRuntime";
 
 export const DATA_CHANGED_EVENT = "app:data-changed";
 
@@ -46,16 +47,18 @@ export function bindVisibleDataRefresh(
     pollId = window.setInterval(run, fallbackMs);
   };
 
-  void listen(DATA_CHANGED_EVENT, () => {
-    if (document.visibilityState === "hidden") return;
-    run();
-  }).then((fn) => {
-    if (disposed) {
-      fn();
-      return;
-    }
-    unlistenEvent = fn;
-  });
+  if (!isNativeWidget()) {
+    void listen(DATA_CHANGED_EVENT, () => {
+      if (document.visibilityState === "hidden") return;
+      run();
+    }).then((fn) => {
+      if (disposed) {
+        fn();
+        return;
+      }
+      unlistenEvent = fn;
+    });
+  }
 
   const onVisibility = () => {
     if (document.visibilityState === "visible") {
@@ -66,25 +69,28 @@ export function bindVisibleDataRefresh(
     }
   };
   document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("gwt-native-snapshot", run);
 
-  const current = getCurrentWebviewWindow();
-  void current
-    .onFocusChanged(({ payload: focused }) => {
-      if (focused) {
-        run();
-        armPoll();
-      }
-    })
-    .then((fn) => {
-      if (disposed) {
-        fn();
-        return;
-      }
-      unlistenVisibility = fn;
-    })
-    .catch(() => {
-      /* ignore */
-    });
+  if (!isNativeWidget()) {
+    const current = getCurrentWebviewWindow();
+    void current
+      .onFocusChanged(({ payload: focused }) => {
+        if (focused) {
+          run();
+          armPoll();
+        }
+      })
+      .then((fn) => {
+        if (disposed) {
+          fn();
+          return;
+        }
+        unlistenVisibility = fn;
+      })
+      .catch(() => {
+        /* ignore */
+      });
+  }
 
   run();
   armPoll();
@@ -93,6 +99,7 @@ export function bindVisibleDataRefresh(
     disposed = true;
     clearPoll();
     document.removeEventListener("visibilitychange", onVisibility);
+    window.removeEventListener("gwt-native-snapshot", run);
     unlistenEvent?.();
     unlistenVisibility?.();
   };

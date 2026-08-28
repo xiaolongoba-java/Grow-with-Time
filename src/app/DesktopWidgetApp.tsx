@@ -22,6 +22,7 @@ import { restoreWidgetPosition } from "@/lib/widgetWindow";
 import { WidgetDayPopover } from "@/components/WidgetDayPopover";
 import { MemoArchiveIcon } from "@/components/MemoArchiveIcon";
 import type { Anniversary, Memo, Task } from "@/types";
+import { isNativeWidget, postNativeWidgetCommand } from "@/lib/nativeWidgetRuntime";
 
 type WidgetKind = "calendar" | "today" | "memo";
 
@@ -126,6 +127,13 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
     document.documentElement.dataset.desktopWidget = kind;
     document.body.dataset.desktopWidget = kind;
     const unbind = bindVisibleDataRefresh(() => refresh());
+    if (isNativeWidget()) {
+      return () => {
+        unbind();
+        delete document.documentElement.dataset.desktopWidget;
+        delete document.body.dataset.desktopWidget;
+      };
+    }
     const current = getCurrentWebviewWindow();
     const positionKey = `minimal.widget.position.${kind}`;
     void restoreWidgetPosition(current, positionKey);
@@ -256,6 +264,10 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   };
 
   const openMain = async () => {
+    if (isNativeWidget()) {
+      postNativeWidgetCommand({ action: "open_main" });
+      return;
+    }
     const main = await WebviewWindow.getByLabel("main");
     await main?.show();
     await main?.unminimize();
@@ -294,7 +306,10 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
           <button
             type="button"
             title="隐藏组件"
-            onClick={() => void getCurrentWebviewWindow().hide()}
+            onClick={() => {
+              if (isNativeWidget()) postNativeWidgetCommand({ action: "hide" });
+              else void getCurrentWebviewWindow().hide();
+            }}
           >
             ×
           </button>

@@ -1,0 +1,6 @@
+{
+  "bundle": {
+    "targets": ["nsis"],
+    "externalBin": ["binaries/widget-host"]
+  }
+}

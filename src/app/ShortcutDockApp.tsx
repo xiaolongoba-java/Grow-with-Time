@@ -8,6 +8,12 @@ import {
   shortcutDockHasPublicDesktop,
   type DesktopItem,
 } from "@/lib/desktopOrganize";
+import {
+  isNativeWidget,
+  nativeSnapshot,
+  nativeSnapshotList,
+  postNativeWidgetCommand,
+} from "@/lib/nativeWidgetRuntime";
 
 const SCROLL_STEP = 220;
 
@@ -29,6 +35,12 @@ export function ShortcutDockApp() {
 
   const refresh = useCallback(async () => {
     try {
+      if (isNativeWidget()) {
+        setItems(nativeSnapshotList<DesktopItem>("shortcuts"));
+        setPublicDesktop(nativeSnapshot().hasPublicDesktop === true);
+        setError(null);
+        return;
+      }
       const [nextItems, hasPublic] = await Promise.all([
         listDesktopShortcuts(),
         shortcutDockHasPublicDesktop(),
@@ -61,12 +73,16 @@ export function ShortcutDockApp() {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 15_000);
     let unlisten: (() => void) | undefined;
-    void listen("shortcut-dock-refresh", () => void refresh()).then((fn) => {
-      unlisten = fn;
-    });
+    if (!isNativeWidget()) {
+      void listen("shortcut-dock-refresh", () => void refresh()).then((fn) => {
+        unlisten = fn;
+      });
+    }
+    window.addEventListener("gwt-native-snapshot", refresh);
     return () => {
       window.clearInterval(timer);
       unlisten?.();
+      window.removeEventListener("gwt-native-snapshot", refresh);
     };
   }, [refresh]);
 
@@ -90,7 +106,8 @@ export function ShortcutDockApp() {
         <div>
           <button type="button" title="刷新" aria-label="刷新快捷方式" onClick={() => void refresh()}>↻</button>
           <button type="button" title="隐藏" aria-label="隐藏快捷方式停靠栏" onClick={() => {
-            void getCurrentWindow().hide();
+            if (isNativeWidget()) postNativeWidgetCommand({ action: "hide" });
+            else void getCurrentWindow().hide();
           }}>×</button>
         </div>
       </header>
@@ -111,14 +128,21 @@ export function ShortcutDockApp() {
           <div className="shortcut-dock-items" ref={scrollerRef}>
             {items.map((item, index) => {
               const label = labelFor(item);
-              const iconSrc = item.iconPath ? convertFileSrc(item.iconPath) : null;
+              const iconSrc = item.iconPath
+                ? isNativeWidget()
+                  ? `file:///${item.iconPath.replace(/\\/g, "/")}`
+                  : convertFileSrc(item.iconPath)
+                : null;
               return (
                 <button
                   type="button"
                   className="shortcut-dock-item"
                   key={item.path}
                   title={label}
-                  onClick={() => void openDesktopItem(item.path)}
+                  onClick={() => {
+                    if (isNativeWidget()) postNativeWidgetCommand({ action: "open_shortcut", path: item.path });
+                    else void openDesktopItem(item.path);
+                  }}
                 >
                   <span className={`shortcut-dock-icon ${iconSrc ? "has-image" : `tone-${index % 6}`}`}>
                     {iconSrc ? (

@@ -1,11 +1,12 @@
 {
   "name": "minimal-todo",
   "private": true,
-  "version": "1.5.36",
+  "version": "1.5.37",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:widget-host": "node scripts/build-widget-host.mjs",
     "test": "vitest run",
     "release:check": "node scripts/release-check.mjs && npm test && npm run build",
     "preview": "vite preview",

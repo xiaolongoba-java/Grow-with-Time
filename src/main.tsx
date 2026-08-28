@@ -80,11 +80,17 @@ class ErrorBoundary extends Component<
 document.documentElement.dataset.theme ||= "system";
 document.documentElement.dataset.platform = detectDesktopPlatform();
 
+const bootParams = new URLSearchParams(window.location.search);
 let label = "main";
-try {
-  label = getCurrentWebviewWindow().label;
-} catch {
-  label = "main";
+if (window.__GWT_NATIVE_WIDGET__) {
+  const widget = bootParams.get("widget");
+  label = widget === "dashboard" ? "widget-dashboard" : `widget-${widget ?? "today"}`;
+} else {
+  try {
+    label = getCurrentWebviewWindow().label;
+  } catch {
+    label = "main";
+  }
 }
 
 if (label.startsWith("widget-")) {

@@ -21,3 +21,5 @@ build_resume.py
 separate_resume_sections.py
 个人简历*.docx
 *高级后端研发工程师*.docx
+src-tauri/binaries/*.exe
+artifacts/

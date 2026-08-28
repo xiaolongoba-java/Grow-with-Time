@@ -26,7 +26,21 @@ import {
   widgetLoadTasks,
   widgetToggleTask,
 } from "@/lib/widgetData";
-import type { Anniversary, Habit, HabitCheck, Memo, Task, Timer } from "@/types";
+import type {
+  Anniversary,
+  DailyReflection,
+  Habit,
+  HabitCheck,
+  Inspiration,
+  Memo,
+  Task,
+  Timer,
+} from "@/types";
+import {
+  isNativeWidget,
+  nativeSnapshotList,
+  postNativeWidgetCommand,
+} from "@/lib/nativeWidgetRuntime";
 
 const FALLBACK_QUOTES = [
   "日进一步，拾光成河。",
@@ -123,6 +137,7 @@ export function DashboardStripApp() {
   }, [color, opacity]);
 
   const refresh = async () => {
+    const native = isNativeWidget();
     const [
       nextTasks,
       nextMemos,
@@ -135,12 +150,12 @@ export function DashboardStripApp() {
     ] = await Promise.all([
       widgetLoadTasks(),
       widgetLoadMemos(),
-      fetchHabits(),
-      fetchHabitChecks(),
-      fetchTimers(),
+      native ? Promise.resolve(nativeSnapshotList<Habit>("habits")) : fetchHabits(),
+      native ? Promise.resolve(nativeSnapshotList<HabitCheck>("checks")) : fetchHabitChecks(),
+      native ? Promise.resolve(nativeSnapshotList<Timer>("timers")) : fetchTimers(),
       widgetLoadAnniversaries(),
-      fetchInspirations(false),
-      fetchDailyReflections(),
+      native ? Promise.resolve(nativeSnapshotList<Inspiration>("inspirations")) : fetchInspirations(false),
+      native ? Promise.resolve(nativeSnapshotList<DailyReflection>("reflections")) : fetchDailyReflections(),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
@@ -164,6 +179,15 @@ export function DashboardStripApp() {
     const tick = window.setInterval(() => {
       setNowMs(Date.now());
     }, 1_000);
+
+    if (isNativeWidget()) {
+      return () => {
+        unbind();
+        window.clearInterval(tick);
+        delete document.documentElement.dataset.desktopWidget;
+        delete document.body.dataset.desktopWidget;
+      };
+    }
 
     const current = getCurrentWebviewWindow();
     const positionKey = "minimal.dashboard.position";
@@ -313,12 +337,17 @@ export function DashboardStripApp() {
   };
 
   const toggleHabit = async (habitId: string) => {
-    await toggleHabitCheck(habitId, today);
+    if (isNativeWidget()) postNativeWidgetCommand({ action: "toggle_habit", habitId, date: today });
+    else await toggleHabitCheck(habitId, today);
     await refresh();
     void emitDataChanged("habit");
   };
 
   const openMain = async () => {
+    if (isNativeWidget()) {
+      postNativeWidgetCommand({ action: "open_main" });
+      return;
+    }
     const main = await WebviewWindow.getByLabel("main");
     await main?.show();
     await main?.unminimize();
@@ -357,7 +386,8 @@ export function DashboardStripApp() {
             type="button"
             title="隐藏"
             onClick={() => {
-              void getCurrentWebviewWindow().hide();
+              if (isNativeWidget()) postNativeWidgetCommand({ action: "hide" });
+              else void getCurrentWebviewWindow().hide();
             }}
           >
             ×
