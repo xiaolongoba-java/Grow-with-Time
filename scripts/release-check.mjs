@@ -52,6 +52,15 @@ const cargoCheck = spawnSync(
     cwd: fileURLToPath(root),
     stdio: "inherit",
     shell: false,
+    // A clean CI checkout intentionally has neither dist/ nor the generated
+    // widget sidecar yet. Source validation must not require bundle outputs;
+    // `tauri build` runs the real beforeBuildCommand and validates both later.
+    env: {
+      ...process.env,
+      TAURI_CONFIG: JSON.stringify({
+        bundle: { resources: [], externalBin: [] },
+      }),
+    },
   },
 );
 if (cargoCheck.error) {
