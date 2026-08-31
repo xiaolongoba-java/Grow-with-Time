@@ -709,6 +709,27 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        // Keep migrations 20–21 for users who upgraded before the v1.5.39 rollback.
+        Migration {
+            version: 20,
+            description: "memo_archived",
+            sql: r#"
+ALTER TABLE memos ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '20');
+"#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 21,
+            description: "memo_format",
+            sql: r#"
+ALTER TABLE memos ADD COLUMN format TEXT NOT NULL DEFAULT 'markdown';
+INSERT OR REPLACE INTO settings (key, value)
+  VALUES ('schema_contract', '21');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
