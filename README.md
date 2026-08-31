@@ -115,6 +115,22 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.5.39 回退：撤销 Explorer 桌面层固定组件
+
+- **紧急回退**：v1.5.34–v1.5.38 在 Windows 上引入的「独立原生宿主 + Explorer 桌面层固定」方案，在生产与开发环境中引发灾难性桌面组件问题（数据不同步、图标与快照异常、宿主进程残留、重启后仍显示旧组件、开发模式闪退等），已整体撤回。
+- **当前代码基线**：功能与桌面组件实现回退至 **v1.5.33**（Tauri 窗口承载组件，无独立 `widget-host` 进程）。
+- **建议**：若已安装 v1.5.34 及以上版本，请升级至 v1.5.39；安装后请关闭并重新打开桌面组件与收纳篮，确保旧宿主进程已退出。
+- v1.5.34–v1.5.38 的变更记录保留在下方，仅供追溯，**请勿再使用这些版本的 Windows 安装包**。
+
+### v1.5.39
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.39_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.39/Grow.with.Time_1.5.39_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.39_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.39/Grow.with.Time_1.5.39_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.39) 或 Actions Artifacts 下载。
+
 #### v1.5.33 工具箱壁纸轮换与桌面快捷方式停靠栏
 
 - 工具箱新增壁纸库：导入图片、手动切换、定时随机轮换。
