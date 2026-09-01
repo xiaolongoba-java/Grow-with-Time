@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { notifyWidgetError, openMainWindow, runWidgetAction } from "@/lib/openMainWindow";
+import type { NavId } from "@/types";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createTask, fetchTasks, toggleTaskComplete } from "@/lib/db/tasks";
@@ -212,6 +214,8 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
       setTaskText("");
       await refresh();
       void emitDataChanged("task");
+    } catch (cause) {
+      notifyWidgetError(cause, "创建任务失败，请保留输入后重试");
     } finally {
       setBusy(false);
     }
@@ -226,17 +230,18 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
       setMemoText("");
       await refresh();
       void emitDataChanged("memo");
+    } catch (cause) {
+      notifyWidgetError(cause, "保存备忘失败，请保留输入后重试");
     } finally {
       setBusy(false);
     }
   };
 
-  const openMain = async () => {
-    const main = await WebviewWindow.getByLabel("main");
-    await main?.show();
-    await main?.unminimize();
-    await main?.setFocus();
-  };
+  const openMain = (nav?: NavId) => void openMainWindow(nav);
+  const hideWidget = () => void runWidgetAction(
+    getCurrentWebviewWindow().hide(),
+    "隐藏组件失败",
+  );
 
   return (
     <main
@@ -264,13 +269,13 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
           >
             ◐
           </button>
-          <button type="button" title="打开主程序" onClick={() => void openMain()}>
+          <button type="button" title="打开主程序" onClick={() => openMain()}>
             ↗
           </button>
           <button
             type="button"
             title="隐藏组件"
-            onClick={() => void getCurrentWebviewWindow().hide()}
+            onClick={hideWidget}
           >
             ×
           </button>
@@ -376,12 +381,12 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                     key === today ? "is-today" : "",
                     anniTitles.length ? "has-anni" : "",
                   ].join(" ")}
-                  title={tipParts.length ? tipParts.join("\n") : "打开主窗口"}
-                  onClick={() => void openMain()}
+                  title={tipParts.length ? tipParts.join("\n") : "打开日历"}
+                  onClick={() => openMain("calendar")}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      void openMain();
+                      openMain("calendar");
                     }
                   }}
                 >
@@ -404,7 +409,19 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
           {upcomingAnniversaries.length ? (
             <ul className="widget-anni-list">
               {upcomingAnniversaries.map(({ item, daysLeft }) => (
-                <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
+                <li
+                  key={item.id}
+                  className={`is-clickable ${daysLeft === 0 ? "is-today" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openMain("anniversaries")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openMain("anniversaries");
+                    }
+                  }}
+                >
                   <span>{item.title}</span>
                   <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
                   <em>{formatAnniversaryAnchor(item)}</em>
@@ -430,7 +447,19 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
           {upcomingAnniversaries.length ? (
             <ul className="widget-anni-list">
               {upcomingAnniversaries.map(({ item, daysLeft }) => (
-                <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
+                <li
+                  key={item.id}
+                  className={`is-clickable ${daysLeft === 0 ? "is-today" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openMain("anniversaries")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openMain("anniversaries");
+                    }
+                  }}
+                >
                   <span>{item.title}</span>
                   <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
                   <em>{formatAnniversaryAnchor(item)}</em>
@@ -461,14 +490,29 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                   className="widget-task-check"
                   type="button"
                   aria-label={`完成 ${task.title}`}
-                  onClick={() =>
-                    void toggleTaskComplete(task.id).then(() => {
-                      void refresh();
-                      void emitDataChanged("task");
-                    })
-                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void runWidgetAction(
+                      toggleTaskComplete(task.id).then(async () => {
+                        await refresh();
+                        await emitDataChanged("task");
+                      }),
+                      "更新任务失败",
+                    );
+                  }}
                 />
-                <div>
+                <div
+                  className="widget-task-body is-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openMain("today")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openMain("today");
+                    }
+                  }}
+                >
                   <strong>{task.title}</strong>
                   <span>
                     {task.due_time
@@ -518,19 +562,35 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
               .sort((a, b) => b.pinned - a.pinned)
               .slice(0, 8)
               .map((memo) => (
-                <article key={memo.id} className="widget-memo-card">
+                <article
+                  key={memo.id}
+                  className="widget-memo-card is-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openMain("memos")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openMain("memos");
+                    }
+                  }}
+                >
                   <button
                     type="button"
                     className="widget-pin"
                     title={memo.pinned ? "取消置顶" : "置顶"}
-                    onClick={() =>
-                      void updateMemo(memo.id, {
-                        pinned: memo.pinned ? 0 : 1,
-                      }).then(() => {
-                        void refresh();
-                        void emitDataChanged("memo");
-                      })
-                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void runWidgetAction(
+                        updateMemo(memo.id, {
+                          pinned: memo.pinned ? 0 : 1,
+                        }).then(async () => {
+                          await refresh();
+                          await emitDataChanged("memo");
+                        }),
+                        "更新备忘失败",
+                      );
+                    }}
                   >
                     {memo.pinned ? "●" : "○"}
                   </button>

@@ -1,0 +1,54 @@
+---
+description: 发布流程：同步推送 GitHub/Gitee 并打 Release 安装包
+alwaysApply: true
+---
+
+# 双远端发布约定
+
+每次**正式发布**（版本号变更、打 tag、对外 Release）必须完成以下步骤，不可只推单一远端或只改代码不打包。
+
+## 远端
+
+| 远端 | 地址 | 用途 |
+|------|------|------|
+| `origin` | `git@github.com:xiaolongoba-java/Grow-with-Time.git` | 主仓库、CI 构建、GitHub Release |
+| `gitee` | `https://gitee.com/xiaolong-oba/grow-with-time.git` | 国内镜像，**代码与 tag 必须与 origin 同步** |
+
+若 `gitee` 未配置：`git remote add gitee https://gitee.com/xiaolong-oba/grow-with-time.git`
+
+## 发布前
+
+1. 同步版本号：`package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`
+2. 更新 `README.md` 当前版本说明与下载链接
+3. 运行 `npm run release:check`（含测试、前端构建、`cargo check`）
+
+## 提交与推送
+
+```bash
+git add …
+git commit -m "Release vX.Y.Z …"
+git tag vX.Y.Z
+git push origin main
+git push gitee main
+git push origin vX.Y.Z
+git push gitee vX.Y.Z
+```
+
+## GitHub Release 与安装包
+
+1. 用 `gh release create vX.Y.Z` 创建 Release（中文说明：变更、升级建议、已知问题）
+2. 推送 tag 后 GitHub Actions 会自动构建 Windows `.exe` 与 macOS `.dmg`
+3. **必须确认** Release 页已有安装包；若 CI 失败：
+   - 查看失败日志并修复（常见：`migration.test.ts` 与迁移版本不一致）
+   - 本地 `npm run tauri build -- --bundles nsis` 构建后 `gh release upload` 补传
+
+## Gitee
+
+- 每次发布**同步推送** `main` 与 `v*` tag，保持与 GitHub 一致
+- Gitee **不负责** Windows/macOS 安装包构建；安装包以 GitHub Release 为准
+
+## 禁止
+
+- 只推 GitHub 不推 Gitee（或反之）
+- 只打 tag / 只写 Release 说明但不验证安装包已上传
+- 跳过 `release:check` 直接发布

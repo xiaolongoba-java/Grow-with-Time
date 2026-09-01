@@ -59,6 +59,37 @@ html[data-platform="windows"] .dashboard-strip {
   -webkit-backdrop-filter: none;
 }
 
+.dashboard-strip.is-fully-transparent .dash-panel,
+.dashboard-strip.is-fully-transparent .dash-cal-day {
+  background: rgba(var(--widget-rgb), 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.dashboard-strip.is-fully-transparent .dash-greeting,
+.dashboard-strip.is-fully-transparent .dash-cal-day,
+.dashboard-strip.is-fully-transparent .dash-memos li.is-clickable,
+.dashboard-strip.is-fully-transparent .dash-anniversaries li.is-clickable,
+.dashboard-strip.is-fully-transparent .dash-timers li.is-clickable,
+.dashboard-strip.is-fully-transparent .dash-panel-title.is-link {
+  pointer-events: auto;
+}
+
+.dash-greeting,
+.dash-panel-title.is-link,
+.dash-memos li.is-clickable,
+.dash-anniversaries li.is-clickable,
+.dash-timers li.is-clickable {
+  cursor: pointer;
+}
+
+.dash-panel-title.is-link:hover,
+.dash-memos li.is-clickable:hover,
+.dash-anniversaries li.is-clickable:hover,
+.dash-timers li.is-clickable:hover,
+.dash-greeting:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .dashboard-strip-head {
   display: flex;
   align-items: center;

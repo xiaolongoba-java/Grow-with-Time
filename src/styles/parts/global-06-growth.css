@@ -285,6 +285,19 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
   background: rgba(255, 210, 138, 0.1);
 }
 
+.widget-anni-list li.is-clickable,
+.widget-memo-card.is-clickable,
+.widget-task-body.is-clickable {
+  cursor: pointer;
+}
+
+.widget-anni-list li.is-clickable:hover,
+.widget-memo-card.is-clickable:hover,
+.widget-task-body.is-clickable:hover {
+  border-color: rgba(137, 174, 247, 0.45);
+  background: rgba(80, 128, 224, 0.16);
+}
+
 .widget-calendar-summary,
 .widget-progress {
   display: flex;

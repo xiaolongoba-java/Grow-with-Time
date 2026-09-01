@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { notifyWidgetError, openMainWindow, runWidgetAction } from "@/lib/openMainWindow";
+import type { NavId } from "@/types";
 import { fetchTasks } from "@/lib/db/tasks";
 import { createMemo, fetchMemos } from "@/lib/db/memos";
 import {
@@ -270,23 +272,26 @@ export function DashboardStripApp() {
       setMemoText("");
       await refresh();
       void emitDataChanged("memo");
+    } catch (cause) {
+      notifyWidgetError(cause, "保存备忘失败，请保留输入后重试");
     } finally {
       setBusy(false);
     }
   };
 
-  const toggleHabit = async (habitId: string) => {
-    await toggleHabitCheck(habitId, today);
-    await refresh();
-    void emitDataChanged("habit");
-  };
+  const toggleHabit = async (habitId: string) => runWidgetAction(
+    toggleHabitCheck(habitId, today).then(async () => {
+      await refresh();
+      await emitDataChanged("habit");
+    }),
+    "习惯打卡失败",
+  );
 
-  const openMain = async () => {
-    const main = await WebviewWindow.getByLabel("main");
-    await main?.show();
-    await main?.unminimize();
-    await main?.setFocus();
-  };
+  const openMain = (nav?: NavId) => void openMainWindow(nav);
+  const hideWidget = () => void runWidgetAction(
+    getCurrentWebviewWindow().hide(),
+    "隐藏组件失败",
+  );
 
   return (
     <main
@@ -313,13 +318,13 @@ export function DashboardStripApp() {
           >
             ◐
           </button>
-          <button type="button" title="打开主程序" onClick={() => void openMain()}>
+          <button type="button" title="打开主程序" onClick={() => openMain()}>
             ↗
           </button>
           <button
             type="button"
             title="隐藏"
-            onClick={() => void getCurrentWebviewWindow().hide()}
+            onClick={hideWidget}
           >
             ×
           </button>
@@ -358,7 +363,18 @@ export function DashboardStripApp() {
       ) : null}
 
       <div className="dashboard-strip-body">
-        <section className="dash-panel dash-greeting" onClick={() => void openMain()}>
+        <section
+          className="dash-panel dash-greeting"
+          role="button"
+          tabIndex={0}
+          onClick={() => openMain("today")}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openMain("today");
+            }
+          }}
+        >
           <p className="dash-hello">{greeting}</p>
           <p className="dash-date">
             {formatLongDate(today)} · 周{weekdayLabel(new Date())}
@@ -376,13 +392,38 @@ export function DashboardStripApp() {
         </section>
 
         <section className="dash-panel dash-memos">
-          <div className="dash-panel-title">备忘录</div>
+          <div
+            className="dash-panel-title is-link"
+            role="button"
+            tabIndex={0}
+            onClick={() => openMain("memos")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openMain("memos");
+              }
+            }}
+          >
+            备忘录
+          </div>
           <ul>
             {pinnedMemos.length === 0 ? (
               <li className="dash-empty">暂无备忘</li>
             ) : (
               pinnedMemos.map((memo) => (
-                <li key={memo.id}>
+                <li
+                  key={memo.id}
+                  className="is-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openMain("memos")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openMain("memos");
+                    }
+                  }}
+                >
                   {memo.pinned ? "📌 " : ""}
                   {(memo.title || memo.content).slice(0, 28)}
                 </li>
@@ -408,7 +449,20 @@ export function DashboardStripApp() {
         </section>
 
         <section className="dash-panel dash-habits">
-          <div className="dash-panel-title">打卡</div>
+          <div
+            className="dash-panel-title is-link"
+            role="button"
+            tabIndex={0}
+            onClick={() => openMain("habits")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openMain("habits");
+              }
+            }}
+          >
+            打卡
+          </div>
           <div className="dash-habit-list">
             {habits.length === 0 ? (
               <p className="dash-empty">暂无习惯</p>
@@ -432,13 +486,38 @@ export function DashboardStripApp() {
         </section>
 
         <section className="dash-panel dash-anniversaries">
-          <div className="dash-panel-title">纪念日</div>
+          <div
+            className="dash-panel-title is-link"
+            role="button"
+            tabIndex={0}
+            onClick={() => openMain("anniversaries")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openMain("anniversaries");
+              }
+            }}
+          >
+            纪念日
+          </div>
           {upcomingAnniversaries.length === 0 ? (
             <p className="dash-empty">近 30 天暂无</p>
           ) : (
             <ul>
               {upcomingAnniversaries.map(({ item, daysLeft }) => (
-                <li key={item.id} className={daysLeft === 0 ? "is-today" : ""}>
+                <li
+                  key={item.id}
+                  className={`is-clickable ${daysLeft === 0 ? "is-today" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openMain("anniversaries")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openMain("anniversaries");
+                    }
+                  }}
+                >
                   <span>{item.title}</span>
                   <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
                   <em>{formatAnniversaryAnchor(item)}</em>
@@ -486,11 +565,11 @@ export function DashboardStripApp() {
                   title={anniTitles?.join("、") || "打开主窗口"}
                   role="button"
                   tabIndex={0}
-                  onClick={() => void openMain()}
+                  onClick={() => openMain("calendar")}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      void openMain();
+                      openMain("calendar");
                     }
                   }}
                   className={[
@@ -511,13 +590,38 @@ export function DashboardStripApp() {
         </section>
 
         <section className="dash-panel dash-timers">
-          <div className="dash-panel-title">倒计时</div>
+          <div
+            className="dash-panel-title is-link"
+            role="button"
+            tabIndex={0}
+            onClick={() => openMain("reminders")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openMain("reminders");
+              }
+            }}
+          >
+            倒计时
+          </div>
           {activeTimers.length === 0 ? (
             <p className="dash-empty">暂无倒计时</p>
           ) : (
             <ul>
               {activeTimers.map((timer) => (
-                <li key={timer.id}>
+                <li
+                  key={timer.id}
+                  className="is-clickable"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openMain("reminders")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openMain("reminders");
+                    }
+                  }}
+                >
                   <span>{timer.title}</span>
                   <strong className={timer.running ? "is-running" : ""}>
                     {formatCountdown(liveRemaining(timer, nowMs))}

@@ -68,6 +68,7 @@ describe("backup coverage", () => {
     expect(source).toContain("txQueue");
     expect(source).toContain("withTransaction");
     expect(source).toContain("sanitizeBackupPayload");
+    expect(source).toContain("delete settings.ai_api_key");
     const barrel = readFileSync("src/lib/db.ts", "utf8");
     expect(barrel).toContain("summarizeBackupRestore");
     expect(source).toContain("backupPayloadHas");

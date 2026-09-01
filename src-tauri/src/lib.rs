@@ -791,12 +791,15 @@ fn hide_float(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn hide_labeled_windows(app: &AppHandle, labels: &[&str]) {
+fn hide_labeled_windows(app: &AppHandle, labels: &[&str]) -> Result<(), String> {
     for label in labels {
         if let Some(window) = app.get_webview_window(label) {
-            let _ = window.hide();
+            window
+                .hide()
+                .map_err(|error| format!("隐藏桌面组件 {label} 失败: {error}"))?;
         }
     }
+    Ok(())
 }
 
 fn make_webview_transparent(window: &tauri::WebviewWindow) {
@@ -804,52 +807,102 @@ fn make_webview_transparent(window: &tauri::WebviewWindow) {
 }
 
 #[cfg(windows)]
-fn send_widget_behind_main(app: &AppHandle, window: &tauri::WebviewWindow) {
-    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
-    let Ok(widget_hwnd) = window.hwnd() else {
-        return;
+fn prepare_widget_hit_testing(window: &tauri::WebviewWindow) -> Result<(), String> {
+    // One alpha step preserves Windows hit-testing without visibly tinting a
+    // user-selected fully transparent widget.
+    window
+        .set_background_color(Some(Color(0, 0, 0, 1)))
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(not(windows))]
+fn prepare_widget_hit_testing(window: &tauri::WebviewWindow) -> Result<(), String> {
+    window
+        .set_background_color(Some(Color(0, 0, 0, 0)))
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(windows)]
+fn send_widget_to_desktop_bottom(window: &tauri::WebviewWindow) -> Result<(), String> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_BOTTOM, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
     };
-    let Some(main) = app.get_webview_window("main") else {
-        return;
-    };
-    if !main.is_visible().unwrap_or(false) {
-        return;
-    }
-    let Ok(main_hwnd) = main.hwnd() else {
-        return;
-    };
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
     unsafe {
-        let _ = SetWindowPos(
-            widget_hwnd,
-            Some(main_hwnd),
+        SetWindowPos(
+            hwnd,
+            Some(HWND_BOTTOM),
             0,
             0,
             0,
             0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-        );
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        )
+        .map_err(|error| format!("桌面组件置底失败: {error}"))?;
     }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn stabilize_widget_layer(window: &tauri::WebviewWindow, stay_top: bool) -> Result<(), String> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        SWP_SHOWWINDOW,
+    };
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        )
+        .map_err(|error| format!("桌面组件层级初始化失败: {error}"))?;
+        if stay_top {
+            return Ok(());
+        }
+        SetWindowPos(
+            hwnd,
+            Some(HWND_NOTOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        )
+        .map_err(|error| format!("桌面组件取消置顶失败: {error}"))?;
+        send_widget_to_desktop_bottom(window)?;
+    }
+    Ok(())
 }
 
 fn pin_desktop_widget(
-    app: &AppHandle,
+    _app: &AppHandle,
     window: &tauri::WebviewWindow,
     layer: &str,
 ) -> Result<(), String> {
-    let stay_top = layer == "top";
-    let _ = window.set_ignore_cursor_events(false);
-    let _ = window.set_focusable(true);
-    let _ = window.unminimize();
-    make_webview_transparent(window);
+    let stay_top = match layer {
+        "top" => true,
+        "bottom" => false,
+        _ => return Err("无效的桌面组件层级".into()),
+    };
+    window.set_ignore_cursor_events(false).map_err(|e| e.to_string())?;
+    window.set_focusable(true).map_err(|e| e.to_string())?;
+    window.unminimize().map_err(|e| e.to_string())?;
+    prepare_widget_hit_testing(window)?;
     window.show().map_err(|e| e.to_string())?;
 
     if stay_top {
-        let _ = window.set_always_on_bottom(false);
-        let _ = window.set_always_on_top(true);
-        let _ = window.set_focus();
+        window.set_always_on_bottom(false).map_err(|e| e.to_string())?;
+        window.set_always_on_top(true).map_err(|e| e.to_string())?;
+        #[cfg(windows)]
+        stabilize_widget_layer(window, true)?;
     } else {
-        let _ = window.set_always_on_top(false);
-        let _ = window.set_always_on_bottom(false);
+        window.set_always_on_top(false).map_err(|e| e.to_string())?;
+        window.set_always_on_bottom(false).map_err(|e| e.to_string())?;
         #[cfg(not(windows))]
         {
             window
@@ -857,10 +910,41 @@ fn pin_desktop_widget(
                 .map_err(|e| e.to_string())?;
         }
         #[cfg(windows)]
-        send_widget_behind_main(app, window);
+        stabilize_widget_layer(window, false)?;
     }
 
     Ok(())
+}
+
+#[tauri::command]
+fn open_main_window(app: AppHandle, nav: Option<String>) -> Result<(), String> {
+    let nav = nav.filter(|value| !value.is_empty());
+    if let Some(value) = nav.as_deref() {
+        if !widget_nav_allowed(value) {
+            return Err("无效的主界面导航目标".into());
+        }
+    }
+    let Some(window) = app.get_webview_window("main") else {
+        return Err("主窗口还没创建，请重启应用后再试".into());
+    };
+    window.show().map_err(|e| e.to_string())?;
+    window.unminimize().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+    if let Some(nav) = nav {
+        app.emit_to("main", "widget:navigate", serde_json::json!({ "nav": nav }))
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn widget_nav_allowed(value: &str) -> bool {
+    matches!(
+        value,
+        "today" | "myday" | "inbox" | "week" | "completed" | "all" | "board"
+            | "calendar" | "tags" | "habits" | "reminders" | "review" | "growth"
+            | "daily-reflection" | "inspirations" | "future-letters" | "anniversaries"
+            | "memos" | "trash" | "settings" | "projects" | "smart" | "toolbox"
+    )
 }
 
 fn widgets_visible(app: &AppHandle, labels: &[&str]) -> bool {
@@ -874,31 +958,47 @@ fn widgets_visible(app: &AppHandle, labels: &[&str]) -> bool {
 #[tauri::command]
 fn show_desktop_widgets(app: AppHandle, layer: Option<String>) -> Result<(), String> {
     let layer = layer.unwrap_or_else(|| "bottom".into());
-    hide_labeled_windows(&app, &["widget-dashboard"]);
+    let labels = ["widget-calendar", "widget-today", "widget-memo"];
+    let initially_visible = labels.map(|label| {
+        app.get_webview_window(label)
+            .and_then(|window| window.is_visible().ok())
+            .unwrap_or(false)
+    });
     let mut shown = 0usize;
-    for label in ["widget-calendar", "widget-today", "widget-memo"] {
+    for label in labels {
         if let Some(window) = app.get_webview_window(label) {
-            pin_desktop_widget(&app, &window, &layer)?;
+            if let Err(error) = pin_desktop_widget(&app, &window, &layer) {
+                for (rollback_index, rollback_label) in labels.iter().enumerate() {
+                    if !initially_visible[rollback_index] {
+                        let _ = hide_labeled_windows(&app, &[*rollback_label]);
+                    }
+                }
+                return Err(error);
+            }
             shown += 1;
         }
     }
-    if shown == 0 {
+    if shown != labels.len() {
+        for (index, label) in labels.iter().enumerate() {
+            if !initially_visible[index] {
+                let _ = hide_labeled_windows(&app, &[*label]);
+            }
+        }
         return Err("经典桌面组件窗口还没创建，请重启应用后再试".into());
     }
+    hide_labeled_windows(&app, &["widget-dashboard"])?;
     Ok(())
 }
 
 #[tauri::command]
 fn show_dashboard_strip(app: AppHandle, layer: Option<String>) -> Result<(), String> {
     let layer = layer.unwrap_or_else(|| "bottom".into());
-    hide_labeled_windows(
-        &app,
-        &["widget-calendar", "widget-today", "widget-memo"],
-    );
     let Some(window) = app.get_webview_window("widget-dashboard") else {
         return Err("桌面仪表盘窗口还没创建，请重启应用后再试".into());
     };
-    pin_desktop_widget(&app, &window, &layer)
+    pin_desktop_widget(&app, &window, &layer)?;
+    hide_labeled_windows(&app, &["widget-calendar", "widget-today", "widget-memo"])?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -907,7 +1007,11 @@ fn toggle_desktop_widgets(
     mode: String,
     layer: Option<String>,
 ) -> Result<bool, String> {
-    let classic = mode == "classic";
+    let classic = match mode.as_str() {
+        "classic" => true,
+        "dashboard" => false,
+        _ => return Err("无效的桌面组件模式".into()),
+    };
     let labels: &[&str] = if classic {
         &["widget-calendar", "widget-today", "widget-memo"]
     } else {
@@ -915,7 +1019,7 @@ fn toggle_desktop_widgets(
     };
 
     if widgets_visible(&app, labels) {
-        hide_labeled_windows(&app, labels);
+        hide_labeled_windows(&app, labels)?;
         return Ok(false);
     }
 
@@ -1186,10 +1290,10 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                 let _ = show_float(app.clone());
             }
             "dashboard" => {
-                let _ = show_dashboard_strip(app.clone(), Some("bottom".into()));
+                let _ = app.emit("tray:desktop-widgets", "dashboard");
             }
             "widgets" => {
-                let _ = show_desktop_widgets(app.clone(), Some("bottom".into()));
+                let _ = app.emit("tray:desktop-widgets", "classic");
             }
             "today" => {
                 let _ = app.emit("tray:today", ());
@@ -1260,6 +1364,7 @@ pub fn run() {
             toggle_desktop_widgets,
             show_shortcut_dock,
             toggle_shortcut_dock,
+            open_main_window,
             today_pending_count,
             schedule_native_notification,
             cancel_native_notification,

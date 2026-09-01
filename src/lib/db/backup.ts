@@ -76,6 +76,9 @@ export async function exportBackup(): Promise<BackupPayload> {
     "SELECT * FROM karma_ledger ORDER BY created_at ASC",
   );
   const settings = await getAllSettings();
+  // API keys are credentials, not user content. Never copy them into a
+  // portable JSON backup where they can be shared or synced accidentally.
+  delete settings.ai_api_key;
 
   return {
     version: 7,

@@ -6,6 +6,8 @@
 
 > 产品定位：面向个人的轻量执行系统，而不是多人协作或重型项目管理平台。
 
+> 需求方向与历史取舍见 [产品需求与决策记录](docs/PRODUCT_DECISIONS.md)。开发前应以其中最新的“已确认 / 已调整 / 已放弃”决策校准实现范围。
+
 ## 为什么使用日进·拾光
 
 很多待办工具擅长收集，却没有解决“今天到底应该先做什么”，也没有帮用户留下成长过程中的灵感与回忆。日进·拾光围绕两条主线设计：
@@ -88,6 +90,8 @@
 - CSV 可用于任务数据的便携导出
 - 自动数据库快照与启动前备份降低升级风险
 - 可从设置中检查数据库状态、打开数据目录和恢复历史快照
+- 数据库结构只支持向前升级；正式版不支持从高版本直接降级安装
+- 完整 JSON 备份不会导出 AI API Key，恢复后如需 AI 功能请重新填写
 
 ## 数据与隐私
 
@@ -114,6 +118,21 @@
 > **提醒**：关闭窗口会驻留托盘。完全退出后，已登记的到期提醒仍由系统弹出（需通知权限）；若权限被关则无法保证准点。
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
+
+#### v1.5.41 桌面组件可靠性与交互修复
+
+- **Windows 桌面组件**：修复层级与点击命中（贴窗口底层、不再压在主窗口后面导致点不到）；仪表盘/经典组件数据项可点击打开主程序并跳转对应页面。
+- **可靠性**：切换仪表盘/经典模式时先显示再隐藏，避免空白；导航目标白名单校验；导出备份不再包含 AI API Key。
+- **产品边界**：明确放弃 Win+D 桌面层固定方案，见 [产品需求与决策记录](docs/PRODUCT_DECISIONS.md)。
+
+### v1.5.41
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.5.41_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.41/Grow.with.Time_1.5.41_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.5.41_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.5.41/Grow.with.Time_1.5.41_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.5.41) 或 Actions Artifacts 下载。
 
 #### v1.5.40 热修复：回退后数据库迁移兼容
 

@@ -32,6 +32,7 @@ import { privacySafeNotification } from "@/lib/privacy";
 import { useAppStore } from "@/store/app";
 import { filterTasksByView } from "@/lib/tasks";
 import { todayDateString } from "@/lib/dates";
+import { openDesktopWidgets } from "@/lib/desktopWidgets";
 import {
   applyPrivacyToReminderPlans,
   buildMissedReminderPlans,
@@ -290,6 +291,29 @@ export function MainApp() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     void listen("tray:today", () => setNav("today")).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [setNav]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<string>("tray:desktop-widgets", (event) => {
+      const mode = event.payload === "classic" ? "classic" : "dashboard";
+      const current = useAppStore.getState().settings;
+      void openDesktopWidgets(mode, current.desktopWidgetLayer);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<{ nav?: string }>("widget:navigate", (event) => {
+      const nav = event.payload?.nav;
+      if (nav) setNav(nav as Parameters<typeof setNav>[0]);
+    }).then((fn) => {
       unlisten = fn;
     });
     return () => unlisten?.();
