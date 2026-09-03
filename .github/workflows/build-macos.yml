@@ -83,3 +83,16 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: |
             src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+
+      - name: Sync installer to Gitee Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        shell: bash
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "跳过 Gitee 同步：未配置 secrets.GITEE_TOKEN"
+            exit 0
+          fi
+          DMG="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          node scripts/sync-gitee-release.mjs --tag "${GITHUB_REF_NAME}" --file "$DMG"

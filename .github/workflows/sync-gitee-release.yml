@@ -1,0 +1,41 @@
+name: Sync Gitee Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to mirror (e.g. v1.6.0)
+        required: true
+        default: v1.6.0
+      source:
+        description: Asset source
+        required: true
+        default: github
+        type: choice
+        options:
+          - github
+
+permissions:
+  contents: read
+
+jobs:
+  sync-gitee:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Mirror GitHub Release assets to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "跳过：未配置 secrets.GITEE_TOKEN"
+            exit 1
+          fi
+          node scripts/sync-gitee-release.mjs --tag "${{ inputs.tag }}" --from-github

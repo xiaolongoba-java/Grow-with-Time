@@ -146,12 +146,12 @@
 
 ### v1.6.0
 
-| 平台 | 文件 | 下载 |
-|------|------|------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.6.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.0/Grow.with.Time_1.6.0_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.6.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.0/Grow.with.Time_1.6.0_x64-setup.exe) |
+| 平台 | 文件 | GitHub | Gitee（国内推荐） |
+|------|------|--------|-------------------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.0/Grow.with.Time_1.6.0_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.0/Grow.with.Time_1.6.0_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.0/Grow.with.Time_1.6.0_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.0/Grow.with.Time_1.6.0_x64-setup.exe) |
 
-> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.0) 或 Actions Artifacts 下载。
+> GitHub 访问困难时，请优先使用 **Gitee** 列链接；若暂不可用，打开 [Gitee 发行版 v1.6.0](https://gitee.com/xiaolong-oba/grow-with-time/releases/tag/v1.6.0) 下载附件。GitHub 备用：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.0)。
 
 #### v1.5.41 桌面组件可靠性与交互修复
 

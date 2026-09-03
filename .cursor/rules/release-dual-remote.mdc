@@ -12,15 +12,16 @@ alwaysApply: true
 | 远端 | 地址 | 用途 |
 |------|------|------|
 | `origin` | `git@github.com:xiaolongoba-java/Grow-with-Time.git` | 主仓库、CI 构建、GitHub Release |
-| `gitee` | `https://gitee.com/xiaolong-oba/grow-with-time.git` | 国内镜像，**代码与 tag 必须与 origin 同步** |
+| `gitee` | `https://gitee.com/xiaolong-oba/grow-with-time.git` | 国内镜像；**代码、tag 与安装包附件**与 GitHub 同步 |
 
 若 `gitee` 未配置：`git remote add gitee https://gitee.com/xiaolong-oba/grow-with-time.git`
 
 ## 发布前
 
 1. 同步版本号：`package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`
-2. 更新 `README.md` 当前版本说明与下载链接
+2. 更新 `README.md` 当前版本说明与 **GitHub + Gitee** 下载链接
 3. 运行 `npm run release:check`（含测试、前端构建、`cargo check`）
+4. 确认 GitHub 仓库 Secrets 已配置 **`GITEE_TOKEN`**（Gitee 私人令牌，需 `projects` 权限）
 
 ## 提交与推送
 
@@ -38,17 +39,28 @@ git push gitee vX.Y.Z
 
 1. 用 `gh release create vX.Y.Z` 创建 Release（中文说明：变更、升级建议、已知问题）
 2. 推送 tag 后 GitHub Actions 会自动构建 Windows `.exe` 与 macOS `.dmg`
-3. **必须确认** Release 页已有安装包；若 CI 失败：
+3. 构建完成后，若配置了 `GITEE_TOKEN`，会自动同步安装包到 **Gitee Release**
+4. **必须确认** GitHub 与 Gitee Release 页均已有安装包；若 CI 失败：
    - 查看失败日志并修复（常见：`migration.test.ts` 与迁移版本不一致）
    - 本地 `npm run tauri build -- --bundles nsis` 构建后 `gh release upload` 补传
+   - Gitee 补传：`npm run release:sync-gitee -- --tag vX.Y.Z --from-github` 或 `--file 本地安装包路径`
 
-## Gitee
+## Gitee 安装包（国内下载）
 
-- 每次发布**同步推送** `main` 与 `v*` tag，保持与 GitHub 一致
-- Gitee **不负责** Windows/macOS 安装包构建；安装包以 GitHub Release 为准
+Gitee **云端流水线没有免费的 Windows/macOS 原生构建机**（Tauri 桌面包需要对应系统 + NSIS/DMG 工具链），因此采用：
+
+**GitHub 构建 → 自动/手动同步到 Gitee Release 附件**
+
+- 自动：Windows / macOS 构建 workflow 末尾调用 `scripts/sync-gitee-release.mjs`
+- 手动镜像某版本：`Actions → Sync Gitee Release → Run workflow`（从 GitHub Release 下载后上传）
+- 本地：`GITEE_TOKEN=xxx npm run release:sync-gitee -- --tag vX.Y.Z --file path/to/setup.exe`
+
+Gitee 下载链接格式：
+
+`https://gitee.com/xiaolong-oba/grow-with-time/releases/download/{tag}/{文件名}`
 
 ## 禁止
 
 - 只推 GitHub 不推 Gitee（或反之）
-- 只打 tag / 只写 Release 说明但不验证安装包已上传
+- 只打 tag / 只写 Release 说明但不验证 **GitHub 与 Gitee** 安装包已上传
 - 跳过 `release:check` 直接发布
