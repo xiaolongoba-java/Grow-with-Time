@@ -9,13 +9,20 @@ function mapMemo(row: Memo): Memo {
     title: row.title ?? "",
     content: row.content ?? "",
     pinned: row.pinned ?? 0,
+    archived: row.archived ?? 0,
+    format: row.format === "richtext" ? "richtext" : "markdown",
   };
 }
 
-export async function fetchMemos(): Promise<Memo[]> {
+export async function fetchMemos(options?: {
+  archived?: boolean | "all";
+}): Promise<Memo[]> {
   const db = await getDb();
+  const archived = options?.archived ?? false;
+  const where =
+    archived === "all" ? "" : `WHERE archived=${archived ? 1 : 0}`;
   const rows = await db.select<Memo[]>(
-    "SELECT * FROM memos ORDER BY pinned DESC, updated_at DESC",
+    `SELECT * FROM memos ${where} ORDER BY pinned DESC, updated_at DESC`,
   );
   return rows.map(mapMemo);
 }
@@ -23,6 +30,7 @@ export async function fetchMemos(): Promise<Memo[]> {
 export async function createMemo(
   content: string,
   title = "",
+  format: Memo["format"] = "markdown",
 ): Promise<Memo> {
   const db = await getDb();
   const now = nowIso();
@@ -36,16 +44,20 @@ export async function createMemo(
     title: resolvedTitle,
     content: trimmed,
     pinned: 0,
+    archived: 0,
+    format,
     created_at: now,
     updated_at: now,
   };
   await db.execute(
-    "INSERT INTO memos (id, title, content, pinned, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)",
+    "INSERT INTO memos (id, title, content, pinned, archived, format, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
     [
       memo.id,
       memo.title,
       memo.content,
       memo.pinned,
+      memo.archived,
+      memo.format,
       memo.created_at,
       memo.updated_at,
     ],
@@ -55,7 +67,13 @@ export async function createMemo(
 
 export async function updateMemo(
   id: string,
-  updates: { title?: string; content?: string; pinned?: number },
+  updates: {
+    title?: string;
+    content?: string;
+    pinned?: number;
+    archived?: number;
+    format?: "markdown" | "richtext";
+  },
 ): Promise<void> {
   const db = await getDb();
   const rows = await db.select<Memo[]>("SELECT * FROM memos WHERE id=$1", [id]);
@@ -77,8 +95,8 @@ export async function updateMemo(
     }
   }
   await db.execute(
-    "UPDATE memos SET title=$1, content=$2, pinned=$3, updated_at=$4 WHERE id=$5",
-    [next.title, next.content, next.pinned, next.updated_at, id],
+    "UPDATE memos SET title=$1, content=$2, pinned=$3, archived=$4, format=$5, updated_at=$6 WHERE id=$7",
+    [next.title, next.content, next.pinned, next.archived, next.format, next.updated_at, id],
   );
 }
 

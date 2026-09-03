@@ -43,16 +43,6 @@
   box-shadow: 0 5px 14px rgba(69, 80, 108, 0.1);
 }
 
-.karma-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 4px 7px;
-  color: #9a765f;
-  border-color: #eaded6;
-  background: #fcf8f5;
-}
-
 .reminders-context {
   display: flex;
   align-items: center;

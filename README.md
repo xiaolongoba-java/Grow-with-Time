@@ -119,6 +119,40 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.6.0 界面升级（UI Refresh）
+
+本版本以**界面与交互升级**为主，不改变本地数据契约；可直接覆盖安装 v1.5.41 及以上版本。
+
+**备忘录**
+- 全新列表 + 阅读/编辑双栏布局，支持富文本与 Markdown 两种格式
+- 新增「全部 / 已归档」分类，归档后可恢复
+- 置顶、搜索、格式徽章与富文本工具栏
+
+**提醒**
+- 倒计时与循环提醒分 Tab 管理
+- 倒计时支持按时长或「到指定时间」创建，运行中可 +5 分钟
+- 循环提醒保留预设模板与间隔配置
+
+**拾光**
+- 「今日拾光」改为日记本式阅读/编辑布局（心情、行动小票、左右页）
+- 「拾念箱」改为弹窗记录，列表卡片样式更新
+
+**其他**
+- 移除 Karma 游戏化积分（习惯连续天数、成长目标等真实统计保留）
+- 项目进度不再计入循环任务；备份恢复时清除残留积分数据
+- 备份版本升至 v7，导出不再包含 AI API Key
+
+**升级建议**：从 v1.5.41 直接升级即可。若曾安装 v1.5.34–v1.5.38 且未升到 v1.5.40+，请先安装 v1.5.40 再升 v1.6.0。
+
+### v1.6.0
+
+| 平台 | 文件 | 下载 |
+|------|------|------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [Grow.with.Time_1.6.0_aarch64.dmg](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.0/Grow.with.Time_1.6.0_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [Grow.with.Time_1.6.0_x64-setup.exe](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.0/Grow.with.Time_1.6.0_x64-setup.exe) |
+
+> 若链接暂不可用，请打开 [Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.0) 或 Actions Artifacts 下载。
+
 #### v1.5.41 桌面组件可靠性与交互修复
 
 - **Windows 桌面组件**：修复层级与点击命中（贴窗口底层、不再压在主窗口后面导致点不到）；仪表盘/经典组件数据项可点击打开主程序并跳转对应页面。

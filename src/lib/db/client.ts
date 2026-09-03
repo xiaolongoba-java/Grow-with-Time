@@ -34,22 +34,22 @@ export async function getDb(): Promise<Database> {
         /* already exists */
       }
       try {
-        await db.execute(`CREATE TABLE IF NOT EXISTS karma_ledger (
-          id TEXT PRIMARY KEY,
-          source_type TEXT NOT NULL,
-          source_id TEXT NOT NULL,
-          action TEXT NOT NULL,
-          points INTEGER NOT NULL,
-          entry_date TEXT NOT NULL,
-          created_at TEXT NOT NULL,
-          UNIQUE(source_type, source_id, action)
-        )`);
+        await db.execute(
+          "ALTER TABLE memos ADD COLUMN title TEXT NOT NULL DEFAULT ''",
+        );
       } catch {
-        /* ignore */
+        /* already exists */
       }
       try {
         await db.execute(
-          "ALTER TABLE memos ADD COLUMN title TEXT NOT NULL DEFAULT ''",
+          "ALTER TABLE memos ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+        );
+      } catch {
+        /* already exists */
+      }
+      try {
+        await db.execute(
+          "ALTER TABLE memos ADD COLUMN format TEXT NOT NULL DEFAULT 'markdown'",
         );
       } catch {
         /* already exists */

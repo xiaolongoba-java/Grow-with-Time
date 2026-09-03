@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import {
+  backupHasLegacyKarma,
   backupPayloadHas,
   inspectBackupPayload,
   sanitizeBackupPayload,
@@ -58,8 +59,9 @@ describe("backup coverage", () => {
     expect(source).toContain("task.flexible ?? 1");
     expect(source).toContain("schedule_locked");
     expect(source).toContain("version: 7");
-    expect(source).toContain("karmaLedger");
-    expect(source).toContain('DELETE FROM karma_ledger');
+    expect(source).not.toContain("karmaLedger");
+    expect(source).toContain("DELETE FROM karma_ledger");
+    expect(source).toContain("DELETE FROM settings WHERE key");
     expect(source).toContain("payload.dailyReflections");
     expect(source).toContain("payload.inspirations");
     expect(source).toContain("payload.futureLetters");
@@ -104,6 +106,23 @@ describe("backup pure helpers", () => {
     expect(summary).toContain("拾光记录");
     expect(summary).toContain("循环提醒");
     expect(summary).toContain("将保留当前内容");
+  });
+
+  it("warns when a legacy backup still carries karma data", () => {
+    expect(
+      backupHasLegacyKarma(
+        minimalPayload({
+          settings: { karma: "42" },
+        }),
+      ),
+    ).toBe(true);
+    const summary = summarizeBackupRestore(
+      minimalPayload({
+        settings: { karma: "42", streak: "3" },
+      }),
+    );
+    expect(summary).toContain("游戏化积分");
+    expect(summary).toContain("不会还原");
   });
 
   it("does not warn about growth when goals are present", () => {
@@ -303,35 +322,6 @@ describe("backup pure helpers", () => {
         },
       ] as never,
       projects: [],
-      karmaLedger: [
-        {
-          id: "k1",
-          source_type: "task",
-          source_id: "task-1",
-          action: "complete",
-          points: 10,
-          entry_date: "2026-08-01",
-          created_at: "2026-08-01T00:00:00.000Z",
-        },
-        {
-          id: "k2",
-          source_type: "task",
-          source_id: "task-1",
-          action: "complete",
-          points: 10,
-          entry_date: "2026-08-02",
-          created_at: "2026-08-02T00:00:00.000Z",
-        },
-        {
-          id: "k3",
-          source_type: "task",
-          source_id: "ghost",
-          action: "complete",
-          points: 10,
-          entry_date: "2026-08-01",
-          created_at: "2026-08-01T00:00:00.000Z",
-        },
-      ],
     });
     const report = inspectBackupPayload(payload);
     expect(report.warnings.some((item) => item.includes("恢复时将跳过"))).toBe(true);
@@ -343,16 +333,5 @@ describe("backup pure helpers", () => {
     expect(sanitized.tasks[0].generated_from_id).toBeNull();
     expect(sanitized.tasks[0].project_id).toBeNull();
     expect(sanitized.tasks[0].blocked_by_id).toBeNull();
-    expect(sanitized.karmaLedger).toEqual([
-      {
-        id: "k2",
-        source_type: "task",
-        source_id: "task-1",
-        action: "complete",
-        points: 10,
-        entry_date: "2026-08-02",
-        created_at: "2026-08-02T00:00:00.000Z",
-      },
-    ]);
   });
 });

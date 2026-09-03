@@ -6,7 +6,6 @@ import { localDateKey, localWeekStartKey } from "@/lib/growth";
 
 export function ReviewView() {
   const tasks = useAppStore((s) => s.tasks);
-  const settings = useAppStore((s) => s.settings);
   const [snapshots, setSnapshots] = useState<DaySnapshot[]>([]);
   const [reflections, setReflections] = useState<DailyReflection[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -148,14 +147,6 @@ export function ReviewView() {
           })}
           {!goals.some((goal) => goal.status === "active") ? <p>暂无进行中的长期目标。</p> : null}
         </div>
-      </section>
-
-      <section className="review-card" style={{ marginTop: 12 }}>
-        <h3>游戏化</h3>
-        <p>
-          Karma <strong>{settings.karma}</strong> · 连击{" "}
-          <strong className="streak-pop">{settings.streak}</strong> 天
-        </p>
       </section>
 
       <section className="review-card review-reflections" style={{ marginTop: 12 }}>

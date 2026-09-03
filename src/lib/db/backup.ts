@@ -3,7 +3,6 @@ import type {
   BackupPayload,
   DaySnapshot,
   FocusSession,
-  KarmaLedgerEntry,
   Milestone,
   Project,
   TaskEvent,
@@ -35,7 +34,16 @@ import {
   fetchInspirations,
 } from "./moments";
 import { fetchTaskTemplates } from "./projects";
-import { getAllSettings, refreshKarmaFromLedger, setSetting } from "./settings";
+import { getAllSettings, setSetting } from "./settings";
+
+const RETIRED_SETTING_KEYS = new Set([
+  "karma",
+  "karma_base",
+  "karma_streak_base",
+  "karma_streak_last_date",
+  "streak",
+  "last_complete_date",
+]);
 
 /* Backup */
 export async function exportBackup(): Promise<BackupPayload> {
@@ -49,7 +57,7 @@ export async function exportBackup(): Promise<BackupPayload> {
   const smartLists = await fetchSmartLists();
   const habits = await fetchHabits();
   const habitChecks = await fetchHabitChecks();
-  const memos = await fetchMemos();
+  const memos = await fetchMemos({ archived: "all" });
   const projects = await db.select<Project[]>("SELECT * FROM projects");
   const taskTemplates = await fetchTaskTemplates();
   const notifications = await db.select<AppNotification[]>(
@@ -72,13 +80,11 @@ export async function exportBackup(): Promise<BackupPayload> {
   const inspirations = await fetchInspirations(true);
   const futureLetters = await fetchFutureLetters();
   const anniversaries = await fetchAnniversaries();
-  const karmaLedger = await db.select<KarmaLedgerEntry[]>(
-    "SELECT * FROM karma_ledger ORDER BY created_at ASC",
-  );
   const settings = await getAllSettings();
   // API keys are credentials, not user content. Never copy them into a
   // portable JSON backup where they can be shared or synced accidentally.
   delete settings.ai_api_key;
+  for (const key of RETIRED_SETTING_KEYS) delete settings[key];
 
   return {
     version: 7,
@@ -107,7 +113,6 @@ export async function exportBackup(): Promise<BackupPayload> {
     inspirations,
     futureLetters,
     anniversaries,
-    karmaLedger,
     settings,
   };
 }
@@ -120,10 +125,6 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
 
   await withTransaction(async () => {
     if (has("anniversaries")) await db.execute("DELETE FROM anniversaries");
-    // Tasks are replaced by every supported backup version. Keeping a local
-    // ledger from the previous dataset would leave points tied to removed tasks.
-    // v7 restores its ledger below; older backups restart from their saved Karma.
-    await db.execute("DELETE FROM karma_ledger");
     if (has("futureLetters")) await db.execute("DELETE FROM future_letters");
     if (has("inspirations")) await db.execute("DELETE FROM inspirations");
     if (has("dailyReflections")) await db.execute("DELETE FROM daily_reflections");
@@ -155,6 +156,7 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
     if (has("notifications")) await db.execute("DELETE FROM app_notifications");
     if (has("taskTemplates")) await db.execute("DELETE FROM task_templates");
     if (has("projects")) await db.execute("DELETE FROM projects");
+    await db.execute("DELETE FROM karma_ledger");
 
   for (const task of payload.tasks) {
     await db.execute(
@@ -240,12 +242,14 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
   }
   for (const m of payload.memos ?? []) {
     await db.execute(
-      "INSERT INTO memos (id, title, content, pinned, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)",
+      "INSERT INTO memos (id, title, content, pinned, archived, format, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
       [
         m.id,
         m.title ?? "",
         m.content,
         m.pinned,
+        m.archived ?? 0,
+        m.format === "richtext" ? "richtext" : "markdown",
         m.created_at,
         m.updated_at,
       ],
@@ -464,26 +468,12 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
       ],
     );
   }
-  for (const item of payload.karmaLedger ?? []) {
-    await db.execute(
-      `INSERT OR IGNORE INTO karma_ledger
-       (id,source_type,source_id,action,points,entry_date,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [item.id,item.source_type,item.source_id,item.action,item.points,item.entry_date,item.created_at],
-    );
-  }
   for (const [key, value] of Object.entries(payload.settings)) {
+    if (RETIRED_SETTING_KEYS.has(key)) continue;
     await setSetting(key, value);
   }
-  if (!has("karmaLedger")) {
-    await setSetting("karma_base", payload.settings.karma ?? "0");
-    await setSetting("karma_streak_base", payload.settings.streak ?? "0");
-    await setSetting(
-      "karma_streak_last_date",
-      payload.settings.last_complete_date ?? "",
-    );
-  } else {
-    await refreshKarmaFromLedger();
+  for (const key of RETIRED_SETTING_KEYS) {
+    await db.execute("DELETE FROM settings WHERE key = $1", [key]);
   }
   });
 }

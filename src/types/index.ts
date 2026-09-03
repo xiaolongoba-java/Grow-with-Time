@@ -138,6 +138,8 @@ export interface Memo {
   title: string;
   content: string;
   pinned: number;
+  archived: number;
+  format: "markdown" | "richtext";
   created_at: string;
   updated_at: string;
 }
@@ -248,9 +250,6 @@ export interface AppSettings {
   /** Desktop widgets sit under other apps by default. */
   desktopWidgetLayer: DesktopWidgetLayer;
   ai: AiSettings;
-  karma: number;
-  streak: number;
-  lastCompleteDate: string | null;
   onboardingComplete: boolean;
 }
 
@@ -427,7 +426,7 @@ export interface Achievement {
   description: string;
   achieved_at: string;
   image_path: string | null;
-  source_type: "manual" | "milestone" | "goal" | "streak";
+  source_type: "manual" | "milestone" | "goal";
   source_id: string | null;
   pinned: number;
   created_at: string;
@@ -450,16 +449,6 @@ export interface AppNotification {
   scheduled_at: string | null;
   status: "pending" | "delivered" | "read" | "dismissed";
   snoozed_until: string | null;
-  created_at: string;
-}
-
-export interface KarmaLedgerEntry {
-  id: string;
-  source_type: string;
-  source_id: string;
-  action: string;
-  points: number;
-  entry_date: string;
   created_at: string;
 }
 
@@ -490,6 +479,5 @@ export interface BackupPayload {
   inspirations?: Inspiration[];
   futureLetters?: FutureLetter[];
   anniversaries?: Anniversary[];
-  karmaLedger?: KarmaLedgerEntry[];
   settings: Record<string, string>;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
 import type { Milestone, Project } from "@/types";
+import { projectTasks as selectProjectTasks } from "@/lib/tasks";
 import {
   createMilestone,
   fetchMilestones,
@@ -139,9 +140,7 @@ export function ProjectsView() {
 
           <div className="project-grid">
             {projects.map((project) => {
-              const projectTasks = tasks.filter(
-                (task) => task.project_id === project.id && !task.deleted_at,
-              );
+              const projectTasks = selectProjectTasks(tasks, project.id);
               const done = projectTasks.filter(
                 (task) => task.status === "completed",
               ).length;

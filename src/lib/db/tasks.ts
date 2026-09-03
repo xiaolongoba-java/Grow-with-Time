@@ -18,7 +18,7 @@ import { localDateKey } from "@/lib/growth";
 import { getDb, mapTask, saveTaskPlanningMetadata, TASK_SELECT, withTransaction } from "./client";
 import { linkTag } from "./taxonomy";
 import { addGoalEntry, refreshGoalProgress, refreshProjectGoals, removeGoalEntryBySource } from "./growth";
-import { awardKarma, getSetting, refreshKarmaFromLedger, revokeKarma, setSetting } from "./settings";
+import { getSetting, setSetting } from "./settings";
 import { isRecyclableGeneratedTask, nextOccurrence, nextRepeatTaskDraft } from "@/lib/repeat";
 import { expandIdsWithChildren, selectRestoreIds } from "@/lib/taskTree";
 
@@ -260,10 +260,8 @@ async function updateTaskWithinTransaction(
   let spawned: Task | null = null;
   if (current.status === "completed" && next.status !== "completed") {
     await recycleGeneratedOccurrences(current);
-    await revokeKarma("task", id, "complete");
   } else if (current.status !== "completed" && next.status === "completed") {
     spawned = await spawnRepeatOccurrence(current);
-    await awardKarma("task", id, "complete");
   }
 
   return { task: next, spawned };
@@ -730,9 +728,6 @@ export async function purgeTrash(): Promise<number> {
       `DELETE FROM goal_entries WHERE source_type = 'task' AND source_id IN (${trash})`,
     );
     await db.execute(
-      `DELETE FROM karma_ledger WHERE source_type = 'task' AND source_id IN (${trash})`,
-    );
-    await db.execute(
       `UPDATE app_notifications SET task_id = NULL WHERE task_id IN (${trash})`,
     );
     await db.execute(
@@ -744,7 +739,6 @@ export async function purgeTrash(): Promise<number> {
        WHERE deleted_at IS NULL AND generated_from_id IN (${trash})`,
     );
     await db.execute("DELETE FROM tasks WHERE deleted_at IS NOT NULL");
-    await refreshKarmaFromLedger();
     for (const row of affectedGoals) await refreshGoalProgress(row.goal_id);
     for (const row of affectedProjects) await refreshProjectGoals(row.project_id);
     return before[0]?.count ?? 0;

@@ -139,6 +139,7 @@ interface AppStore {
   startTimer: (id: string) => Promise<void>;
   pauseTimer: (id: string) => Promise<void>;
   resetTimer: (id: string) => Promise<void>;
+  extendTimer: (id: string, additionalSec: number) => Promise<void>;
   removeTimer: (id: string) => Promise<void>;
   refreshTimers: () => Promise<void>;
   settleTimers: () => Promise<db.FiredTimer[]>;
@@ -197,9 +198,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
     desktopWidgetMode: "dashboard",
     desktopWidgetLayer: "bottom",
     ai: { baseUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
-    karma: 0,
-    streak: 0,
-    lastCompleteDate: null,
     onboardingComplete: false,
   },
   nav: "today",
@@ -704,6 +702,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   resetTimer: async (id) => {
     await db.resetTimer(id);
     await get().refreshTimers();
+  },
+
+  extendTimer: async (id, additionalSec) => {
+    await db.extendTimer(id, additionalSec);
+    await get().refreshTimers();
+    set({ toast: `已增加 ${Math.round(additionalSec / 60)} 分钟` });
   },
 
   removeTimer: async (id) => {

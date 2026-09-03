@@ -3,8 +3,9 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { notifyWidgetError, openMainWindow, runWidgetAction } from "@/lib/openMainWindow";
 import type { NavId } from "@/types";
 import { fetchTasks } from "@/lib/db/tasks";
-import { createMemo, fetchMemos } from "@/lib/db/memos";
+import { createMemo, fetchMemos, updateMemo } from "@/lib/db/memos";
 import {
+  createInspiration,
   fetchAnniversaries,
   fetchDailyReflections,
   fetchInspirations,
@@ -81,6 +82,10 @@ export function DashboardStripApp() {
   const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
   const [quote, setQuote] = useState(FALLBACK_QUOTES[0]);
   const [memoText, setMemoText] = useState("");
+  const [momentText, setMomentText] = useState("");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedAnniversary, setSelectedAnniversary] = useState<Anniversary | null>(null);
+  const [selectedTimer, setSelectedTimer] = useState<Timer | null>(null);
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -254,6 +259,18 @@ export function DashboardStripApp() {
     return set;
   }, [tasks]);
 
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const task of tasks) {
+      if (!task.due_date || task.deleted_at) continue;
+      const list = map.get(task.due_date) ?? [];
+      list.push(task);
+      map.set(task.due_date, list);
+    }
+    for (const list of map.values()) list.sort((a, b) => (a.due_time ?? "99:99").localeCompare(b.due_time ?? "99:99"));
+    return map;
+  }, [tasks]);
+
   const activeTimers = useMemo(
     () =>
       timers
@@ -278,6 +295,30 @@ export function DashboardStripApp() {
       setBusy(false);
     }
   };
+
+  const saveMoment = async () => {
+    const content = momentText.trim();
+    if (!content || busy) return;
+    setBusy(true);
+    try {
+      await createInspiration(content);
+      setMomentText("");
+      await refresh();
+      void emitDataChanged("moment");
+    } catch (cause) {
+      notifyWidgetError(cause, "保存时光便签失败，请保留输入后重试");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const archiveMemo = async (memo: Memo) => runWidgetAction(
+    updateMemo(memo.id, { archived: 1 }).then(async () => {
+      await refresh();
+      await emitDataChanged("memo");
+    }),
+    "归档备忘录失败",
+  );
 
   const toggleHabit = async (habitId: string) => runWidgetAction(
     toggleHabitCheck(habitId, today).then(async () => {
@@ -424,8 +465,8 @@ export function DashboardStripApp() {
                     }
                   }}
                 >
-                  {memo.pinned ? "📌 " : ""}
-                  {(memo.title || memo.content).slice(0, 28)}
+                  <span>{memo.pinned ? "📌 " : ""}{(memo.title || memo.content).slice(0, 28)}</span>
+                  <button type="button" className="dash-memo-archive" title="归档" aria-label={`归档 ${memo.title || "备忘录"}`} onClick={(event) => { event.stopPropagation(); void archiveMemo(memo); }}>⌄</button>
                 </li>
               ))
             )}
@@ -510,11 +551,11 @@ export function DashboardStripApp() {
                   className={`is-clickable ${daysLeft === 0 ? "is-today" : ""}`}
                   role="button"
                   tabIndex={0}
-                  onClick={() => openMain("anniversaries")}
+                  onClick={() => setSelectedAnniversary(item)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      openMain("anniversaries");
+                      setSelectedAnniversary(item);
                     }
                   }}
                 >
@@ -565,11 +606,11 @@ export function DashboardStripApp() {
                   title={anniTitles?.join("、") || "打开主窗口"}
                   role="button"
                   tabIndex={0}
-                  onClick={() => openMain("calendar")}
+                  onClick={() => setSelectedDate(key)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      openMain("calendar");
+                      setSelectedDate(key);
                     }
                   }}
                   className={[
@@ -614,11 +655,11 @@ export function DashboardStripApp() {
                   className="is-clickable"
                   role="button"
                   tabIndex={0}
-                  onClick={() => openMain("reminders")}
+                  onClick={() => setSelectedTimer(timer)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      openMain("reminders");
+                      setSelectedTimer(timer);
                     }
                   }}
                 >
@@ -633,9 +674,16 @@ export function DashboardStripApp() {
         </section>
       </div>
 
-      <footer className="dashboard-strip-quote" data-tauri-drag-region>
-        {quote}
+      <footer className="dashboard-strip-quote">
+        <form onSubmit={(event) => { event.preventDefault(); void saveMoment(); }}><span>时光便签</span><input value={momentText} onChange={(event) => setMomentText(event.target.value)} placeholder="留住刚刚闪过的一念…" /><button type="submit" disabled={busy || !momentText.trim()}>收好</button></form>
+        <p data-tauri-drag-region>{quote}</p>
       </footer>
+
+      {selectedDate ? <div className="dash-detail-backdrop" onMouseDown={() => setSelectedDate(null)}><section className="dash-detail-card dash-day-detail" role="dialog" aria-modal="true" aria-label={`${selectedDate} 代办详情`} onMouseDown={(event) => event.stopPropagation()}><header><div><span>每日代办</span><strong>{new Date(`${selectedDate}T12:00:00`).toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" })}</strong></div><button onClick={() => setSelectedDate(null)} aria-label="关闭">×</button></header><div className="dash-detail-scroll">{(tasksByDate.get(selectedDate) ?? []).length ? (tasksByDate.get(selectedDate) ?? []).map((task) => <article className="dash-day-task" key={task.id}><i className={`is-${task.status}`} /><div><strong>{task.title}</strong><span>{task.due_time ? `${task.due_time}${task.end_time ? `–${task.end_time}` : ""}` : "全天"} · {task.status === "completed" ? "已完成" : task.status === "cancelled" ? "已取消" : "待完成"}</span>{task.description ? <p>{task.description}</p> : null}</div></article>) : <div className="dash-detail-empty">这一天没有代办。</div>}</div><footer><button onClick={() => openMain("calendar")}>在日历中查看</button></footer></section></div> : null}
+
+      {selectedAnniversary ? <div className="dash-detail-backdrop" onMouseDown={() => setSelectedAnniversary(null)}><section className="dash-detail-card dash-anniversary-detail" role="dialog" aria-modal="true" aria-label="纪念日详情" onMouseDown={(event) => event.stopPropagation()}><header><div><span>重要的日子</span><strong>{selectedAnniversary.title}</strong></div><button onClick={() => setSelectedAnniversary(null)} aria-label="关闭">×</button></header><div className="dash-anniversary-date"><b>{formatAnniversaryAnchor(selectedAnniversary)}</b><small>{selectedAnniversary.recur_yearly ? "每年提醒" : "仅记录一次"}</small></div>{selectedAnniversary.note ? <p>{selectedAnniversary.note}</p> : <p className="dash-detail-empty">还没有留下备注。</p>}<footer><button onClick={() => openMain("anniversaries")}>进入纪念日详情页</button></footer></section></div> : null}
+
+      {selectedTimer ? <div className="dash-detail-backdrop" onMouseDown={() => setSelectedTimer(null)}><section className="dash-detail-card dash-timer-detail" role="dialog" aria-modal="true" aria-label="倒计时详情" onMouseDown={(event) => event.stopPropagation()}><header><div><span>{selectedTimer.kind === "interval" ? "循环提醒" : "倒计时"}</span><strong>{selectedTimer.title}</strong></div><button onClick={() => setSelectedTimer(null)} aria-label="关闭">×</button></header><div className={`dash-timer-orbit ${selectedTimer.running ? "is-running" : ""}`}><div><strong>{formatCountdown(liveRemaining(selectedTimer, nowMs))}</strong><span>{selectedTimer.running ? "正在流动" : "已暂停"}</span></div></div><p>{selectedTimer.kind === "interval" ? "按设定节奏循环提醒你。" : "到点后会通过系统通知提醒。"}</p><footer><button onClick={() => openMain("reminders")}>管理倒计时</button></footer></section></div> : null}
     </main>
   );
 }

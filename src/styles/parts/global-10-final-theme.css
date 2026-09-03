@@ -88,15 +88,6 @@
   font-size: 10px;
 }
 
-.karma-pill {
-  padding: 4px 7px;
-  border: 1px solid rgba(229, 154, 107, 0.25);
-  border-radius: 99px;
-  color: #a86440;
-  background: rgba(229, 154, 107, 0.11);
-  font-size: 10px;
-}
-
 .nav-item {
   min-height: 39px;
   border-radius: 11px;

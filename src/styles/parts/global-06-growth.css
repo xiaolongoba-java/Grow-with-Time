@@ -472,6 +472,9 @@ button.heat-cell:hover { transform: scale(1.35); outline: 2px solid var(--accent
   color: rgba(143, 179, 247, 0.75);
   cursor: pointer;
 }
+.widget-memo-actions { position: absolute; top: 7px; right: 7px; display: flex; gap: 2px; }
+.widget-memo-actions button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; color: rgba(143,179,247,.78); background: transparent; cursor: pointer; }
+.widget-memo-actions button:hover { color: #fff; background: rgba(255,255,255,.1); }
 
 .widget-empty {
   display: grid;

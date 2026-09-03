@@ -121,15 +121,6 @@ button:active:not(:disabled) {
   white-space: nowrap;
 }
 
-.karma-pill {
-  padding: 4px 7px;
-  border: 1px solid rgba(232, 170, 103, 0.25);
-  border-radius: 99px;
-  color: #9a652e;
-  background: rgba(232, 170, 103, 0.12);
-  font-size: 10px;
-}
-
 .search-box {
   padding-left: 34px;
   background:

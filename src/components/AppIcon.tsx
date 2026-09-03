@@ -16,7 +16,10 @@ export type AppIconName =
   | "sparkle"
   | "brand"
   | "tag"
-  | "bell";
+  | "bell"
+  | "edit"
+  | "pin"
+  | "archive";
 
 const paths: Record<AppIconName, ReactNode> = {
   memo: <><path d="M5 4.75A1.75 1.75 0 0 1 6.75 3h7.5A1.75 1.75 0 0 1 16 4.75v10.5A1.75 1.75 0 0 1 14.25 17h-7.5A1.75 1.75 0 0 1 5 15.25z" /><path d="M8 7h5M8 10h5M8 13h3" /></>,
@@ -40,6 +43,9 @@ const paths: Record<AppIconName, ReactNode> = {
   </>,
   tag: <><path d="M3.5 4.5v5l6.5 6.5 6-6-6.5-6.5z" /><circle cx="7.25" cy="7.25" r=".8" fill="currentColor" stroke="none" /></>,
   bell: <><path d="M10 2.75a4.5 4.5 0 0 1 4.5 4.5c0 3.2 1.25 4.5 1.25 4.5H4.25s1.25-1.3 1.25-4.5A4.5 4.5 0 0 1 10 2.75Z" /><path d="M8 16.2a2 2 0 0 0 4 0" /></>,
+  edit: <><path d="M4 14.8 4.45 12l7.9-7.9a1.55 1.55 0 0 1 2.2 0l1.35 1.35a1.55 1.55 0 0 1 0 2.2L8 15.55z" /><path d="m11.4 5.05 3.55 3.55M10.5 16H16" /></>,
+  pin: <><path d="m7 3 6 1-1 4 2 2-3 1-2 6-1-5-3-1 2-2z" /><path d="m6 14-2 2" /></>,
+  archive: <><path d="M3.5 5.5h13v10h-13zM2.5 3h15v3h-15z" /><path d="M8 9h4" /></>,
 };
 
 export function AppIcon({

@@ -1,6 +1,20 @@
-import type { BackupPayload, KarmaLedgerEntry, Task, TaskPriority, TaskStatus } from "@/types";
+import type { BackupPayload, Task, TaskPriority, TaskStatus } from "@/types";
 
 export const BACKUP_PAYLOAD_VERSIONS = [2, 3, 4, 5, 6, 7] as const;
+
+const LEGACY_KARMA_SETTING_KEYS = [
+  "karma",
+  "karma_base",
+  "karma_streak_base",
+  "karma_streak_last_date",
+  "streak",
+  "last_complete_date",
+] as const;
+
+export function backupHasLegacyKarma(payload: BackupPayload): boolean {
+  if (Object.prototype.hasOwnProperty.call(payload, "karmaLedger")) return true;
+  return LEGACY_KARMA_SETTING_KEYS.some((key) => key in payload.settings);
+}
 
 const TASK_STATUSES: TaskStatus[] = [
   "draft",
@@ -194,29 +208,7 @@ export function sanitizeBackupPayload(payload: BackupPayload): BackupPayload {
     achievements: payload.achievements?.filter(
       (item) => !item.goal_id || !hasGoals || goalIds.has(item.goal_id),
     ),
-    karmaLedger: payload.karmaLedger
-      ? dedupeKarmaLedger(
-          payload.karmaLedger.filter((item) => {
-            if (item.source_type === "task" && item.source_id && !taskIds.has(item.source_id)) {
-              return false;
-            }
-            return true;
-          }),
-        )
-      : payload.karmaLedger,
   };
-}
-
-function dedupeKarmaLedger(entries: KarmaLedgerEntry[]): KarmaLedgerEntry[] {
-  const seen = new Set<string>();
-  const kept: KarmaLedgerEntry[] = [];
-  for (const item of [...entries].reverse()) {
-    const key = `${item.source_type}\0${item.source_id}\0${item.action}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    kept.push(item);
-  }
-  return kept.reverse();
 }
 
 /** Build a human-readable restore summary, including data that would be preserved. */
@@ -249,6 +241,9 @@ export function summarizeBackupRestore(payload: BackupPayload): string {
   if (!has("timers")) keep.push("循环提醒");
   if (keep.length) {
     lines.push("", `以下数据备份中未包含，将保留当前内容：${keep.join("、")}`);
+  }
+  if (backupHasLegacyKarma(payload)) {
+    lines.push("", "说明：此备份含已下线的游戏化积分（Karma）数据，恢复时不会还原，并会清除本机残留积分记录。");
   }
   const report = inspectBackupPayload(payload);
   if (report.warnings.length) {

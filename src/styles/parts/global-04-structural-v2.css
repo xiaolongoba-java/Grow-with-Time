@@ -8,12 +8,6 @@ body {
   box-shadow: 0 7px 18px rgba(75, 104, 245, 0.22);
 }
 
-.karma-pill {
-  color: #b65f39;
-  border-color: rgba(240, 154, 114, 0.24);
-  background: rgba(240, 154, 114, 0.1);
-}
-
 .btn-primary,
 .primary-btn {
   color: #fff;

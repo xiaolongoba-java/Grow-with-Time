@@ -166,6 +166,34 @@ export async function resetTimer(id: string): Promise<Timer | null> {
   });
 }
 
+export async function extendTimer(
+  id: string,
+  additionalSec: number,
+): Promise<Timer | null> {
+  const db = await getDb();
+  const rows = await db.select<Timer[]>("SELECT * FROM timers WHERE id=$1", [id]);
+  if (!rows[0]) return null;
+  const current = mapTimer(rows[0]);
+  const added = Math.max(5, Math.floor(additionalSec));
+  const remaining = liveRemainingForUpdate(current) + added;
+  return updateTimer(id, {
+    remaining_sec: remaining,
+    ends_at: current.running
+      ? new Date(Date.now() + remaining * 1000).toISOString()
+      : null,
+  });
+}
+
+function liveRemainingForUpdate(timer: Timer): number {
+  if (timer.running && timer.ends_at) {
+    const end = Date.parse(timer.ends_at);
+    if (!Number.isNaN(end)) {
+      return Math.max(0, Math.ceil((end - Date.now()) / 1000));
+    }
+  }
+  return Math.max(0, timer.remaining_sec);
+}
+
 export type FiredTimer = {
   timer: Timer;
   /** True when an interval timer was auto-restarted for the next cycle. */
@@ -205,4 +233,3 @@ export async function settleExpiredTimers(): Promise<FiredTimer[]> {
 
   return fired;
 }
-

@@ -575,25 +575,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                     }
                   }}
                 >
-                  <button
-                    type="button"
-                    className="widget-pin"
-                    title={memo.pinned ? "取消置顶" : "置顶"}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void runWidgetAction(
-                        updateMemo(memo.id, {
-                          pinned: memo.pinned ? 0 : 1,
-                        }).then(async () => {
-                          await refresh();
-                          await emitDataChanged("memo");
-                        }),
-                        "更新备忘失败",
-                      );
-                    }}
-                  >
-                    {memo.pinned ? "●" : "○"}
-                  </button>
+                  <div className="widget-memo-actions"><button type="button" title={memo.pinned ? "取消置顶" : "置顶"} onClick={(event) => { event.stopPropagation(); void runWidgetAction(updateMemo(memo.id, { pinned: memo.pinned ? 0 : 1 }).then(async () => { await refresh(); await emitDataChanged("memo"); }), "更新备忘失败"); }}>{memo.pinned ? "●" : "○"}</button><button type="button" title="归档" aria-label={`归档 ${memo.title || "备忘录"}`} onClick={(event) => { event.stopPropagation(); void runWidgetAction(updateMemo(memo.id, { archived: 1 }).then(async () => { await refresh(); await emitDataChanged("memo"); }), "归档备忘失败"); }}>⌄</button></div>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {memo.content}
                   </ReactMarkdown>

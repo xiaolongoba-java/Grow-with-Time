@@ -1,8 +1,7 @@
 import type { AiSettings, AppSettings, ThemeMode } from "@/types";
-import { createId, nowIso, todayDateString } from "@/lib/dates";
+import { nowIso, todayDateString } from "@/lib/dates";
 import { isPrivacyModeEnabled } from "@/lib/privacy";
 import { parseRepeatRule } from "@/lib/repeat";
-import { mergeLegacyStreakDates, recomputeStreak } from "@/lib/karma";
 import { getDb } from "./client";
 
 /* Settings */
@@ -66,9 +65,6 @@ export async function loadAppSettings(): Promise<AppSettings> {
       apiKey: s.ai_api_key || "",
       model: s.ai_model || "gpt-4o-mini",
     },
-    karma: Number(s.karma ?? 0),
-    streak: Number(s.streak ?? 0),
-    lastCompleteDate: s.last_complete_date || null,
     onboardingComplete: s.onboarding_complete === "true",
   };
 }
@@ -115,77 +111,6 @@ export async function rolloverOverdueTasks(): Promise<number> {
 
   await setSetting("last_rollover_date", today);
   return ids.length;
-}
-
-export async function awardKarma(
-  sourceType: string,
-  sourceId: string,
-  action = "complete",
-  points = 10,
-): Promise<void> {
-  const db = await getDb();
-  await ensureKarmaBase();
-  const result = await db.execute(
-    `INSERT OR IGNORE INTO karma_ledger
-      (id, source_type, source_id, action, points, entry_date, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-    [createId(), sourceType, sourceId, action, points, todayDateString(), nowIso()],
-  );
-  if (result.rowsAffected) await refreshKarmaFromLedger();
-}
-
-export async function revokeKarma(
-  sourceType: string,
-  sourceId: string,
-  action = "complete",
-): Promise<void> {
-  const db = await getDb();
-  await ensureKarmaBase();
-  const result = await db.execute(
-    "DELETE FROM karma_ledger WHERE source_type=$1 AND source_id=$2 AND action=$3",
-    [sourceType, sourceId, action],
-  );
-  if (result.rowsAffected) await refreshKarmaFromLedger();
-}
-
-async function ensureKarmaBase(): Promise<void> {
-  const base = await getSetting("karma_base");
-  if (base == null || base === "") {
-    await setSetting("karma_base", (await getSetting("karma")) ?? "0");
-  }
-  const streakBase = await getSetting("karma_streak_base");
-  if (streakBase == null || streakBase === "") {
-    await setSetting("karma_streak_base", (await getSetting("streak")) ?? "0");
-  }
-  const streakLastDate = await getSetting("karma_streak_last_date");
-  if (streakLastDate == null) {
-    await setSetting("karma_streak_last_date", (await getSetting("last_complete_date")) ?? "");
-  }
-}
-
-export async function refreshKarmaFromLedger(): Promise<void> {
-  const db = await getDb();
-  const base = Number((await getSetting("karma_base")) ?? 0) || 0;
-  const sumRows = await db.select<{ total: number }[]>(
-    "SELECT COALESCE(SUM(points), 0) as total FROM karma_ledger",
-  );
-  const dates = await db.select<{ entry_date: string }[]>(
-    "SELECT DISTINCT entry_date FROM karma_ledger",
-  );
-  const legacyStreak = Math.max(0, Number((await getSetting("karma_streak_base")) ?? 0) || 0);
-  const legacyLastDate = await getSetting("karma_streak_last_date");
-  const allDates = mergeLegacyStreakDates(
-    dates.map((row) => row.entry_date),
-    legacyStreak,
-    legacyLastDate,
-  );
-  const { streak, lastCompleteDate } = recomputeStreak(
-    allDates,
-    todayDateString(),
-  );
-  await setSetting("karma", String(base + Number(sumRows[0]?.total ?? 0)));
-  await setSetting("streak", String(streak));
-  await setSetting("last_complete_date", lastCompleteDate ?? "");
 }
 
 const ACTIVE_FOCUS_KEY = "active_focus";

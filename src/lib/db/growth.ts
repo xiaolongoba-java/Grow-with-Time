@@ -129,7 +129,11 @@ export async function refreshGoalProgress(goalId: string): Promise<void> {
     const counts = await db.select<{ total: number; done: number }[]>(
       `SELECT COUNT(*) AS total,
        SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS done
-       FROM tasks WHERE project_id=$1 AND deleted_at IS NULL AND parent_id IS NULL`,
+       FROM tasks
+       WHERE project_id=$1
+         AND deleted_at IS NULL
+         AND parent_id IS NULL
+         AND repeat_rule IS NULL`,
       [goal.project_id],
     );
     current = counts[0]?.total

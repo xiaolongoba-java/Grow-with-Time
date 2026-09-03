@@ -54,16 +54,6 @@
   box-shadow: none;
 }
 
-.karma-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 4px 7px;
-  color: var(--warning);
-  border: 1px solid color-mix(in srgb, var(--warning) 22%, transparent);
-  background: color-mix(in srgb, var(--warning) 7%, var(--bg-panel));
-}
-
 .main-workspace {
   background: var(--bg-root);
 }

@@ -5,6 +5,17 @@ export function isActiveTask(task: Task): boolean {
   return task.status !== "completed" && task.status !== "cancelled";
 }
 
+/** Project progress is made of finite deliverables, not recurring routines. */
+export function projectTasks(tasks: Task[], projectId: string): Task[] {
+  return tasks.filter(
+    (task) =>
+      task.project_id === projectId &&
+      !task.deleted_at &&
+      !task.parent_id &&
+      !task.repeat_rule,
+  );
+}
+
 export function filterTasksByView(
   tasks: Task[],
   view: string,
