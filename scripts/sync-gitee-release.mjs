@@ -91,9 +91,16 @@ async function getGithubReleaseAssets(tag) {
 }
 
 async function downloadToTemp(url, name) {
-  const response = await fetch(url, {
-    headers: { "User-Agent": "grow-with-time-release-sync" },
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: { "User-Agent": "grow-with-time-release-sync" },
+    });
+  } catch (cause) {
+    throw new Error(
+      `下载 ${name} 失败：${cause instanceof Error ? cause.message : String(cause)}。可改用 gh release download 后 --file 上传。`,
+    );
+  }
   if (!response.ok) {
     throw new Error(`下载 ${name} 失败 (${response.status})`);
   }
@@ -103,13 +110,11 @@ async function downloadToTemp(url, name) {
 
 async function ensureGiteeRelease({ token, owner, repo, tag }) {
   const version = tag.replace(/^v/, "");
-  try {
-    return await giteeApi(`/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(tag)}`, {
-      token,
-    });
-  } catch (error) {
-    if (!String(error.message).includes("(404)")) throw error;
-  }
+  const existing = await giteeApi(
+    `/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(tag)}`,
+    { token },
+  );
+  if (existing?.id) return existing;
 
   return giteeApi(`/repos/${owner}/${repo}/releases`, {
     token,
