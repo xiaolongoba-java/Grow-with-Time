@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "aux-capture",
   "description": "Quick-add, float, and inspiration — local SQL + window chrome, no filesystem/HTTP/shortcuts.",
-  "windows": ["quick-add", "float", "inspiration"],
+  "windows": ["quick-add", "float", "inspiration", "notification-popup"],
   "permissions": [
     "core:default",
     "core:window:allow-show",
@@ -30,6 +30,7 @@
     "sql:allow-execute",
     "sql:allow-select",
     "sql:allow-close",
-    "notification:default"
+    "notification:default",
+    "allow-aux-window"
   ]
 }

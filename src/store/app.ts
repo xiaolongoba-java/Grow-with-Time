@@ -446,6 +446,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }));
     try {
       const { task } = await db.toggleTaskComplete(id);
+      if (task?.status === "completed" && task.id) {
+        void db.setTaskNotificationsStatus(task.id, "dismissed")
+          .then(() => window.dispatchEvent(new Event("notifications:changed")))
+          .catch(() => undefined);
+      }
       set({
         toast: task?.status === "completed" ? "任务已完成" : "已恢复为待办",
         canUndo: true,
@@ -492,6 +497,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!toComplete.length) return;
     try {
       await db.batchSetTaskStatus(toComplete, "completed");
+      void Promise.all(
+        toComplete.map((taskId) => db.setTaskNotificationsStatus(taskId, "dismissed")),
+      )
+        .then(() => window.dispatchEvent(new Event("notifications:changed")))
+        .catch(() => undefined);
       await get().refreshAll();
       set({
         toast: `已完成 ${toComplete.length} 项任务`,

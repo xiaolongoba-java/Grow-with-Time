@@ -29,6 +29,25 @@
   font-size: 13px;
 }
 
+.timer-status-rail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 90px 90px;
+  align-items: center;
+  gap: 14px;
+  min-height: 68px;
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(100deg, var(--bg-panel), color-mix(in srgb, var(--accent-soft) 42%, var(--bg-panel)));
+}
+.timer-status-pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); box-shadow: 0 0 0 6px color-mix(in srgb, var(--text-muted) 9%, transparent); }
+.timer-status-rail.has-active .timer-status-pulse { background: var(--accent); box-shadow: 0 0 0 6px var(--accent-soft); }
+.timer-status-rail > div { display: grid; gap: 3px; }
+.timer-status-rail > div:not(.timer-status-primary) { padding-left: 16px; border-left: 1px solid var(--border); text-align: center; }
+.timer-status-rail span { color: var(--text-muted); font-size: 10px; }
+.timer-status-rail strong { color: var(--text-primary); font-size: 13px; }
+.timer-status-rail > div:not(.timer-status-primary) strong { font: 700 20px/1 var(--font-display); }
+
 .timer-tabs,
 .countdown-mode-switch {
   display: inline-flex;
@@ -485,6 +504,7 @@
   flex-wrap: wrap;
   margin-top: 10px;
 }
+.timer-card:hover { border-color: var(--border-strong); box-shadow: 0 8px 24px color-mix(in srgb, var(--text-primary) 5%, transparent); }
 
 .timer-more { position: relative; }
 .timer-more summary {
@@ -549,6 +569,30 @@
   gap: 8px;
   padding-top: 10px;
 }
+
+html:has(.float-shell),
+body:has(.float-shell),
+body:has(.float-shell) #root { background: transparent !important; }
+.float-shell {
+  --widget-rgb: 53, 91, 138;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 22px;
+  color: #f4f7fb;
+  background: linear-gradient(120deg, rgba(var(--widget-rgb),.92), rgba(18,24,34,.88));
+  box-shadow: 0 20px 58px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.14);
+  backdrop-filter: blur(24px) saturate(135%);
+}
+.float-shell .float-titlebar { border-bottom-color: rgba(255,255,255,.09); background: rgba(255,255,255,.04); }
+.float-shell .float-tabs { padding: 3px; border: 1px solid rgba(255,255,255,.09); background: rgba(0,0,0,.14); }
+.float-shell .float-tabs button { color: rgba(232,240,252,.64); }
+.float-shell .float-tabs button.active { color: #fff; background: rgba(255,255,255,.14); }
+.float-shell .float-timer-kicker { color: #9fd0ff; }
+.float-shell .float-timer-ring { background: conic-gradient(#9fd0ff calc(var(--p) * 1turn), rgba(255,255,255,.1) 0); box-shadow: inset 0 0 0 12px rgba(22,31,45,.96), 0 0 36px rgba(96,166,240,.18); }
+.float-shell .float-timer-clock,
+.float-shell .float-timer-title,
+.float-shell .float-timer-item strong { color: #f7f9fc; }
+.float-shell .float-timer-item { color: rgba(232,240,252,.66); border-color: rgba(255,255,255,.08); }
+.float-shell .btn-ghost { border-color: rgba(255,255,255,.12); color: rgba(244,247,251,.8); background: rgba(255,255,255,.06); }
 
 .float-timer-kicker {
   margin: 0;
@@ -650,3 +694,32 @@
     flex: 1;
   }
 }
+
+/* Dedicated countdown window */
+.float-timer-shell { height: calc(100% - 12px); width: calc(100% - 12px); margin: 6px; border: 1px solid rgba(255,255,255,.18); border-radius: 26px; overflow: hidden; background: linear-gradient(145deg, rgba(45,67,96,.96), rgba(23,31,45,.97)); box-shadow: 0 18px 52px rgba(5,12,24,.42), inset 0 1px rgba(255,255,255,.16); }
+.float-timer-shell .float-titlebar { min-height: 54px; box-sizing: border-box; padding: 10px 13px 10px 18px; border: 0; background: transparent; }
+.float-timer-shell .float-titlebar > div { display: flex; align-items: center; gap: 9px; }
+.float-timer-shell .float-titlebar i { width: 7px; height: 7px; border-radius: 50%; background: rgba(227,237,250,.38); }
+.float-timer-shell .float-titlebar i.is-running { background: #8fc9ff; box-shadow: 0 0 0 5px rgba(143,201,255,.1); }
+.float-timer-shell .float-titlebar strong { color: rgba(246,249,253,.92); font-size: 13px; letter-spacing: .04em; }
+.float-close { position: relative; z-index: 2; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; color: rgba(235,243,252,.62); background: rgba(255,255,255,.07); font-size: 21px; line-height: 1; -webkit-app-region: no-drag; }
+.float-close:hover { color: #fff; background: rgba(255,255,255,.14); }
+.float-timer-shell .float-timer-body { justify-content: flex-start; gap: 11px; padding: 7px 22px 24px; overflow: auto; }
+.float-timer-shell .float-timer-kicker { color: #93c9fa; font-size: 10px; font-weight: 750; letter-spacing: .12em; }
+.float-timer-shell .float-timer-ring { width: 154px; height: 154px; margin: 0; background: conic-gradient(#93c9fa calc(var(--p) * 1turn), rgba(255,255,255,.09) 0); box-shadow: inset 0 0 0 11px rgba(20,29,43,.96), 0 12px 38px rgba(4,11,22,.28); }
+.float-timer-shell .float-timer-clock { color: #f8fbff; font-size: 38px; font-weight: 620; letter-spacing: -.02em; }
+.float-timer-caption { display: grid; gap: 3px; }
+.float-timer-caption strong { color: #f6f9fd; font-size: 15px; }
+.float-timer-caption span { color: rgba(221,232,246,.48); font-size: 10px; }
+.float-timer-shell .float-timer-actions { margin-top: 3px; }
+.float-timer-shell .float-timer-actions button, .float-timer-empty button { min-width: 70px; min-height: 34px; padding: 0 13px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; color: rgba(244,248,253,.78); background: rgba(255,255,255,.07); }
+.float-timer-shell .float-timer-actions button.is-primary { border-color: transparent; color: #152235; background: #9dd1ff; font-weight: 750; }
+.float-timer-shell .float-timer-actions button.is-danger { color: #ffc0c0; }
+.float-timer-queue { width: 100%; display: grid; gap: 7px; margin-top: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); text-align: left; }
+.float-timer-queue > span { color: rgba(221,232,246,.42); font-size: 9px; }
+.float-timer-queue > div { display: flex; justify-content: space-between; gap: 10px; color: rgba(235,242,251,.7); font-size: 11px; }
+.float-timer-queue strong { color: #fff; font-variant-numeric: tabular-nums; }
+.float-timer-empty { flex: 1; display: grid; place-items: center; align-content: center; gap: 8px; color: rgba(228,237,248,.48); text-align: center; }
+.float-timer-empty strong { color: rgba(247,250,254,.9); }
+.float-timer-empty > span:not(.float-timer-empty-mark) { max-width: 220px; font-size: 11px; line-height: 1.6; }
+.float-timer-empty-mark { color: rgba(147,201,250,.35); font: 600 38px/1 var(--font-display); }

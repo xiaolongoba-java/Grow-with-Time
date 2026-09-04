@@ -18,6 +18,7 @@ import { FocusRecoveryDialog } from "@/components/FocusRecoveryDialog";
 import { MorningPlanDialog } from "@/components/MorningPlanDialog";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { GlassTitlebar } from "@/components/GlassTitlebar";
+import { VersionUpdateNotice } from "@/components/VersionUpdateNotice";
 import {
   createNotificationRecord,
   ensureReminderRecord,
@@ -498,8 +499,16 @@ export function MainApp() {
               ),
             );
           }
+          await createNotificationRecord({
+            title: "定时提醒",
+            body,
+            scheduledAt: new Date().toISOString(),
+            status: "delivered",
+            kind: "system",
+          });
           setToast(body);
         }
+        window.dispatchEvent(new Event("notifications:changed"));
         try {
           await invoke("start_timer_ui");
         } catch {
@@ -640,6 +649,7 @@ export function MainApp() {
       <MorningPlanDialog />
       <OnboardingGuide />
       <DesktopNotificationCards />
+      <VersionUpdateNotice />
       {toast ? (
         <div className="toast" role="status" aria-live="polite">
           <span>{toast}</span>

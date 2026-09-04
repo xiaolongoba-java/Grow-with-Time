@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { invoke } from "@tauri-apps/api/core";
 import { AppIcon } from "@/components/AppIcon";
 import { useAppStore } from "@/store/app";
 import { createMemo, deleteMemo, fetchMemos, updateMemo } from "@/lib/db";
@@ -142,7 +141,7 @@ export function MemosView() {
 
   return <main className="memo-module">
     <aside className="memo-list-pane">
-      <div className="memo-list-head"><h2>备忘录</h2><div className="memo-new-wrap"><button type="button" className="memo-new-button" aria-expanded={showTypeChooser} onClick={() => setShowTypeChooser((value) => !value)}>＋ 新建</button>{showTypeChooser ? <div className="memo-create-menu"><button type="button" onClick={() => void createNew("richtext")}><strong>富文本</strong><span>适合日常记录和排版</span></button><button type="button" onClick={() => void createNew("markdown")}><strong>Markdown</strong><span>适合技术笔记和纯文本</span></button></div> : null}</div></div>
+      <div className="memo-list-head"><div><span className="memo-library-kicker">PERSONAL ARCHIVE</span><h2>备忘录</h2></div><div className="memo-new-wrap"><button type="button" className="memo-new-button" aria-expanded={showTypeChooser} onClick={() => setShowTypeChooser((value) => !value)}>＋ 新建</button>{showTypeChooser ? <div className="memo-create-menu"><button type="button" onClick={() => void createNew("richtext")}><strong>富文本</strong><span>适合日常记录和排版</span></button><button type="button" onClick={() => void createNew("markdown")}><strong>Markdown</strong><span>适合技术笔记和纯文本</span></button></div> : null}</div></div>
       <div className="memo-search"><AppIcon name="search" size={16} /><input placeholder="搜索备忘录" value={keyword} onChange={(event) => setKeyword(event.target.value)} /></div>
       <div className="memo-list-tabs" aria-label="备忘录分类"><button type="button" className={listMode === "active" ? "active" : ""} onClick={() => switchList("active")}>全部 <span>{activeCount}</span></button><button type="button" className={listMode === "archived" ? "active" : ""} onClick={() => switchList("archived")}>已归档 <span>{archivedCount}</span></button></div>
       <div className="memo-list">{visibleMemos.map((memo) => <button key={memo.id} type="button" className={`memo-list-item ${selectedId === memo.id ? "active" : ""}`} onClick={() => void selectMemo(memo)}><div className="memo-list-title"><span className="memo-list-title-copy">{memo.pinned ? <AppIcon name="pin" size={13} /> : null}{memo.title || "无标题备忘"}</span><span className={`memo-format-badge is-${memo.format}`}>{memo.format === "richtext" ? "RT" : "MD"}</span></div><div className="memo-list-preview">{memoPreview(memo)}</div><div className="memo-list-meta"><span>{formatMemoTime(memo.updated_at)}</span>{memo.archived ? <span>已归档</span> : null}</div></button>)}{!visibleMemos.length ? <div className="memo-empty-list">{keyword ? "没有找到相关备忘录" : listMode === "archived" ? "还没有归档内容" : "新建一条备忘录，记录需要长期保存的内容"}</div> : null}</div>
@@ -154,7 +153,6 @@ export function MemosView() {
           {!editing ? <button type="button" title="编辑" aria-label="编辑备忘录" onClick={startEditing}><AppIcon name="edit" size={18} /></button> : null}
           <button type="button" title={selected.pinned ? "取消置顶" : "置顶"} aria-label={selected.pinned ? "取消置顶" : "置顶"} onClick={() => void updateMemo(selected.id, { pinned: selected.pinned ? 0 : 1 }).then(() => refresh(selected.id))}><AppIcon name="pin" size={18} /></button>
           <button type="button" title={selected.archived ? "恢复" : "归档"} aria-label={selected.archived ? "恢复备忘录" : "归档备忘录"} onClick={() => void archiveSelected()}><AppIcon name="archive" size={18} /></button>
-          <button type="button" title="打开浮窗" aria-label="在浮窗中打开" onClick={() => void invoke("show_float")}><AppIcon name="panel" size={18} /></button>
           <button type="button" className="danger" title="删除" aria-label="删除备忘录" onClick={() => void removeSelected()}><AppIcon name="trash" size={18} /></button>
         </div></header>
 

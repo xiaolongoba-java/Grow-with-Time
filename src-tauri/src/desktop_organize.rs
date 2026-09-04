@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
+use std::process::Command;
 use tauri::{AppHandle, Manager};
 
 const ROOT_FOLDER: &str = "日进收纳";
@@ -320,6 +321,33 @@ pub fn list_desktop_shortcuts(app: AppHandle) -> Result<Vec<DesktopItem>, String
     items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     items.dedup_by(|a, b| a.path.eq_ignore_ascii_case(&b.path));
     Ok(items)
+}
+
+#[tauri::command]
+pub fn desktop_shortcut_icon(path: String) -> Result<Option<String>, String> {
+    let shortcut = PathBuf::from(&path);
+    if !shortcut.exists() {
+        return Ok(None);
+    }
+    let extension = shortcut.extension().and_then(|value| value.to_str()).unwrap_or("").to_lowercase();
+    if extension != "lnk" && extension != "url" && extension != "desktop" {
+        return Ok(None);
+    }
+    #[cfg(windows)]
+    {
+        let script = r#"param([string]$shortcut); $ErrorActionPreference='Stop'; $target=$shortcut; if ([IO.Path]::GetExtension($shortcut) -ieq '.lnk') { $shell=New-Object -ComObject WScript.Shell; $resolved=$shell.CreateShortcut($shortcut).TargetPath; if ($resolved) { $target=$resolved } }; Add-Type -AssemblyName System.Drawing; $icon=[System.Drawing.Icon]::ExtractAssociatedIcon($target); if ($null -eq $icon) { exit 2 }; $stream=New-Object IO.MemoryStream; $bitmap=$icon.ToBitmap(); $bitmap.Save($stream,[System.Drawing.Imaging.ImageFormat]::Png); [Convert]::ToBase64String($stream.ToArray()); $bitmap.Dispose(); $icon.Dispose(); $stream.Dispose()"#;
+        let output = Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-Command", script, "-shortcut"])
+            .arg(&shortcut)
+            .output()
+            .map_err(|error| error.to_string())?;
+        if !output.status.success() { return Ok(None); }
+        let encoded = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if encoded.is_empty() { return Ok(None); }
+        return Ok(Some(format!("data:image/png;base64,{encoded}")));
+    }
+    #[cfg(not(windows))]
+    Ok(None)
 }
 
 #[tauri::command]

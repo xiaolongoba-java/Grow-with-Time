@@ -2307,6 +2307,30 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Minimal custom commands for quick-add, float, inspiration, and notification popup windows.",
+          "type": "string",
+          "const": "allow-aux-window",
+          "markdownDescription": "Minimal custom commands for quick-add, float, inspiration, and notification popup windows."
+        },
+        {
+          "description": "Shortcut dock reads desktop shortcuts, icons, and opens items.",
+          "type": "string",
+          "const": "allow-desktop-shortcuts",
+          "markdownDescription": "Shortcut dock reads desktop shortcuts, icons, and opens items."
+        },
+        {
+          "description": "Show, hide, and toggle desktop widget windows from the main app.",
+          "type": "string",
+          "const": "allow-desktop-widgets",
+          "markdownDescription": "Show, hide, and toggle desktop widget windows from the main app."
+        },
+        {
+          "description": "Custom commands for the main window (settings, backup, organize, wallpaper, notifications).",
+          "type": "string",
+          "const": "allow-main-app",
+          "markdownDescription": "Custom commands for the main window (settings, backup, organize, wallpaper, notifications)."
+        },
+        {
           "description": "This permission set configures if your\napplication can enable or disable auto\nstarting the application on boot.\n\n#### Granted Permissions\n\nIt allows all to check, enable and\ndisable the automatic start on boot.\n\n\n#### This default permission set includes:\n\n- `allow-enable`\n- `allow-disable`\n- `allow-is-enabled`",
           "type": "string",
           "const": "autostart:default",

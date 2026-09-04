@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "allow-desktop-shortcuts"
+description = "Shortcut dock reads desktop shortcuts, icons, and opens items."
+commands.allow = [
+  "list_desktop_shortcuts",
+  "desktop_shortcut_icon",
+  "open_desktop_item",
+  "toggle_shortcut_dock",
+  "show_shortcut_dock",
+]

@@ -1,0 +1,8 @@
+[[permission]]
+identifier = "allow-desktop-widgets"
+description = "Show, hide, and toggle desktop widget windows from the main app."
+commands.allow = [
+  "show_desktop_widgets",
+  "show_dashboard_strip",
+  "toggle_desktop_widgets",
+]

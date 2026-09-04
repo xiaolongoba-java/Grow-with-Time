@@ -3,8 +3,8 @@ mod desktop_organize;
 mod wallpaper;
 
 use desktop_organize::{
-    apply_desktop_organize, list_desktop_shortcuts, open_desktop_item,
-    preview_desktop_organize, scan_desktop, undo_desktop_organize,
+    apply_desktop_organize, desktop_shortcut_icon, list_desktop_shortcuts,
+    open_desktop_item, preview_desktop_organize, scan_desktop, undo_desktop_organize,
 };
 use wallpaper::{
     apply_wallpaper, get_wallpaper_library, import_wallpapers, remove_wallpaper,
@@ -12,6 +12,8 @@ use wallpaper::{
 };
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position, WindowEvent};
 use tauri::webview::Color;
+#[cfg(target_os = "macos")]
+use tauri::window::{Effect, EffectState, EffectsBuilder};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
 use tauri_plugin_notification::NotificationExt;
@@ -791,6 +793,22 @@ fn hide_float(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn show_notification_popup(app: AppHandle, notification: serde_json::Value) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("notification-popup") {
+        if let Some(monitor) = window.current_monitor().map_err(|error| error.to_string())? {
+            let origin = monitor.position();
+            let size = monitor.size();
+            let x = origin.x + size.width as i32 - 414;
+            let y = origin.y + 42;
+            window.set_position(Position::Physical(PhysicalPosition::new(x, y))).map_err(|error| error.to_string())?;
+        }
+        window.emit("notification:popup", notification).map_err(|error| error.to_string())?;
+        window.show().map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 fn hide_labeled_windows(app: &AppHandle, labels: &[&str]) -> Result<(), String> {
     for label in labels {
         if let Some(window) = app.get_webview_window(label) {
@@ -879,6 +897,53 @@ fn stabilize_widget_layer(window: &tauri::WebviewWindow, stay_top: bool) -> Resu
     Ok(())
 }
 
+#[cfg(windows)]
+fn detach_window_owner(window: &tauri::WebviewWindow) {
+    use windows::Win32::UI::WindowsAndMessaging::{GWLP_HWNDPARENT, SetWindowLongPtrW};
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    unsafe {
+        SetWindowLongPtrW(hwnd, GWLP_HWNDPARENT, 0);
+    }
+}
+
+#[cfg(windows)]
+fn apply_frameless_tool_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
+        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CAPTION,
+        WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_SYSMENU,
+        WS_THICKFRAME,
+    };
+
+    window.set_decorations(false).map_err(|e| e.to_string())?;
+    window.set_shadow(false).map_err(|e| e.to_string())?;
+    window.set_skip_taskbar(true).map_err(|e| e.to_string())?;
+
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?;
+    unsafe {
+        let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32
+            & !(WS_CAPTION.0 | WS_THICKFRAME.0 | WS_MINIMIZEBOX.0 | WS_MAXIMIZEBOX.0 | WS_SYSMENU.0);
+        SetWindowLongPtrW(hwnd, GWL_STYLE, style as isize);
+
+        let ex = (GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 | WS_EX_TOOLWINDOW.0) & !WS_EX_APPWINDOW.0;
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex as isize);
+
+        SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        )
+        .map_err(|error| format!("窗口无边框刷新失败: {error}"))?;
+    }
+    Ok(())
+}
+
 fn pin_desktop_widget(
     _app: &AppHandle,
     window: &tauri::WebviewWindow,
@@ -894,6 +959,11 @@ fn pin_desktop_widget(
     window.unminimize().map_err(|e| e.to_string())?;
     prepare_widget_hit_testing(window)?;
     window.show().map_err(|e| e.to_string())?;
+    #[cfg(windows)]
+    {
+        detach_window_owner(window);
+        apply_frameless_tool_window(window)?;
+    }
 
     if stay_top {
         window.set_always_on_bottom(false).map_err(|e| e.to_string())?;
@@ -1041,7 +1111,7 @@ fn position_shortcut_dock(window: &tauri::WebviewWindow) -> Result<(), String> {
     let monitor_size = monitor.size();
     let window_size = window.outer_size().map_err(|error| error.to_string())?;
     let scale = monitor.scale_factor();
-    let bottom_margin = (72.0 * scale).round() as i32;
+    let bottom_margin = (24.0 * scale).round() as i32;
     let x = monitor_position.x
         + ((monitor_size.width as i32 - window_size.width as i32) / 2).max(0);
     let y = monitor_position.y
@@ -1051,17 +1121,109 @@ fn position_shortcut_dock(window: &tauri::WebviewWindow) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+fn apply_shortcut_dock_glass(window: &tauri::WebviewWindow) -> Result<(), String> {
+    window
+        .set_background_color(Some(Color(0, 0, 0, 0)))
+        .map_err(|e| e.to_string())?;
+    window.set_shadow(false).map_err(|e| e.to_string())?;
+
+    #[cfg(windows)]
+    {
+        window.set_effects(None).map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let effects = EffectsBuilder::new()
+            .state(EffectState::Active)
+            .effect(Effect::HudWindow)
+            .radius(28.0);
+        window
+            .set_effects(effects.build())
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(windows)]
+    {
+        apply_frameless_tool_window(window)?;
+        clip_shortcut_dock_rounded(window)?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
-fn show_shortcut_dock(app: AppHandle) -> Result<(), String> {
+fn open_shortcut_from_dock(app: AppHandle, path: String) -> Result<(), String> {
+    open_desktop_item(path)?;
+    if let Some(window) = app.get_webview_window("widget-shortcuts") {
+        #[cfg(windows)]
+        {
+            apply_frameless_tool_window(&window)?;
+            clip_shortcut_dock_rounded(&window)?;
+        }
+    }
+    Ok(())
+}
+
+const SHORTCUT_DOCK_RADIUS_PX: f64 = 28.0;
+
+#[cfg(windows)]
+fn clip_shortcut_dock_rounded(window: &tauri::WebviewWindow) -> Result<(), String> {
+    use windows::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+    };
+    use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
+
+    let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+    let size = window.outer_size().map_err(|error| error.to_string())?;
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let width = size.width as i32;
+    let height = size.height as i32;
+    let diameter = ((SHORTCUT_DOCK_RADIUS_PX * scale).round() as i32).max(2) * 2;
+    let preference = DWMWCP_DONOTROUND;
+    let _ = unsafe {
+        DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            &preference as *const _ as *const std::ffi::c_void,
+            std::mem::size_of_val(&preference) as u32,
+        )
+    };
+    unsafe {
+        let region = CreateRoundRectRgn(0, 0, width + 1, height + 1, diameter, diameter);
+        SetWindowRgn(hwnd, Some(region), true);
+    }
+    Ok(())
+}
+
+fn resolve_widget_layer(layer: Option<String>) -> Result<String, String> {
+    match layer.as_deref() {
+        None | Some("") => Ok("bottom".into()),
+        Some("top") | Some("bottom") => Ok(layer.unwrap()),
+        _ => Err("无效的桌面组件层级".into()),
+    }
+}
+
+fn present_shortcut_dock(
+    app: &AppHandle,
+    window: &tauri::WebviewWindow,
+    layer: &str,
+) -> Result<(), String> {
+    pin_desktop_widget(app, window, layer)?;
+    apply_shortcut_dock_glass(window)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn show_shortcut_dock(app: AppHandle, layer: Option<String>) -> Result<(), String> {
+    let layer = resolve_widget_layer(layer)?;
     let Some(window) = app.get_webview_window("widget-shortcuts") else {
         return Err("快捷方式停靠栏还没创建，请重启应用后再试".into());
     };
     position_shortcut_dock(&window)?;
-    pin_desktop_widget(&app, &window, "bottom")
+    present_shortcut_dock(&app, &window, &layer)
 }
 
 #[tauri::command]
-fn toggle_shortcut_dock(app: AppHandle) -> Result<bool, String> {
+fn toggle_shortcut_dock(app: AppHandle, layer: Option<String>) -> Result<bool, String> {
     let Some(window) = app.get_webview_window("widget-shortcuts") else {
         return Err("快捷方式停靠栏还没创建，请重启应用后再试".into());
     };
@@ -1069,7 +1231,7 @@ fn toggle_shortcut_dock(app: AppHandle) -> Result<bool, String> {
         window.hide().map_err(|error| error.to_string())?;
         return Ok(false);
     }
-    show_shortcut_dock(app)?;
+    show_shortcut_dock(app, layer)?;
     Ok(true)
 }
 
@@ -1264,7 +1426,7 @@ fn sync_native_notifications(
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let quit = MenuItem::with_id(app, "quit", "退出应用", true, None::<&str>)?;
     let show = MenuItem::with_id(app, "show", "打开主窗口", true, None::<&str>)?;
-    let float = MenuItem::with_id(app, "float", "桌面浮窗", true, None::<&str>)?;
+    let float = MenuItem::with_id(app, "float", "倒计时浮窗", true, None::<&str>)?;
     let dashboard = MenuItem::with_id(app, "dashboard", "桌面仪表盘", true, None::<&str>)?;
     let widgets = MenuItem::with_id(app, "widgets", "经典桌面组件", true, None::<&str>)?;
     let today = MenuItem::with_id(app, "today", "今日待办", true, None::<&str>)?;
@@ -1360,6 +1522,7 @@ pub fn run() {
             show_float,
             start_timer_ui,
             hide_float,
+            show_notification_popup,
             show_desktop_widgets,
             show_dashboard_strip,
             toggle_desktop_widgets,
@@ -1377,9 +1540,11 @@ pub fn run() {
             restart_app,
             scan_desktop,
             list_desktop_shortcuts,
+            desktop_shortcut_icon,
             preview_desktop_organize,
             apply_desktop_organize,
             undo_desktop_organize,
+            open_shortcut_from_dock,
             open_desktop_item,
             get_wallpaper_library,
             import_wallpapers,
@@ -1408,6 +1573,7 @@ pub fn run() {
                 });
             }
             if let Some(float) = app.get_webview_window("float") {
+                make_webview_transparent(&float);
                 let app_handle = app.handle().clone();
                 float.on_window_event(move |event| {
                     if let WindowEvent::CloseRequested { api, .. } = event {
@@ -1421,6 +1587,7 @@ pub fn run() {
             for label in [
                 "quick-add",
                 "inspiration",
+                "notification-popup",
                 "widget-dashboard",
                 "widget-shortcuts",
                 "widget-calendar",

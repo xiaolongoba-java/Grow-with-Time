@@ -119,6 +119,25 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.6.2 紧急修复：桌面组件与停靠栏
+
+本版本为 **v1.6.1 的紧急修复**，可直接覆盖安装。
+
+- 修复桌面组件开关报错 `toggle_desktop_widgets not allowed`
+- 快捷方式停靠栏改为液态毛玻璃，主窗口最小化后仍留在桌面；去掉系统标题栏，支持拖动与圆角裁切
+- 完成任务与错过提醒解耦：勾完成不再被通知清理拖住或回滚
+
+**升级建议**：从 v1.6.0 / v1.6.1 直接覆盖安装即可。
+
+### v1.6.2
+
+| 平台 | 文件 | GitHub | Gitee（国内推荐） |
+|------|------|--------|-------------------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.2/Grow.with.Time_1.6.2_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.2/Grow.with.Time_1.6.2_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.2/Grow.with.Time_1.6.2_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.2/Grow.with.Time_1.6.2_x64-setup.exe) |
+
+> GitHub 访问困难时，请优先使用 **Gitee** 列链接；若暂不可用，打开 [Gitee 发行版 v1.6.2](https://gitee.com/xiaolong-oba/grow-with-time/releases/tag/v1.6.2) 下载附件。GitHub 备用：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.2)。
+
 #### v1.6.1 今日合并与体验打磨
 
 本版本以**今日视图整合与交互完善**为主，可直接覆盖安装 v1.6.0。

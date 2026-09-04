@@ -28,6 +28,8 @@
     "core:window:allow-set-effects",
     "core:window:allow-set-background-color",
     "core:window:allow-unminimize",
+    "core:window:allow-set-focusable",
+    "core:window:allow-set-ignore-cursor-events",
     "core:event:default",
     "core:event:allow-emit",
     "core:event:allow-listen",
@@ -35,6 +37,8 @@
     "sql:allow-load",
     "sql:allow-execute",
     "sql:allow-select",
-    "sql:allow-close"
+    "sql:allow-close",
+    "allow-desktop-shortcuts",
+    "allow-aux-window"
   ]
 }

@@ -107,6 +107,10 @@ async function resolveApp() {
     const { FloatApp } = await import("@/app/FloatApp");
     return <FloatApp />;
   }
+  if (label === "notification-popup") {
+    const { NotificationPopupApp } = await import("@/app/NotificationPopupApp");
+    return <NotificationPopupApp />;
+  }
   if (label === "widget-dashboard") {
     const { DashboardStripApp } = await import("@/app/DashboardStripApp");
     return <DashboardStripApp />;

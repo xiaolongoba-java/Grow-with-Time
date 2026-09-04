@@ -255,6 +255,19 @@ export async function setNotificationStatus(
   );
 }
 
+export async function setTaskNotificationsStatus(
+  taskId: string,
+  status: AppNotification["status"],
+): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE app_notifications
+     SET status = $1
+     WHERE task_id = $2 AND status IN ('pending', 'delivered')`,
+    [status, taskId],
+  );
+}
+
 export async function dismissAllNotifications(): Promise<number> {
   const db = await getDb();
   const result = await db.execute(
@@ -287,22 +300,35 @@ export async function fetchDueNotifications(): Promise<AppNotification[]> {
   );
 }
 
+const missedNotificationInflight = new Map<string, Promise<void>>();
+
 export async function ensureMissedNotification(
   task: Task,
 ): Promise<void> {
   if (!task.due_date) return;
-  const db = await getDb();
-  const exists = await db.select<{ id: string }[]>(
-    `SELECT id FROM app_notifications
-     WHERE task_id = $1 AND kind = 'missed' LIMIT 1`,
-    [task.id],
-  );
-  if (exists.length) return;
-  await createNotificationRecord({
-    taskId: task.id,
-    kind: "missed",
-    title: "错过的任务",
-    body: task.title,
-    scheduledAt: `${task.due_date}T${task.due_time ?? "23:59"}:00`,
+  const pending = missedNotificationInflight.get(task.id);
+  if (pending) {
+    await pending;
+    return;
+  }
+  const work = (async () => {
+    const db = await getDb();
+    const exists = await db.select<{ id: string }[]>(
+      `SELECT id FROM app_notifications
+       WHERE task_id = $1 AND kind = 'missed' LIMIT 1`,
+      [task.id],
+    );
+    if (exists.length) return;
+    await createNotificationRecord({
+      taskId: task.id,
+      kind: "missed",
+      title: "错过的任务",
+      body: task.title,
+      scheduledAt: `${task.due_date}T${task.due_time ?? "23:59"}:00`,
+    });
+  })().finally(() => {
+    missedNotificationInflight.delete(task.id);
   });
+  missedNotificationInflight.set(task.id, work);
+  await work;
 }

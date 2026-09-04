@@ -93,46 +93,43 @@ export function ReviewView() {
     return entries.sort((a, b) => b.date.localeCompare(a.date));
   }, [reflections, snapshots]);
 
+  const weekCreated = stats.created.reduce((sum, value) => sum + value, 0);
+  const weekCompleted = stats.completed.reduce((sum, value) => sum + value, 0);
+  const activeGoals = goals.filter((goal) => goal.status === "active");
+  const weekday = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("zh-CN", { weekday: "short" });
+
   return (
-    <main className="main-workspace" style={{ padding: 22, overflow: "auto" }}>
-      <h2 style={{ fontFamily: "var(--font-display)" }}>生产力复盘</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginTop: 16 }}>
-        <section className="review-card">
-          <div className="field-label">完成率</div>
-          <strong style={{ fontSize: 28 }}>{stats.rate}%</strong>
-        </section>
-        <section className="review-card">
-          <div className="field-label">拖延率</div>
-          <strong style={{ fontSize: 28 }}>{stats.delayRate}%</strong>
-        </section>
-        <section className="review-card">
-          <div className="field-label">最活跃时段</div>
-          <strong style={{ fontSize: 28 }}>{stats.peak}:00</strong>
-        </section>
-      </div>
-
-      <section className="review-card" style={{ marginTop: 12 }}>
-        <h3>近 7 日新增</h3>
-        <div className="chart-bars">
-          {stats.created.map((v, i) => (
-            <span key={stats.days[i]} style={{ height: `${(v / stats.max) * 100}%` }} title={`${stats.days[i]}: ${v}`} />
-          ))}
+    <main className="main-workspace review-workspace">
+      <header className="review-hero">
+        <div>
+          <span className="review-kicker">WEEKLY REVIEW · 近 7 日</span>
+          <h2>这一周，时间留下了什么</h2>
+          <p>不只看完成了多少，也看看精力落在哪里、哪些片段值得留下。</p>
         </div>
+        <div className="review-hero-total"><strong>{weekCompleted}</strong><span>件事情完成</span></div>
+      </header>
+
+      <section className="review-metrics" aria-label="本周摘要">
+        <article><span>整体完成率</span><strong>{stats.rate}%</strong><small>全部任务累计表现</small></article>
+        <article><span>延期完成</span><strong>{stats.delayRate}%</strong><small>{stats.delayRate ? "可以留意计划余量" : "节奏保持得很好"}</small></article>
+        <article><span>高效时段</span><strong>{stats.peak}:00</strong><small>最常完成任务的时间</small></article>
       </section>
 
-      <section className="review-card" style={{ marginTop: 12 }}>
-        <h3>近 7 日完成</h3>
-        <div className="chart-bars">
-          {stats.completed.map((v, i) => (
-            <span key={stats.days[i]} style={{ height: `${(v / stats.max) * 100}%` }} title={`${stats.days[i]}: ${v}`} />
-          ))}
-        </div>
-      </section>
+      <div className="review-main-grid">
+        <section className="review-story-card review-rhythm">
+          <div className="review-section-head"><div><span>七日节奏</span><h3>新计划与完成情况</h3></div><div className="review-chart-legend"><i className="is-created" />新增 {weekCreated}<i className="is-completed" />完成 {weekCompleted}</div></div>
+          <div className="review-rhythm-chart">
+            {stats.days.map((day, i) => <div className="review-day" key={day} title={`${day} · 新增 ${stats.created[i]} · 完成 ${stats.completed[i]}`}>
+              <div className="review-bar-pair"><i className="is-created" style={{ height: `${Math.max(5, (stats.created[i] / stats.max) * 100)}%` }} /><i className="is-completed" style={{ height: `${Math.max(5, (stats.completed[i] / stats.max) * 100)}%` }} /></div>
+              <strong>{weekday(day)}</strong><span>{day.slice(5).replace("-", "/")}</span>
+            </div>)}
+          </div>
+        </section>
 
-      <section className="review-card" style={{ marginTop: 12 }}>
-        <h3>本周目标投入</h3>
+        <section className="review-story-card review-goals">
+          <div className="review-section-head"><div><span>长期方向</span><h3>本周目标投入</h3></div><b>{activeGoals.length}</b></div>
         <div className="review-goal-list">
-          {goals.filter((goal) => goal.status === "active").map((goal) => {
+          {activeGoals.map((goal) => {
             const startKey = localWeekStartKey();
             const value = goalEntries
               .filter((entry) => entry.goal_id === goal.id && entry.entry_date >= startKey)
@@ -145,15 +142,17 @@ export function ReviewView() {
               </div>
             );
           })}
-          {!goals.some((goal) => goal.status === "active") ? <p>暂无进行中的长期目标。</p> : null}
+          {!activeGoals.length ? <p className="review-soft-empty">暂无进行中的长期目标。</p> : null}
         </div>
-      </section>
+        </section>
+      </div>
 
-      <section className="review-card review-reflections" style={{ marginTop: 12 }}>
+      <section className="review-story-card review-reflections">
         <div className="review-reflections-head">
           <div>
+            <span className="review-section-label">生活切片</span>
             <h3>拾光回望</h3>
-            <p>以“今日拾光”为正式记录，旧版晚间一句自动兼容</p>
+            <p>从最近的手账里，重新看见那些值得记住的日子。</p>
           </div>
           <span>{reflectionEntries.length} 条记录</span>
         </div>
@@ -163,14 +162,13 @@ export function ReviewView() {
               .slice(0, 7)
               .map((item) => (
                 <article key={`${item.date}-${item.legacy ? "legacy" : "moment"}`}>
-                  <time>{item.date}</time>
-                  <p>{item.text}</p>
-                  <span>
+                  <div className="review-reflection-date"><time>{item.date.slice(5).replace("-", ".")}</time><span>{weekday(item.date)}</span></div>
+                  <div><p>{item.text}</p><span>
                     {item.snapshot
                       ? `完成 ${item.snapshot.completed_minutes} / 计划 ${item.snapshot.planned_minutes} 分钟`
                       : item.summary || "今日拾光"}
                     {item.legacy ? " · 旧版记录" : ""}
-                  </span>
+                  </span></div>
                 </article>
               ))}
           </div>

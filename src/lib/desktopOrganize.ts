@@ -96,10 +96,18 @@ export function openDesktopItem(path: string): Promise<void> {
   return invoke("open_desktop_item", { path });
 }
 
+export function openShortcutFromDock(path: string): Promise<void> {
+  return invoke("open_shortcut_from_dock", { path });
+}
+
 export function listDesktopShortcuts(): Promise<DesktopItem[]> {
   return invoke("list_desktop_shortcuts");
 }
 
-export function toggleShortcutDock(): Promise<boolean> {
-  return invoke("toggle_shortcut_dock");
+export function getDesktopShortcutIcon(path: string): Promise<string | null> {
+  return invoke("desktop_shortcut_icon", { path });
+}
+
+export function toggleShortcutDock(layer: "top" | "bottom" = "bottom"): Promise<boolean> {
+  return invoke("toggle_shortcut_dock", { layer });
 }

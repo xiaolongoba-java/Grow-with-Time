@@ -185,6 +185,7 @@ function WallpaperManager({ onBack }: { onBack: () => void }) {
 
 function DesktopOrganizer({ onBack }: { onBack: () => void }) {
   const setToast = useAppStore((state) => state.setToast);
+  const desktopWidgetLayer = useAppStore((state) => state.settings.desktopWidgetLayer);
   const [scan, setScan] = useState<DesktopScan | null>(null);
   const [mode, setMode] = useState<ViewMode>("grid");
   const [busy, setBusy] = useState(false);
@@ -256,8 +257,8 @@ function DesktopOrganizer({ onBack }: { onBack: () => void }) {
           </p>
         </div>
         <div className="toolbox-toolbar">
-          <button type="button" className="btn-ghost" disabled={busy} onClick={() => void toggleShortcutDock().then((visible) => {
-            setToast(visible ? "快捷方式已集中显示在桌面下方" : "快捷方式停靠栏已隐藏");
+          <button type="button" className="btn-ghost" disabled={busy} onClick={() => void toggleShortcutDock(desktopWidgetLayer).then((visible) => {
+            setToast(visible ? "快捷方式停靠栏已打开，主窗口最小化后仍会留在桌面" : "快捷方式停靠栏已收起");
           }).catch((cause) => setError(cause instanceof Error ? cause.message : "无法打开快捷方式停靠栏"))}>
             快捷方式停靠栏
           </button>

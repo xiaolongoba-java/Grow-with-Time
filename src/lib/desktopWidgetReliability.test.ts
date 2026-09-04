@@ -32,6 +32,15 @@ describe("desktop widget reliability contract", () => {
     expect(rust).toContain('emit_to("main", "widget:navigate"');
   });
 
+  it("pins the shortcut dock with the same desktop widget layering", () => {
+    const present = rust.slice(
+      rust.indexOf("fn present_shortcut_dock"),
+      rust.indexOf("fn show_shortcut_dock"),
+    );
+    expect(present).toContain("pin_desktop_widget");
+    expect(rust).toContain("detach_window_owner");
+  });
+
   it("keeps the saved layer when widgets are opened from the tray", () => {
     expect(rust).toContain('emit("tray:desktop-widgets", "dashboard")');
     expect(rust).toContain('emit("tray:desktop-widgets", "classic")');

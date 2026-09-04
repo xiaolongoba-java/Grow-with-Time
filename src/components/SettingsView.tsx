@@ -6,6 +6,7 @@ import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { themeMeta, type VisualTheme } from "@/lib/themes";
 import { OS_REMINDER_LIMIT } from "@/lib/nativeReminders";
 
@@ -33,6 +34,7 @@ export function SettingsView() {
   const [databaseHealth, setDatabaseHealth] = useState<DatabaseHealth | null>(null);
   const [databaseBackups, setDatabaseBackups] = useState<DatabaseBackupInfo[]>([]);
   const [checkingData, setCheckingData] = useState(false);
+  const [appVersion, setAppVersion] = useState("…");
 
   const refreshDataHealth = async () => {
     setCheckingData(true);
@@ -52,6 +54,7 @@ export function SettingsView() {
 
   useEffect(() => {
     void refreshDataHealth();
+    void getVersion().then(setAppVersion).catch(() => setAppVersion("未知"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -193,10 +196,15 @@ export function SettingsView() {
         <ReminderSyncStatusCard />
       </section>
 
+      <section className="settings-card settings-version-card" style={{ marginTop: 12 }}>
+        <div><span>应用版本</span><h3>日进·拾光 v{appVersion}</h3><p>启动后会静默检查一次；只有发现新版本时才会提醒。</p></div>
+        <button type="button" className="btn-ghost" onClick={() => window.dispatchEvent(new Event("version:check"))}>检查更新</button>
+      </section>
+
       <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>桌面浮窗</h3>
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
-          置顶小窗，可速记与查看今日待办。也可从托盘菜单打开。
+          专注显示当前倒计时。开始倒计时后会自动打开，也可从托盘菜单呼出。
         </p>
         <button
           type="button"
@@ -208,7 +216,7 @@ export function SettingsView() {
             );
           }}
         >
-          显示桌面浮窗
+          显示倒计时浮窗
         </button>
       </section>
 

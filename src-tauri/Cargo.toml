@@ -1,6 +1,6 @@
 [package]
 name = "minimal-todo"
-version = "1.6.1"
+version = "1.6.2"
 description = "日进·拾光 (Grow with Time) desktop app"
 authors = ["you"]
 edition = "2021"
@@ -31,6 +31,8 @@ windows = { version = "0.61", features = [
   "Foundation",
   "UI_Notifications",
   "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
   "Win32_System_Registry",

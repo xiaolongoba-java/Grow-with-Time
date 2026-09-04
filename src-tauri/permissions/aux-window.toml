@@ -1,0 +1,7 @@
+[[permission]]
+identifier = "allow-aux-window"
+description = "Minimal custom commands for quick-add, float, inspiration, and notification popup windows."
+commands.allow = [
+  "hide_float",
+  "open_main_window",
+]

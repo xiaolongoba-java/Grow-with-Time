@@ -6,110 +6,235 @@ html[data-desktop-widget="shortcuts"] #root {
   margin: 0;
   overflow: hidden;
   background: transparent !important;
+  color-scheme: light;
+  border-radius: 28px;
 }
 
 .shortcut-dock {
+  --dock-ink: rgba(18, 28, 44, 0.86);
+  --dock-mute: rgba(18, 28, 44, 0.52);
+  position: relative;
+  isolation: isolate;
   box-sizing: border-box;
-  width: calc(100% - 16px);
-  height: calc(100% - 12px);
-  margin: 6px 8px;
-  padding: 7px 10px 9px;
-  color: #17243c;
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(245, 249, 255, 0.92), rgba(235, 242, 255, 0.84));
-  box-shadow: 0 12px 34px rgba(36, 74, 134, 0.18), inset 0 1px rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(22px) saturate(135%);
-}
-
-.shortcut-dock header {
-  height: 18px;
+  width: calc(100% - 10px);
+  height: calc(100% - 10px);
+  margin: 5px;
+  padding: 10px 14px 10px 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 5px;
-  color: #687a98;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  gap: 12px;
+  overflow: hidden;
+  color: var(--dock-ink);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 24px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.05) 46%,
+      rgba(236, 246, 255, 0.08) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  cursor: grab;
   user-select: none;
+  app-region: drag;
+  -webkit-app-region: drag;
 }
 
-.shortcut-dock header div { display: flex; gap: 3px; }
-.shortcut-dock header button {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  color: #667894;
-  background: transparent;
-  cursor: pointer;
+.shortcut-dock::before,
+.shortcut-dock::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
 }
-.shortcut-dock header button:hover { background: rgba(72, 113, 184, 0.11); color: #245fca; }
+
+.shortcut-dock::before {
+  z-index: 0;
+  background:
+    radial-gradient(120% 90% at 8% -20%, rgba(255, 255, 255, 0.55), transparent 52%),
+    radial-gradient(80% 70% at 92% 130%, rgba(120, 176, 255, 0.16), transparent 58%);
+}
+
+.shortcut-dock::after {
+  z-index: 1;
+  inset: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.08);
+}
+
+.shortcut-dock > * {
+  position: relative;
+  z-index: 2;
+}
+
+.shortcut-dock-head {
+  flex: 0 0 auto;
+  min-width: 64px;
+  padding-right: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.28);
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.7);
+}
+
+.shortcut-dock-head strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.shortcut-dock-head span {
+  display: block;
+  margin-top: 2px;
+  color: var(--dock-mute);
+  font-size: 10px;
+}
+
+.shortcut-dock-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+.shortcut-dock-actions button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  color: var(--dock-mute);
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.shortcut-dock-actions button:hover {
+  color: var(--dock-ink);
+  background: rgba(255, 255, 255, 0.32);
+  transform: translateY(-1px);
+}
 
 .shortcut-dock-items {
-  height: 72px;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
-  align-items: flex-start;
-  gap: 5px;
-  padding: 3px 1px 0;
+  align-items: center;
+  gap: 4px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
+  padding: 0 2px;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
 }
-.shortcut-dock-items::-webkit-scrollbar { display: none; }
 
-.shortcut-dock-item {
-  flex: 0 0 68px;
-  min-width: 0;
+.shortcut-dock-items::-webkit-scrollbar {
+  display: none;
+}
+
+.shortcut-launch {
+  flex: 0 0 58px;
+  width: 58px;
   display: grid;
   justify-items: center;
-  gap: 3px;
-  padding: 2px 3px 4px;
+  gap: 4px;
+  padding: 2px 2px 0;
   border: 0;
-  border-radius: 14px;
-  color: #273a59;
+  border-radius: 16px;
+  color: inherit;
   background: transparent;
   cursor: pointer;
-  transition: transform 140ms ease, background 140ms ease;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+  transition: transform 160ms ease, background 160ms ease;
 }
-.shortcut-dock-item:hover { transform: translateY(-3px); background: rgba(255, 255, 255, 0.58); }
-.shortcut-dock-item > span:last-child {
+
+.shortcut-launch:hover,
+.shortcut-launch:focus-visible {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.18);
+  outline: none;
+}
+
+.shortcut-dock-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: rgba(56, 92, 168, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.12));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 6px 14px rgba(32, 52, 88, 0.08);
+}
+
+.shortcut-dock-icon img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.35));
+}
+
+.shortcut-launch > span:last-child {
   width: 100%;
   overflow: hidden;
-  color: #384c6b;
+  color: var(--dock-mute);
   font-size: 10px;
-  line-height: 14px;
+  line-height: 12px;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.75);
 }
-.shortcut-dock-icon {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 14px;
-  color: white;
-  font-size: 18px;
-  font-weight: 800;
-  box-shadow: 0 6px 14px rgba(55, 92, 153, 0.2), inset 0 1px rgba(255,255,255,.42);
-}
-.shortcut-dock-icon.tone-0 { background: linear-gradient(145deg, #4388ff, #2563dc); }
-.shortcut-dock-icon.tone-1 { background: linear-gradient(145deg, #67b5ff, #4d78de); }
-.shortcut-dock-icon.tone-2 { background: linear-gradient(145deg, #5fcdb3, #289d86); }
-.shortcut-dock-icon.tone-3 { background: linear-gradient(145deg, #9a88ef, #735fce); }
-.shortcut-dock-icon.tone-4 { background: linear-gradient(145deg, #f7ae69, #e88345); }
-.shortcut-dock-icon.tone-5 { background: linear-gradient(145deg, #f487a7, #d85f83); }
 
 .shortcut-dock-state {
-  height: 68px;
-  display: grid;
-  place-items: center;
+  flex: 1 1 auto;
   margin: 0;
-  color: #71819b;
+  color: var(--dock-mute);
   font-size: 12px;
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.7);
 }
-.shortcut-dock-state.is-error { color: #b44f5c; }
+
+.shortcut-dock-state.is-error {
+  color: #9a3d4a;
+}
+
+html[data-theme="dark"] .shortcut-dock,
+html[data-theme="glass"] .shortcut-dock {
+  --dock-ink: rgba(246, 249, 255, 0.92);
+  --dock-mute: rgba(230, 238, 250, 0.62);
+  border-color: rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(18, 26, 40, 0.16) 52%,
+      rgba(12, 18, 30, 0.22) 100%
+    );
+}
+
+html[data-theme="dark"] .shortcut-dock-icon,
+html[data-theme="glass"] .shortcut-dock-icon {
+  color: rgba(186, 210, 255, 0.95);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shortcut-dock-actions button,
+  .shortcut-launch {
+    transition: none;
+  }
+}
