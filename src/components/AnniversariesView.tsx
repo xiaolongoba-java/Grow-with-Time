@@ -22,6 +22,8 @@ export function AnniversariesView() {
   const [items, setItems] = useState<Anniversary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [selected, setSelected] = useState<Anniversary | null>(null);
   const [title, setTitle] = useState("");
   const [calendar, setCalendar] = useState<"solar" | "lunar">("solar");
   const [eventDate, setEventDate] = useState(todayDateString());
@@ -105,6 +107,7 @@ export function AnniversariesView() {
         setLunarLeap(todayLunar.leap);
       }
       await refresh();
+      setComposerOpen(false);
     } finally {
       setBusy(false);
     }
@@ -116,13 +119,12 @@ export function AnniversariesView() {
 
   return (
     <main className="main-workspace moments-page anniversaries-page">
-      <header className="moments-hero">
-        <span>ANNIVERSARIES</span>
-        <h2>纪念日</h2>
-        <p>记下重要日子，可按公历或农历每年循环，看见日子慢慢堆成光阴。</p>
+      <header className="moments-hero anni-display-head">
+        <div><span>ANNIVERSARIES</span><h2>纪念日</h2><p>重要的日子都在这里，离现在最近的会先被看见。</p></div>
+        <button type="button" className="btn-primary" onClick={() => setComposerOpen(true)}>新增纪念日</button>
       </header>
 
-      <section className="anni-composer" aria-label="添加纪念日">
+      {composerOpen ? <div className="modal-backdrop" onMouseDown={() => !busy && setComposerOpen(false)}><section className="anni-composer anni-composer-dialog" role="dialog" aria-modal="true" aria-labelledby="anni-compose-title" onMouseDown={(event) => event.stopPropagation()}><header><div><span>收藏一个日子</span><h2 id="anni-compose-title">新增纪念日</h2></div><button type="button" aria-label="关闭" onClick={() => setComposerOpen(false)}>×</button></header>
         <input
           className="field"
           placeholder="例如：相识纪念日、生日、入职日…"
@@ -218,7 +220,7 @@ export function AnniversariesView() {
             disabled={busy || !canSubmit}
             onClick={() => void submit()}
           >
-            添加
+            收好这个日子
           </button>
         </div>
         {calendar === "lunar" ? (
@@ -237,7 +239,7 @@ export function AnniversariesView() {
           value={note}
           onChange={(event) => setNote(event.target.value)}
         />
-      </section>
+      </section></div> : null}
 
       {upcoming.length ? (
         <section className="anni-upcoming" aria-label="近 30 天">
@@ -246,10 +248,10 @@ export function AnniversariesView() {
             {upcoming.map((item) => {
               const head = anniversaryHeadline(item, today);
               return (
-                <article key={item.id} className="anni-chip">
+                <button type="button" key={item.id} className="anni-chip" onClick={() => setSelected(item)}>
                   <strong>{item.title}</strong>
                   <span>{head.label}</span>
-                </article>
+                </button>
               );
             })}
           </div>
@@ -259,7 +261,7 @@ export function AnniversariesView() {
       {loading ? (
         <div className="moments-loading">正在加载纪念日…</div>
       ) : !sorted.length ? (
-        <div className="empty-state">添加第一个纪念日，开始收藏光阴。</div>
+        <div className="empty-state anni-empty"><strong>这里还没有重要日子</strong><p>添加生日、相识日或任何值得记住的一天。</p><button className="btn-primary" onClick={() => setComposerOpen(true)}>添加第一个纪念日</button></div>
       ) : (
         <section className="anni-list" aria-label="全部纪念日">
           {sorted.map((item) => {
@@ -268,6 +270,10 @@ export function AnniversariesView() {
               <article
                 key={item.id}
                 className={`anni-card ${head.daysLeft === 0 ? "is-today" : ""}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelected(item)}
+                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected(item); } }}
               >
                 <div className="anni-card-main">
                   <div>
@@ -291,35 +297,12 @@ export function AnniversariesView() {
                     <span>{head.label}</span>
                   </div>
                 </div>
-                <div className="anni-card-actions">
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={() => {
-                      void updateAnniversary(item.id, {
-                        recur_yearly: item.recur_yearly ? 0 : 1,
-                      }).then(refresh);
-                    }}
-                  >
-                    {item.recur_yearly ? "改为单次" : "改为每年"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-ghost danger"
-                    onClick={() => {
-                      if (window.confirm(`删除纪念日「${item.title}」？`)) {
-                        void deleteAnniversary(item.id).then(refresh);
-                      }
-                    }}
-                  >
-                    删除
-                  </button>
-                </div>
               </article>
             );
           })}
         </section>
       )}
+      {selected ? <div className="modal-backdrop" onMouseDown={() => setSelected(null)}><section className="anni-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="anni-detail-title" onMouseDown={(event) => event.stopPropagation()}>{(() => { const head = anniversaryHeadline(selected, today); return <><header><div><span>纪念日详情</span><h2 id="anni-detail-title">{selected.title}</h2></div><button type="button" aria-label="关闭" onClick={() => setSelected(null)}>×</button></header><div className="anni-detail-count"><strong>{head.daysLeft === 0 ? "今天" : head.daysLeft === null ? "—" : head.daysLeft}</strong><span>{head.label}</span></div><dl><div><dt>日期</dt><dd>{formatAnniversaryAnchor(selected)}</dd></div><div><dt>提醒方式</dt><dd>{selected.recur_yearly ? "每年提醒" : "仅记录一次"}</dd></div>{head.nextDate ? <div><dt>下一次</dt><dd>{head.nextDate}</dd></div> : null}</dl><section><span>留下的话</span><p>{selected.note || "这个日子还没有备注。"}</p></section><footer><button type="button" className="btn-ghost" onClick={() => { void updateAnniversary(selected.id, { recur_yearly: selected.recur_yearly ? 0 : 1 }).then(async () => { await refresh(); setSelected({ ...selected, recur_yearly: selected.recur_yearly ? 0 : 1 }); }); }}>{selected.recur_yearly ? "改为单次" : "改为每年"}</button><button type="button" className="btn-ghost danger" onClick={() => { if (window.confirm(`删除纪念日「${selected.title}」？`)) void deleteAnniversary(selected.id).then(async () => { await refresh(); setSelected(null); }); }}>删除</button></footer></>; })()}</section></div> : null}
     </main>
   );
 }

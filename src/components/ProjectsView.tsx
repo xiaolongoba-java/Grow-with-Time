@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
+import { AppIcon } from "@/components/AppIcon";
 import type { Milestone, Project } from "@/types";
 import { projectTasks as selectProjectTasks } from "@/lib/tasks";
 import {
   createMilestone,
   fetchMilestones,
   toggleMilestone,
+  updateMilestone,
   updateProject,
 } from "@/lib/db";
 
@@ -32,6 +34,9 @@ export function ProjectsView() {
   );
   const [milestoneTitle, setMilestoneTitle] = useState("");
   const [savingMilestone, setSavingMilestone] = useState(false);
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+  const [editMilestoneTitle, setEditMilestoneTitle] = useState("");
+  const [editMilestoneDate, setEditMilestoneDate] = useState("");
   const milestoneInputRef = useRef<HTMLInputElement>(null);
   const refreshMilestones = async () => setMilestones(await fetchMilestones());
 
@@ -57,6 +62,28 @@ export function ProjectsView() {
       milestoneInputRef.current?.focus();
     } catch {
       useAppStore.getState().setToast("添加里程碑失败");
+    } finally {
+      setSavingMilestone(false);
+    }
+  };
+
+  const beginEditMilestone = (item: Milestone) => {
+    setEditingMilestoneId(item.id);
+    setEditMilestoneTitle(item.title);
+    setEditMilestoneDate(item.due_date ?? "");
+  };
+
+  const submitMilestoneEdit = async (item: Milestone) => {
+    const title = editMilestoneTitle.trim();
+    if (!title || savingMilestone) return;
+    setSavingMilestone(true);
+    try {
+      await updateMilestone(item.id, { title, due_date: editMilestoneDate || null });
+      await refreshMilestones();
+      setEditingMilestoneId(null);
+      useAppStore.getState().setToast("里程碑已更新");
+    } catch {
+      useAppStore.getState().setToast("更新里程碑失败");
     } finally {
       setSavingMilestone(false);
     }
@@ -204,19 +231,7 @@ export function ProjectsView() {
                     {milestones
                       .filter((item) => item.project_id === project.id)
                       .map((item) => (
-                        <label key={item.id}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(item.completed)}
-                            onChange={(event) =>
-                              void toggleMilestone(
-                                item.id,
-                                event.target.checked,
-                              ).then(refreshMilestones)
-                            }
-                          />
-                          <span>{item.title}</span>
-                        </label>
+                        editingMilestoneId === item.id ? <form key={item.id} className="milestone-edit" onSubmit={(event) => { event.preventDefault(); void submitMilestoneEdit(item); }}><input className="field" autoFocus value={editMilestoneTitle} onChange={(event) => setEditMilestoneTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setEditingMilestoneId(null); }} aria-label="里程碑名称" /><input className="field" type="date" value={editMilestoneDate} onChange={(event) => setEditMilestoneDate(event.target.value)} aria-label="里程碑日期" /><div><button type="button" className="btn-ghost" disabled={savingMilestone} onClick={() => setEditingMilestoneId(null)}>取消</button><button type="submit" className="btn-primary" disabled={savingMilestone || !editMilestoneTitle.trim()}>保存</button></div></form> : <div className="milestone-item" key={item.id}><label><input type="checkbox" checked={Boolean(item.completed)} onChange={(event) => void toggleMilestone(item.id, event.target.checked).then(refreshMilestones)} /><span>{item.title}</span>{item.due_date ? <small>{item.due_date}</small> : null}</label><button type="button" className="milestone-edit-trigger" title="编辑里程碑" aria-label={`编辑里程碑 ${item.title}`} onClick={() => beginEditMilestone(item)}><AppIcon name="edit" size={14} /></button></div>
                       ))}
                     {addingMilestoneFor === project.id ? (
                       <form

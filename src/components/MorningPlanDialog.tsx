@@ -100,11 +100,11 @@ export function MorningPlanDialog() {
         <div className="modal-head">
           <div>
             <span>今日计划</span>
-            <h3 id="morning-plan-title">把要做的事一次加入我的一天</h3>
+            <h3 id="morning-plan-title">把要做的事加入今日计划</h3>
           </div>
         </div>
         <p className="create-task-hint">
-          可从已有任务、项目和周期任务里勾选，也可以自己写一项。只会加入「我的一天」，不改截止日期。
+          可从已有任务、项目和周期任务里勾选，也可以自己写一项。加入今日不会改变原截止日期。
         </p>
         <form
           className="morning-plan-compose"
@@ -229,7 +229,7 @@ export function MorningPlanDialog() {
             disabled={busy || !chosen}
             onClick={() => run(false)}
           >
-            {busy ? "加入中…" : `加入我的一天（${chosen}）`}
+            {busy ? "加入中…" : `加入今日计划（${chosen}）`}
           </button>
         </div>
       </section>

@@ -7,6 +7,7 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
+import { DesktopNotificationCards } from "@/components/DesktopNotificationCards";
 import { NavSidebar } from "@/components/NavSidebar";
 import { MainWorkspace } from "@/components/MainWorkspace";
 import { TodayTimeline } from "@/components/TodayTimeline";
@@ -638,6 +639,7 @@ export function MainApp() {
       <FocusRecoveryDialog />
       <MorningPlanDialog />
       <OnboardingGuide />
+      <DesktopNotificationCards />
       {toast ? (
         <div className="toast" role="status" aria-live="polite">
           <span>{toast}</span>

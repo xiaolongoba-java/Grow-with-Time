@@ -16,9 +16,6 @@ html[data-desktop-widget="dashboard"],
 html[data-desktop-widget="dashboard"] body,
 html[data-desktop-widget="dashboard"] #root {
   overflow: hidden;
-  border-radius: 22px;
-  clip-path: inset(0 round 22px);
-  isolation: isolate;
 }
 
 .dashboard-strip {

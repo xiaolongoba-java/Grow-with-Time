@@ -30,14 +30,12 @@ export function filterTasksByView(
 
   switch (view) {
     case "today":
-      list = list.filter(
-        (t) =>
-          isActiveTask(t) && t.due_date !== null && t.due_date <= today,
-      );
-      break;
     case "myday":
       list = list.filter(
-        (t) => isActiveTask(t) && t.my_day_date === today,
+        (t) =>
+          isActiveTask(t) &&
+          ((t.due_date !== null && t.due_date <= today) ||
+            t.my_day_date === today),
       );
       break;
     case "inbox":
@@ -130,9 +128,8 @@ export function subtaskProgress(tasks: Task[], parentId: string): number {
 export function getEmptyMessage(view: string): string {
   switch (view) {
     case "today":
-      return "今天没有到期任务。到期的会出现在这里，要做的请排进「我的一天」。";
     case "myday":
-      return "还没有安排今天。点「今日计划」把要做的事加进来。";
+      return "今天还没有截止或计划任务。点「今日计划」把要做的事加进来。";
     case "inbox":
       return "待办箱是空的。";
     case "completed":
@@ -153,7 +150,7 @@ export function getEmptyMessage(view: string): string {
 export function getViewTitle(view: string): string {
   const map: Record<string, string> = {
     today: "今日",
-    myday: "我的一天",
+    myday: "今日",
     inbox: "待办箱",
     week: "周清单",
     completed: "已完成",

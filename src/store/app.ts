@@ -344,6 +344,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setNavigationGuard: (navigationGuard) => set({ navigationGuard }),
   setNav: (nav) => {
+    if (nav === "myday") nav = "today";
     if (nav === get().nav) return;
     const guard = get().navigationGuard;
     if (guard && !guard()) return;
@@ -351,13 +352,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       nav,
       selectedTaskId: null,
       dateScope:
-        nav === "today" || nav === "myday" || nav === "inbox" || nav === "all"
+        nav === "today" || nav === "inbox" || nav === "all"
           ? "day"
           : nav === "calendar"
             ? "month"
             : get().dateScope,
       calendarCursor:
-        nav === "today" || nav === "myday" || nav === "week"
+        nav === "today" || nav === "week"
           ? todayDateString()
           : get().calendarCursor,
       viewMode:
@@ -1061,9 +1062,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const count = taskIds.length + titles.length;
         set({
           pendingMorningPlan: null,
-          nav: "myday",
+          nav: "today",
           calendarCursor: today,
-          toast: `已将 ${count} 项加入我的一天`,
+          toast: `已将 ${count} 项加入今日计划`,
         });
       } else {
         set({ pendingMorningPlan: null });
@@ -1071,8 +1072,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await db.setSetting("last_morning_plan_date", today);
     } catch (e) {
       set({
-        toast: errorMessage(e, "加入我的一天失败"),
-        error: errorMessage(e, "加入我的一天失败"),
+        toast: errorMessage(e, "加入今日计划失败"),
+        error: errorMessage(e, "加入今日计划失败"),
       });
     }
   },

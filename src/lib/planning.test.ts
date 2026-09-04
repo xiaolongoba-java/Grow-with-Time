@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findFirstAvailableTimeSlot,
+  buildTaskDeferredUpdate,
   buildDeferredDateUpdate,
   findTimeConflictIds,
   parseReminderMinutes,
@@ -81,6 +82,33 @@ describe("planning helpers", () => {
     expect(buildDeferredDateUpdate("due", "2026-07-31")).toEqual({
       due_date: "2026-07-31",
     });
+  });
+
+  it("defers plan and due fields shown on the today board", () => {
+    expect(
+      buildTaskDeferredUpdate(
+        { my_day_date: "2026-08-05", due_date: "2026-08-05" },
+        "2026-08-05",
+        "2026-08-06",
+        "2026-08-05",
+      ),
+    ).toEqual({ my_day_date: "2026-08-06", due_date: "2026-08-06" });
+    expect(
+      buildTaskDeferredUpdate(
+        { my_day_date: null, due_date: "2026-08-04" },
+        "2026-08-05",
+        "2026-08-06",
+        "2026-08-05",
+      ),
+    ).toEqual({ due_date: "2026-08-06" });
+    expect(
+      buildTaskDeferredUpdate(
+        { my_day_date: "2026-08-05", due_date: null },
+        "2026-08-05",
+        "2026-08-06",
+        "2026-08-05",
+      ),
+    ).toEqual({ my_day_date: "2026-08-06" });
   });
 
   it("finds overlapping tasks but not adjacent tasks", () => {

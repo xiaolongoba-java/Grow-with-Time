@@ -28,6 +28,28 @@ export function buildDeferredDateUpdate(
     : { due_date: date };
 }
 
+/** Defer a task shown on the today board to another date. */
+export function buildTaskDeferredUpdate(
+  task: Pick<Task, "my_day_date" | "due_date">,
+  cursor: string,
+  date: string,
+  today: string,
+): TaskUpdate {
+  const update: TaskUpdate = {};
+  if (task.my_day_date === cursor) {
+    update.my_day_date = date;
+  }
+  const overdue =
+    Boolean(task.due_date) && task.due_date! < today && cursor === today;
+  if (task.due_date === cursor || overdue) {
+    update.due_date = date;
+  }
+  if (!update.my_day_date && !update.due_date) {
+    update.my_day_date = date;
+  }
+  return update;
+}
+
 export function findTimeConflictIds(tasks: Task[]): Set<string> {
   const planned = tasks
     .filter(

@@ -44,15 +44,12 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
     return {
       today: roots.filter(
         (t) =>
-          isActiveTask(t) && t.due_date !== null && t.due_date <= today,
+          isActiveTask(t) && ((t.due_date !== null && t.due_date <= today) || t.my_day_date === today),
       ).length,
       inbox: roots.filter((t) => isActiveTask(t) && t.due_date === null)
         .length,
       completed: roots.filter((t) => t.status === "completed").length,
       all: roots.length,
-      myday: roots.filter(
-        (t) => isActiveTask(t) && t.my_day_date === today,
-      ).length,
     };
   }, [tasks]);
 
@@ -135,7 +132,6 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       {(
         [
           ["today", "今日", counts.today, "today"],
-          ["myday", "我的一天", counts.myday, "sparkle"],
           ["inbox", "待办箱", counts.inbox, "inbox"],
           ["week", "周清单", null, "review"],
         ] as const

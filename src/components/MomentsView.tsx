@@ -132,7 +132,7 @@ export function MomentsView({ mode }: { mode: MomentMode }) {
       }
       await updateInspirationStatus(item.id, "processed");
       await refresh();
-      setToast(slot ? `已加入我的一天 · ${slot.start}` : "已加入我的一天");
+      setToast(slot ? `已加入今日计划 · ${slot.start}` : "已加入今日计划");
     } finally {
       setBusy(false);
     }

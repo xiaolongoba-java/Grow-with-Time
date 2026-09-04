@@ -466,6 +466,34 @@ html[data-nav="collapsed"] .timeline-drawer {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.workspace-title-line { display: flex; align-items: center; gap: 10px; }
+.workspace-title-line h2 { margin: 0; }
+.workspace-title-line > span { padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); background: var(--bg-soft); font-size: 10px; font-weight: 750; letter-spacing: .04em; }
+.workspace-title-line.scope-today > span { border-color: color-mix(in srgb, #d66d56 28%, var(--border)); color: #b25543; background: color-mix(in srgb, #d66d56 8%, var(--bg-panel)); }
+.workspace-title-line.scope-myday > span { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); color: var(--accent); background: var(--accent-soft); }
+.workspace-title-line.scope-inbox > span { border-color: color-mix(in srgb, #738299 28%, var(--border)); color: var(--text-secondary); background: color-mix(in srgb, #738299 8%, var(--bg-panel)); }
+
+.desktop-notification-stack { position: fixed; z-index: 120; top: 54px; right: 24px; width: min(390px, calc(100vw - 32px)); display: grid; gap: 11px; pointer-events: none; }
+.desktop-notification-card { position: relative; display: grid; grid-template-columns: 5px 1fr; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border)); border-radius: 18px; color: var(--text-primary); background: color-mix(in srgb, var(--bg-panel) 94%, transparent); box-shadow: 0 22px 60px rgba(29,41,64,.2), inset 0 1px rgba(255,255,255,.42); backdrop-filter: blur(22px) saturate(135%); pointer-events: auto; animation: desktop-notification-enter 260ms cubic-bezier(.2,.8,.2,1) both; }
+.desktop-notification-mark { background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 45%, #8ed7c1)); }
+.desktop-notification-mark span { display: block; width: 5px; height: 32%; margin-top: 20px; background: rgba(255,255,255,.5); }
+.desktop-notification-content { min-width: 0; padding: 15px 16px 14px; }
+.desktop-notification-content > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.desktop-notification-content > header span { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.desktop-notification-content > header button { width: 27px; height: 27px; padding: 0; border: 0; border-radius: 50%; color: var(--text-muted); background: transparent; }
+.desktop-notification-content > header button:hover { color: var(--text-primary); background: var(--bg-soft); }
+.desktop-notification-copy { width: 100%; display: grid; gap: 5px; padding: 2px 0 11px; border: 0; color: inherit; background: transparent; text-align: left; }
+.desktop-notification-copy strong { overflow: hidden; font: 720 16px/1.35 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
+.desktop-notification-copy p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+.desktop-notification-content > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+.desktop-notification-content > footer time { color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.desktop-notification-content > footer div { display: flex; gap: 6px; }
+.desktop-notification-content > footer button { min-height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); background: var(--bg-soft); font-size: 11px; }
+.desktop-notification-content > footer button.is-primary { border-color: transparent; color: #fff; background: var(--accent); }
+@keyframes desktop-notification-enter { from { opacity: 0; transform: translate3d(18px,-8px,0) scale(.97); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .desktop-notification-card { animation: none; } }
+@media (max-width: 640px) { .desktop-notification-stack { top: 44px; right: 16px; } }
+
 .batch-toolbar {
   display: flex;
   align-items: center;
@@ -1430,6 +1458,20 @@ html[data-nav="collapsed"] .timeline-drawer {
   color: var(--text-secondary);
   font-size: 11px;
 }
+.milestone-item { display: flex; align-items: center; gap: 8px; }
+.milestone-item > label { min-width: 0; flex: 1; }
+.milestone-item label span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.milestone-item label small { margin-left: auto; color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.milestone-edit-trigger { width: 28px; height: 28px; display: grid; flex: 0 0 auto; place-items: center; padding: 0; border: 0; border-radius: 8px; color: var(--text-muted); background: transparent; opacity: .45; }
+.milestone-item:hover .milestone-edit-trigger,
+.milestone-edit-trigger:focus-visible { opacity: 1; color: var(--accent); background: var(--accent-soft); }
+.milestone-edit { display: grid; grid-template-columns: minmax(150px,1fr) auto auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border)); border-radius: 12px; background: var(--bg-soft); }
+.milestone-edit > .field { min-width: 0; }
+.milestone-edit > input[type="date"] { width: 145px; }
+.milestone-edit > div { display: flex; gap: 6px; }
+.milestone-edit .btn-primary,
+.milestone-edit .btn-ghost { width: auto; min-height: 34px; padding: 0 10px; }
+@media (max-width: 720px) { .milestone-edit { grid-template-columns: 1fr; } .milestone-edit > input[type="date"] { width: 100%; } .milestone-edit > div { justify-content: flex-end; } }
 
 .milestone-list input {
   width: auto;

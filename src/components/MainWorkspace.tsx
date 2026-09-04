@@ -22,7 +22,7 @@ import { formatDueDate, formatTimeRange, priorityLabel, todayDateString, addDays
 import type { Task } from "@/types";
 import { ExpandableTaskItem } from "@/components/ExpandableTaskItem";
 import {
-  buildDeferredDateUpdate,
+  buildTaskDeferredUpdate,
   findTimeConflictIds,
   suggestDaySchedule,
 } from "@/lib/planning";
@@ -140,8 +140,7 @@ function DayBoard() {
   const cursor = useAppStore((s) => s.calendarCursor);
   const setCalendarCursor = useAppStore((s) => s.setCalendarCursor);
   const today = todayDateString();
-  const isPlan = nav === "myday";
-  const isDeadline = nav === "today";
+  const isTodayView = nav === "today";
   const batchComplete = useAppStore((s) => s.batchComplete);
   const batchDelete = useAppStore((s) => s.batchDelete);
   const selectTask = useAppStore((s) => s.selectTask);
@@ -171,8 +170,12 @@ function DayBoard() {
     return allTasks
       .filter((t) => {
         if (t.parent_id || t.deleted_at) return false;
-        if (nav === "myday") {
-          return isActiveTask(t) && t.my_day_date === cursor;
+        if (nav === "inbox") {
+          return isActiveTask(t) && !t.due_date;
+        }
+        if (isTodayView) {
+          if (t.my_day_date === cursor || t.due_date === cursor) return true;
+          return cursor === today && isActiveTask(t) && Boolean(t.due_date) && t.due_date! < today;
         }
         if (t.due_date === cursor) return true;
         // Viewing today: also show unfinished overdue tasks (rollover fallback).
@@ -184,14 +187,16 @@ function DayBoard() {
         );
       })
       .sort((a, b) => (a.due_time ?? "").localeCompare(b.due_time ?? ""));
-  }, [allTasks, cursor, today, nav]);
+  }, [allTasks, cursor, today, nav, isTodayView]);
   const myDayCandidates = allTasks
     .filter(
       (task) =>
         !task.parent_id &&
         !task.deleted_at &&
         isActiveTask(task) &&
-        task.my_day_date !== cursor,
+        task.my_day_date !== cursor &&
+        task.due_date !== cursor &&
+        !(cursor === today && task.due_date && task.due_date < today),
     )
     .slice(0, 6);
   const pending = dayTasks.filter(isActiveTask).length;
@@ -199,13 +204,15 @@ function DayBoard() {
   const total = pending + done;
   const completion = total ? Math.round((done / total) * 100) : 0;
   const dueOnCursor = dayTasks.filter((task) => task.due_date === cursor);
-  const overdueTasks = isDeadline && cursor === today
+  const overdueTasks = isTodayView && cursor === today
     ? dayTasks.filter(
         (task) =>
           isActiveTask(task) && Boolean(task.due_date) && task.due_date! < today,
       )
     : [];
+  const plannedOnlyTasks = dayTasks.filter((task) => task.my_day_date === cursor && task.due_date !== cursor && !(cursor === today && task.due_date && task.due_date < today));
   const dueActive = dueOnCursor.filter(isActiveTask).length;
+  const plannedActive = dayTasks.filter((task) => isActiveTask(task) && task.my_day_date === cursor).length;
   const conflictIds = findTimeConflictIds(dayTasks);
   const nextTask = useMemo(() => {
     const active = dayTasks.filter(isActiveTask);
@@ -244,7 +251,7 @@ function DayBoard() {
       return;
     }
     if (!nextTask) {
-      useAppStore.getState().setToast("今天还没有待执行任务，先新建或加入我的一天吧");
+      useAppStore.getState().setToast("今天还没有待执行任务，可以新建或从待办箱安排");
       return;
     }
     selectTask(nextTask.id);
@@ -322,7 +329,7 @@ function DayBoard() {
     ).length;
     if (
       !window.confirm(
-        `确认今日收尾？\n顺延明天 ${tomorrowCount} 项 · 移出我的一天 ${removedCount} 项 · 取消 ${cancelCount} 项`,
+        `确认今日收尾？\n顺延明天 ${tomorrowCount} 项 · 移出今日计划 ${removedCount} 项 · 取消 ${cancelCount} 项`,
       )
     ) {
       return;
@@ -363,6 +370,22 @@ function DayBoard() {
     useAppStore.getState().setToast(message);
   };
 
+  const deferSelected = async (date: string, message: string) => {
+    const tasksById = new Map(allTasks.map((task) => [task.id, task]));
+    await Promise.all(
+      selectedIds.map((id) => {
+        const task = tasksById.get(id);
+        if (!task) return Promise.resolve();
+        return saveTask(
+          id,
+          buildTaskDeferredUpdate(task, cursor, date, today),
+        );
+      }),
+    );
+    setSelectedIds([]);
+    useAppStore.getState().setToast(message);
+  };
+
   const renderDayTask = (task: Task) => (
     <ExpandableTaskItem
       key={task.id}
@@ -381,27 +404,9 @@ function DayBoard() {
         <>
           <span>{formatTimeRange(task.due_time, task.end_time)}</span>
           <span>{priorityLabel(task.priority)}</span>
-          {isPlan ? (
-            <span
-              className={`day-source-chip ${
-                task.due_date === cursor ? "is-due" : "is-planned"
-              }`}
-            >
-              {task.due_date === cursor
-                ? "今天到期"
-                : task.due_date
-                  ? `计划中 · 截止 ${task.due_date}`
-                  : "仅加入今日计划"}
-            </span>
-          ) : isDeadline ? (
-            <span
-              className={`day-source-chip ${
-                task.my_day_date === today ? "is-planned" : "is-due"
-              }`}
-            >
-              {task.my_day_date === today ? "已在我的一天" : "未排进今天"}
-            </span>
-          ) : null}
+          {isTodayView && task.my_day_date === cursor ? <span className="day-source-chip is-planned">今日计划</span> : null}
+          {isTodayView && task.due_date === cursor ? <span className="day-source-chip is-due">今天截止</span> : null}
+          {isTodayView && cursor === today && task.due_date && task.due_date < today ? <span className="day-source-chip is-overdue">已逾期</span> : null}
           {conflictIds.has(task.id) ? (
             <span className="conflict-chip">时间冲突</span>
           ) : null}
@@ -410,89 +415,70 @@ function DayBoard() {
       actions={
         !selecting && isActiveTask(task) ? (
           <>
-            {isPlan ? (
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => {
-                  if (focusRunning && focusTaskId !== task.id) {
-                    useAppStore
-                      .getState()
-                      .setToast("已有专注任务正在进行，请先暂停后再切换");
-                    return;
-                  }
-                  setFocusTask(task.id);
-                  if (task.status !== "in_progress") {
-                    void saveTask(task.id, { status: "in_progress" });
-                  }
-                  if (!focusRunning) void toggleFocus();
-                }}
-              >
-                专注
-              </button>
-            ) : isDeadline && task.my_day_date !== today ? (
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                if (focusRunning && focusTaskId !== task.id) {
+                  useAppStore
+                    .getState()
+                    .setToast("已有专注任务正在进行，请先暂停后再切换");
+                  return;
+                }
+                setFocusTask(task.id);
+                if (task.status !== "in_progress") {
+                  void saveTask(task.id, { status: "in_progress" });
+                }
+                if (!focusRunning) void toggleFocus();
+              }}
+            >
+              专注
+            </button>
+            {task.my_day_date !== cursor ? (
               <button
                 type="button"
                 className="btn-ghost"
                 onClick={() =>
-                  void saveTask(task.id, { my_day_date: today }).then(() =>
-                    useAppStore.getState().setToast("已加入我的一天"),
+                  void saveTask(task.id, { my_day_date: cursor }).then(() =>
+                    useAppStore.getState().setToast("已加入今日计划"),
                   )
                 }
               >
-                加入我的一天
+                加入今日计划
               </button>
-            ) : isDeadline ? (
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => setNav("myday")}
-              >
-                查看计划
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => {
-                  if (focusRunning && focusTaskId !== task.id) {
-                    useAppStore
-                      .getState()
-                      .setToast("已有专注任务正在进行，请先暂停后再切换");
-                    return;
-                  }
-                  setFocusTask(task.id);
-                  if (task.status !== "in_progress") {
-                    void saveTask(task.id, { status: "in_progress" });
-                  }
-                  if (!focusRunning) void toggleFocus();
-                }}
-              >
-                专注
-              </button>
-            )}
+            ) : null}
             <button
               type="button"
               className="btn-ghost"
               onClick={() =>
                 void saveTask(
                   task.id,
-                  buildDeferredDateUpdate(
-                    isPlan ? "myday" : "due",
+                  buildTaskDeferredUpdate(
+                    task,
+                    cursor,
                     addDays(cursor, 1),
+                    today,
                   ),
                 )
               }
             >
               明天
             </button>
-            {isPlan ? (
+            {task.my_day_date === cursor ? (
               <button
                 type="button"
                 className="btn-ghost"
                 onClick={() => void saveTask(task.id, { my_day_date: null })}
               >
                 移出计划
+              </button>
+            ) : isTodayView ? (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => void saveTask(task.id, { my_day_date: cursor })}
+              >
+                安排今天
               </button>
             ) : null}
           </>
@@ -502,59 +488,23 @@ function DayBoard() {
   );
 
   return (
-    <div className={`scope-board ${isDeadline ? "is-deadline" : isPlan ? "is-plan" : ""}`}>
-      <section className={`today-hero ${isDeadline ? "is-deadline" : "is-plan"}`}>
+    <div className={`scope-board ${isTodayView ? "is-deadline" : isTodayView ? "is-plan" : ""}`}>
+      <section className={`today-hero ${isTodayView ? "is-deadline" : "is-plan"}`}>
         <div className="today-hero-copy">
-          <span className="today-eyebrow">
-            {isDeadline
-              ? cursor === today
-                ? "截止 · 今日到期"
-                : "截止 · 当日到期"
-              : cursor === today
-                ? isPlan
-                  ? "安排 · 我的一天"
-                  : "TODAY · 今日成长"
-                : "安排 · 当日计划"}
-          </span>
+          <span className="today-eyebrow">{cursor === today ? "TODAY · 今日行动" : "DAY · 当日安排"}</span>
           <h3>
-            {isDeadline
-              ? overdueTasks.length
-                ? `${overdueTasks.length} 项已经过了截止日期`
-                : dueActive
-                  ? `${cursor === today ? "今天" : "这天"}有 ${dueActive} 项要到期`
-                  : cursor === today
-                    ? "今天没有到期任务"
-                    : "这一天没有到期任务"
-              : done
-                ? "做得很好，继续保持节奏。"
-                : "从一件小事开始今天。"}
+            {overdueTasks.length ? `${overdueTasks.length} 项需要优先处理` : done ? "做得很好，继续保持节奏。" : "从一件小事开始今天。"}
           </h3>
           <p className="today-hero-note">
-            {isDeadline
-              ? "这里按截止日期列出该交的事。要今天做，请加入「我的一天」。"
-              : isPlan
-                ? "这里只显示你主动排进来的事。截止日期不会被改掉。"
-                : "从下一项开始，保持今天的节奏。"}
+            今日计划、今天截止与逾期事项集中在这里，每项任务只展示一次。
           </p>
-          {!isDeadline && conflictIds.size ? (
+          {isTodayView && conflictIds.size ? (
             <span className="plan-warning">
               {conflictIds.size} 项任务存在时间冲突
             </span>
           ) : null}
           <div className="today-hero-actions">
-            {isDeadline ? (
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  setCalendarCursor(today);
-                  setNav("myday");
-                }}
-              >
-                去我的一天
-              </button>
-            ) : (
-              <div className="today-focus-block">
+            <div className="today-focus-block">
                 <button
                   type="button"
                   className={`today-focus-action ${focusRunning ? "is-running" : ""}`}
@@ -576,10 +526,9 @@ function DayBoard() {
                   </p>
                 ) : null}
               </div>
-            )}
             {cursor === today ? (
               <>
-                {isPlan ? (
+                {isTodayView ? (
                   <button
                     type="button"
                     className="btn-ghost today-moment-action"
@@ -599,8 +548,9 @@ function DayBoard() {
             ) : null}
           </div>
         </div>
-        {isDeadline ? (
-          <div className="deadline-stats">
+        {isTodayView ? (
+          <div className="deadline-stats is-combined">
+            <div className="deadline-stat is-planned"><span>今日计划</span><strong>{plannedActive}</strong></div>
             {cursor === today ? (
               <div className="deadline-stat is-overdue">
                 <span>已逾期</span>
@@ -658,7 +608,7 @@ function DayBoard() {
         >
           {selecting ? "退出批量" : "批量管理"}
         </button>
-        {isPlan ? (
+        {isTodayView ? (
           <button
             type="button"
             className="btn-ghost schedule-action"
@@ -746,17 +696,15 @@ function DayBoard() {
             className="btn-ghost"
             disabled={!selectedIds.length}
             onClick={() =>
-              void updateSelected(
-                nav === "myday"
-                  ? buildDeferredDateUpdate("myday", addDays(cursor, 1))
-                  : buildDeferredDateUpdate("due", addDays(cursor, 1)),
+              void deferSelected(
+                addDays(cursor, 1),
                 `已将 ${selectedIds.length} 项顺延到明天`,
               )
             }
           >
             顺延明天
           </button>
-          {nav === "myday" ? (
+          {isTodayView ? (
             <button
               type="button"
               className="btn-ghost"
@@ -764,7 +712,7 @@ function DayBoard() {
               onClick={() =>
                 void updateSelected(
                   { my_day_date: null },
-                  `已将 ${selectedIds.length} 项移出我的一天`,
+                  `已将 ${selectedIds.length} 项移出今日计划`,
                 )
               }
             >
@@ -785,10 +733,8 @@ function DayBoard() {
             className="btn-ghost"
             disabled={!selectedIds.length || !batchDate}
             onClick={() =>
-              void updateSelected(
-                nav === "myday"
-                  ? buildDeferredDateUpdate("myday", batchDate)
-                  : buildDeferredDateUpdate("due", batchDate),
+              void deferSelected(
+                batchDate,
                 `已调整 ${selectedIds.length} 项任务日期`,
               )
             }
@@ -825,7 +771,7 @@ function DayBoard() {
         </div>
       ) : null}
 
-      {nav === "myday" && myDayCandidates.length ? (
+      {isTodayView && myDayCandidates.length ? (
         <section className="myday-picker">
           <div>
             <strong>为今天挑选任务</strong>
@@ -848,16 +794,16 @@ function DayBoard() {
         </section>
       ) : null}
 
-      {nav === "myday" ? (
+      {isTodayView ? (
         <aside className="myday-semantics">
-          <strong>“我的一天”是今日计划，不会自动修改任务截止日期。</strong>
+          <strong>今日同时汇总计划内、今天截止与已逾期任务。</strong>
           <span>
-            “顺延明天”只调整今日计划；如需修改截止日期，请进入任务详情编辑。
+            安排到今天不会修改任务原本的截止日期。
           </span>
         </aside>
       ) : null}
 
-      {nav === "myday" ? (
+      {isTodayView ? (
         <div className="day-rituals">
           <button
             type="button"
@@ -880,7 +826,7 @@ function DayBoard() {
         </div>
       ) : null}
 
-      {nav === "myday" && closingDay ? (
+      {isTodayView && closingDay ? (
         <section className="day-close-panel">
           <div>
             <strong>今日收尾</strong>
@@ -907,7 +853,7 @@ function DayBoard() {
                 }
               >
                 <option value="tomorrow">安排到明天</option>
-              <option value="remove">移出我的一天</option>
+              <option value="remove">移出今日计划</option>
                 <option value="cancel">取消任务</option>
               </select>
             </label>
@@ -929,7 +875,7 @@ function DayBoard() {
       ) : null}
 
       <div className="scope-summary">
-        {isDeadline ? (
+        {isTodayView ? (
           <>
             {cursor === today ? (
               <div className="scope-card is-overdue">
@@ -942,7 +888,7 @@ function DayBoard() {
               <strong>{dueOnCursor.length}</strong>
             </div>
             <div className="scope-card">
-              <span>已在我的一天</span>
+              <span>今日计划</span>
               <strong>
                 {dayTasks.filter((task) => task.my_day_date === today).length}
               </strong>
@@ -964,11 +910,11 @@ function DayBoard() {
 
       <div className="day-agenda">
         <h3 className="scope-section-title">
-          {isDeadline
+          {isTodayView
             ? cursor === today
-              ? "到期清单"
-              : "当日到期"
-            : isPlan
+              ? "今日事项"
+              : "当日事项"
+            : isTodayView
               ? "今天要做"
               : cursor === today
                 ? "今日安排"
@@ -976,13 +922,13 @@ function DayBoard() {
         </h3>
         {!dayTasks.length ? (
           <div className="scope-empty">
-            {isPlan
-              ? getEmptyMessage("myday")
-              : isDeadline && cursor === today
+            {isTodayView
+              ? "今天还没有任务，可以从待办箱安排或新建一项。"
+              : isTodayView && cursor === today
                 ? getEmptyMessage("today")
                 : "这一天暂无任务"}
           </div>
-        ) : isDeadline ? (
+        ) : isTodayView ? (
           <>
             {overdueTasks.length ? (
               <section className="day-agenda-group is-overdue">
@@ -998,6 +944,7 @@ function DayBoard() {
                 ? dueOnCursor.map(renderDayTask)
                 : <div className="scope-empty">没有到期项</div>}
             </section>
+            {plannedOnlyTasks.length ? <section className="day-agenda-group is-planned"><h4>今日计划 · {plannedOnlyTasks.length}</h4>{plannedOnlyTasks.map(renderDayTask)}</section> : null}
           </>
         ) : (
           dayTasks.map(renderDayTask)
@@ -1496,21 +1443,22 @@ export function MainWorkspace() {
   }
 
   const useScopeBoard = nav !== "board";
+  const showDateScope = nav !== "inbox" && useScopeBoard;
 
   return (
     <main className="main-workspace">
       <div className="workspace-top">
         <div>
-          <h2>{getViewTitle(nav)}</h2>
+          <div className={`workspace-title-line scope-${nav}`}><h2>{getViewTitle(nav)}</h2>{nav === "today" ? <span>今日行动</span> : nav === "inbox" ? <span>尚未安排</span> : null}</div>
           {nav === "today" ? (
-            <p className="workspace-subtitle">按截止日期看今天该交什么，不会自动变成今日计划。</p>
+            <p className="workspace-subtitle">今日计划、今天截止和已逾期任务集中处理。</p>
           ) : null}
-          {nav === "myday" ? (
-            <p className="workspace-subtitle">只列出你主动排进今天的事。截止日期仍留在「今日」。</p>
+          {nav === "inbox" ? (
+            <p className="workspace-subtitle">收纳还没有截止日期的任务，先记下来，之后再安排。</p>
           ) : null}
         </div>
         <div className="top-controls">
-          {useScopeBoard ? (
+          {showDateScope ? (
             <div className="seg">
               {(["day", "week", "month"] as const).map((s) => (
                 <button
@@ -1527,9 +1475,9 @@ export function MainWorkspace() {
         </div>
       </div>
 
-      {useScopeBoard && dateScope === "day" ? <DayBoard /> : null}
-      {useScopeBoard && dateScope === "week" ? <WeekBoard /> : null}
-      {useScopeBoard && dateScope === "month" ? <MonthBoard /> : null}
+      {useScopeBoard && (nav === "inbox" || dateScope === "day") ? <DayBoard /> : null}
+      {showDateScope && dateScope === "week" ? <WeekBoard /> : null}
+      {showDateScope && dateScope === "month" ? <MonthBoard /> : null}
       {!useScopeBoard ? <BoardView tasks={visible} /> : null}
     </main>
   );

@@ -808,10 +808,10 @@ fn make_webview_transparent(window: &tauri::WebviewWindow) {
 
 #[cfg(windows)]
 fn prepare_widget_hit_testing(window: &tauri::WebviewWindow) -> Result<(), String> {
-    // One alpha step preserves Windows hit-testing without visibly tinting a
-    // user-selected fully transparent widget.
+    // Keep the native WebView fully transparent. A non-zero background color
+    // shows as a black rectangle in the rounded corners on Windows.
     window
-        .set_background_color(Some(Color(0, 0, 0, 1)))
+        .set_background_color(Some(Color(0, 0, 0, 0)))
         .map_err(|error| error.to_string())
 }
 
@@ -931,6 +931,7 @@ fn open_main_window(app: AppHandle, nav: Option<String>) -> Result<(), String> {
     window.unminimize().map_err(|e| e.to_string())?;
     window.set_focus().map_err(|e| e.to_string())?;
     if let Some(nav) = nav {
+        let nav = if nav == "myday" { "today".to_string() } else { nav };
         app.emit_to("main", "widget:navigate", serde_json::json!({ "nav": nav }))
             .map_err(|error| error.to_string())?;
     }

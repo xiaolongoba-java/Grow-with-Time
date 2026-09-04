@@ -120,6 +120,20 @@ export async function toggleMilestone(
   );
 }
 
+export async function updateMilestone(
+  id: string,
+  patch: { title?: string; due_date?: string | null },
+): Promise<void> {
+  const db = await getDb();
+  const rows = await db.select<Milestone[]>("SELECT * FROM milestones WHERE id = $1", [id]);
+  const current = rows[0];
+  if (!current) return;
+  const title = patch.title === undefined ? current.title : patch.title.trim();
+  if (!title) return;
+  const dueDate = patch.due_date === undefined ? current.due_date : patch.due_date;
+  await db.execute("UPDATE milestones SET title = $1, due_date = $2 WHERE id = $3", [title, dueDate || null, id]);
+}
+
 export async function fetchTaskTemplates(): Promise<TaskTemplate[]> {
   const db = await getDb();
   return db.select<TaskTemplate[]>(
@@ -292,4 +306,3 @@ export async function ensureMissedNotification(
     scheduledAt: `${task.due_date}T${task.due_time ?? "23:59"}:00`,
   });
 }
-

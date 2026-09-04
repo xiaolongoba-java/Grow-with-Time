@@ -4,7 +4,6 @@ import { AppIcon } from "@/components/AppIcon";
 import type { NavId } from "@/types";
 
 const destinations: { id: NavId; label: string }[] = [
-  { id: "myday", label: "打开我的一天" },
   { id: "today", label: "打开今日" },
   { id: "inbox", label: "打开待办箱" },
   { id: "week", label: "打开周清单" },

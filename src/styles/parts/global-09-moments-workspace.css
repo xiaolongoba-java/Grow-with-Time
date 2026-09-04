@@ -77,6 +77,20 @@
   background: var(--bg-panel);
 }
 
+.anni-display-head { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+.anni-display-head > div { min-width: 0; }
+.anni-display-head .btn-primary { width: auto; flex: 0 0 auto; padding-inline: 18px; }
+.anniversaries-page > .modal-backdrop { width: auto; margin: 0; }
+.anni-composer-dialog { width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; padding: 24px; border-radius: 22px; box-shadow: 0 28px 80px rgba(28,39,61,.24); }
+.anni-composer-dialog > header,
+.anni-detail-dialog > header { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+.anni-composer-dialog > header span,
+.anni-detail-dialog > header span { color: var(--moment-warm); font-size: 11px; font-weight: 800; letter-spacing: .13em; }
+.anni-composer-dialog > header h2,
+.anni-detail-dialog > header h2 { margin: 5px 0 0; font: 750 26px/1.2 var(--font-display); }
+.anni-composer-dialog > header > button,
+.anni-detail-dialog > header > button { width: 34px; height: 34px; padding: 0; border-radius: 50%; color: var(--text-muted); background: var(--bg-soft); }
+
 .anni-composer-row {
   display: flex;
   flex-wrap: wrap;
@@ -144,7 +158,11 @@
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
   min-width: 140px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
 }
+.anni-chip:hover { border-color: color-mix(in srgb, var(--moment-warm) 35%, var(--border)); transform: translateY(-1px); }
 
 .anni-chip strong { font-size: 14px; }
 .anni-chip span { font-size: 12px; color: var(--text-muted); }
@@ -163,7 +181,11 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
+.anni-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--moment-warm) 28%, var(--border)); box-shadow: 0 12px 30px rgba(40,53,77,.08); }
+.anni-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 .anni-card.is-today {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
@@ -195,6 +217,30 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.anni-empty { min-height: 300px; display: grid; place-items: center; align-content: center; gap: 9px; text-align: center; }
+.anni-empty strong { font: 700 22px/1.3 var(--font-display); }
+.anni-empty p { margin: 0 0 8px; color: var(--text-muted); }
+.anni-empty .btn-primary { width: auto; }
+
+.anni-detail-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; padding: 25px; border: 1px solid var(--border); border-radius: 24px; background: var(--bg-panel); box-shadow: 0 30px 90px rgba(26,37,58,.28); }
+.anni-detail-count { display: grid; justify-items: center; gap: 5px; margin: 6px 0 22px; padding: 26px; border: 1px solid color-mix(in srgb, var(--moment-warm) 22%, var(--border)); border-radius: 18px; background: color-mix(in srgb, var(--moment-warm) 8%, var(--bg-panel)); }
+.anni-detail-count strong { color: var(--moment-warm); font: 780 clamp(42px,9vw,68px)/1 var(--font-display); letter-spacing: -.06em; }
+.anni-detail-count span { color: var(--text-secondary); font-size: 13px; }
+.anni-detail-dialog dl { display: grid; gap: 0; margin: 0; }
+.anni-detail-dialog dl > div { display: grid; grid-template-columns: 90px 1fr; gap: 15px; padding: 11px 2px; border-bottom: 1px solid var(--border); }
+.anni-detail-dialog dt { color: var(--text-muted); font-size: 12px; }
+.anni-detail-dialog dd { margin: 0; color: var(--text-primary); font-size: 13px; text-align: right; }
+.anni-detail-dialog > section { margin-top: 20px; padding: 17px 18px; border-left: 4px solid var(--moment-warm); background: var(--bg-soft); }
+.anni-detail-dialog > section span { color: var(--text-muted); font-size: 11px; font-weight: 750; }
+.anni-detail-dialog > section p { margin: 8px 0 0; color: var(--text-secondary); line-height: 1.7; white-space: pre-wrap; }
+.anni-detail-dialog > footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+
+@media (max-width: 640px) {
+  .anni-display-head { align-items: flex-start; flex-direction: column; }
+  .anni-card-main { align-items: stretch; flex-direction: column; }
+  .anni-countdown { text-align: left; }
 }
 
 .dash-anni { opacity: 0.92; }
