@@ -3,13 +3,29 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export const DATA_CHANGED_EVENT = "app:data-changed";
 
+const EMIT_DEBOUNCE_MS = 250;
+let emitTimer = 0;
+let pendingReason = "update";
+
 /** Broadcast so desktop widgets / float can refresh without blind polling. */
 export async function emitDataChanged(reason = "update"): Promise<void> {
-  try {
-    await emit(DATA_CHANGED_EVENT, { reason, at: Date.now() });
-  } catch {
-    /* non-tauri / early boot */
+  pendingReason = reason;
+  if (typeof window === "undefined") {
+    try {
+      await emit(DATA_CHANGED_EVENT, { reason, at: Date.now() });
+    } catch {
+      /* non-tauri / early boot */
+    }
+    return;
   }
+  if (emitTimer) return;
+  emitTimer = window.setTimeout(() => {
+    emitTimer = 0;
+    const reasonToSend = pendingReason;
+    void emit(DATA_CHANGED_EVENT, { reason: reasonToSend, at: Date.now() }).catch(
+      () => undefined,
+    );
+  }, EMIT_DEBOUNCE_MS);
 }
 
 type RefreshFn = () => void | Promise<void>;
@@ -26,6 +42,7 @@ export function bindVisibleDataRefresh(
   let unlistenEvent: UnlistenFn | undefined;
   let unlistenVisibility: UnlistenFn | undefined;
   let pollId = 0;
+  let eventDebounceId = 0;
   let disposed = false;
 
   const run = () => {
@@ -40,6 +57,13 @@ export function bindVisibleDataRefresh(
     }
   };
 
+  const clearEventDebounce = () => {
+    if (eventDebounceId) {
+      window.clearTimeout(eventDebounceId);
+      eventDebounceId = 0;
+    }
+  };
+
   const armPoll = () => {
     clearPoll();
     if (disposed || document.visibilityState === "hidden") return;
@@ -48,7 +72,11 @@ export function bindVisibleDataRefresh(
 
   void listen(DATA_CHANGED_EVENT, () => {
     if (document.visibilityState === "hidden") return;
-    run();
+    clearEventDebounce();
+    eventDebounceId = window.setTimeout(() => {
+      eventDebounceId = 0;
+      run();
+    }, 250);
   }).then((fn) => {
     if (disposed) {
       fn();
@@ -92,6 +120,7 @@ export function bindVisibleDataRefresh(
   return () => {
     disposed = true;
     clearPoll();
+    clearEventDebounce();
     document.removeEventListener("visibilitychange", onVisibility);
     unlistenEvent?.();
     unlistenVisibility?.();

@@ -440,10 +440,16 @@ pub fn undo_desktop_organize(app: AppHandle) -> Result<OrganizeResult, String> {
 }
 
 #[tauri::command]
-pub fn open_desktop_item(path: String) -> Result<(), String> {
+pub fn open_desktop_item(app: AppHandle, path: String) -> Result<(), String> {
     let target = PathBuf::from(&path);
     if !target.exists() {
         return Err("文件已不在原位置".into());
+    }
+    let target = target.canonicalize().map_err(|error| error.to_string())?;
+    let desktop = app.path().desktop_dir().map_err(|error| error.to_string())?
+        .canonicalize().map_err(|error| error.to_string())?;
+    if !target.starts_with(&desktop) {
+        return Err("仅允许打开桌面目录内的项目".into());
     }
     open_os_path(&target)
 }

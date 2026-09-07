@@ -197,8 +197,41 @@ export function nextOccurrence(
   }
 }
 
-export function nextRepeatTaskDraft(task: Task): TaskDraft | null {
-  const next = nextOccurrence(task);
+function occurrenceIsStillCurrent(
+  occurrence: { due_date: string; due_time: string | null },
+  reference: Date,
+): boolean {
+  const today = formatYmd(reference);
+  if (occurrence.due_date > today) return true;
+  if (occurrence.due_date < today) return false;
+  // An all-day occurrence remains valid for the rest of today. Timed
+  // occurrences must still be later than the current local minute.
+  if (!occurrence.due_time) return true;
+  const currentTime = `${String(reference.getHours()).padStart(2, "0")}:${String(reference.getMinutes()).padStart(2, "0")}`;
+  return occurrence.due_time > currentTime;
+}
+
+/** First recurrence that has not already expired at `reference`. */
+export function nextUpcomingOccurrence(
+  task: Task,
+  reference = new Date(),
+): { due_date: string; due_time: string | null } | null {
+  let cursor = task;
+  // The cap only protects malformed rules; 10,000 daily steps covers more
+  // than 27 years of overdue occurrences.
+  for (let i = 0; i < 10_000; i++) {
+    const next = nextOccurrence(cursor);
+    if (!next || occurrenceIsStillCurrent(next, reference)) return next;
+    cursor = { ...cursor, due_date: next.due_date, due_time: next.due_time };
+  }
+  return null;
+}
+
+export function nextRepeatTaskDraft(
+  task: Task,
+  reference = new Date(),
+): TaskDraft | null {
+  const next = nextUpcomingOccurrence(task, reference);
   if (!next) return null;
   const rule = parseRepeatRule(task.repeat_rule);
   let repeatRule = task.repeat_rule;

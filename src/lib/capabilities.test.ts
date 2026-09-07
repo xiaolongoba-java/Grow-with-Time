@@ -17,6 +17,12 @@ describe("capability split", () => {
     expect(main).toContain('"main"');
     expect(main).toContain("fs:allow-write-text-file");
     expect(main).toContain("http:default");
+    const mainCommands = readFileSync("src-tauri/permissions/main-app.toml", "utf8");
+    expect(mainCommands).toContain('"create_database_backup"');
+    expect(mainCommands).toContain('"cancel_database_restore"');
+    const generatedAcl = readFileSync("src-tauri/gen/schemas/acl-manifests.json", "utf8");
+    expect(generatedAcl).toContain("create_database_backup");
+    expect(generatedAcl).toContain("cancel_database_restore");
   });
 
   it("enables a non-null CSP in tauri.conf", () => {

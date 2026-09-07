@@ -172,6 +172,24 @@ async function updateTaskWithinTransaction(
   if (existing.length === 0) return { task: null, spawned: null };
 
   const current = mapTask(existing[0]);
+  if (updates.status === "completed" && current.status !== "completed") {
+    if (current.blocked_by_id) {
+      const blocker = await db.select<{ status: string; deleted_at: string | null }[]>(
+        "SELECT status, deleted_at FROM tasks WHERE id=$1 LIMIT 1",
+        [current.blocked_by_id],
+      );
+      if (blocker[0] && !blocker[0].deleted_at && blocker[0].status !== "completed") {
+        throw new Error("前置任务尚未完成，暂时不能完成此任务");
+      }
+    }
+    const openChildren = await db.select<{ count: number }[]>(
+      "SELECT COUNT(*) count FROM tasks WHERE parent_id=$1 AND deleted_at IS NULL AND status NOT IN ('completed','cancelled')",
+      [id],
+    );
+    if ((openChildren[0]?.count ?? 0) > 0) {
+      throw new Error("请先完成或取消全部子任务");
+    }
+  }
   const next: Task = {
     ...current,
     ...updates,
@@ -262,6 +280,22 @@ async function updateTaskWithinTransaction(
     await recycleGeneratedOccurrences(current);
   } else if (current.status !== "completed" && next.status === "completed") {
     spawned = await spawnRepeatOccurrence(current);
+  }
+
+  if (next.parent_id && current.status !== next.status) {
+    const parents = await db.select<Task[]>(`${TASK_SELECT} WHERE tasks.id=$1 LIMIT 1`, [next.parent_id]);
+    const parent = parents[0] ? mapTask(parents[0]) : null;
+    if (parent) {
+      if (next.status === "completed" && parent.status !== "completed") {
+        const remaining = await db.select<{ count: number }[]>(
+          "SELECT COUNT(*) count FROM tasks WHERE parent_id=$1 AND deleted_at IS NULL AND status NOT IN ('completed','cancelled')",
+          [parent.id],
+        );
+        if ((remaining[0]?.count ?? 0) === 0) await updateTaskWithinTransaction(parent.id, { status: "completed" });
+      } else if (current.status === "completed" && next.status !== "completed" && parent.status === "completed") {
+        await updateTaskWithinTransaction(parent.id, { status: "pending" });
+      }
+    }
   }
 
   return { task: next, spawned };
@@ -655,23 +689,39 @@ async function toggleTaskCompleteWithinTransaction(
 
 async function spawnRepeatOccurrence(source: Task): Promise<Task | null> {
   if (!source.repeat_rule || source.parent_id !== null) return null;
-  const draft = nextRepeatTaskDraft(source);
+  const draft = nextRepeatTaskDraft(source, new Date());
   if (!draft) return null;
   const db = await getDb();
   const tags = await db.select<{ tag_id: string }[]>(
     "SELECT tag_id FROM task_tags WHERE task_id = $1",
     [source.id],
   );
-  return createTaskWithinTransaction({
-    ...draft,
-    generated_from_id: source.id,
-    tagIds: tags.map((row) => row.tag_id),
-  });
+  const existing = await db.select<Task[]>(
+    `${TASK_SELECT} WHERE tasks.generated_from_id=$1 AND tasks.due_date=$2 AND tasks.deleted_at IS NULL LIMIT 1`,
+    [source.id, draft.due_date],
+  );
+  if (existing[0]) return mapTask(existing[0]);
+  try {
+    return await createTaskWithinTransaction({
+      ...draft,
+      generated_from_id: source.id,
+      tagIds: tags.map((row) => row.tag_id),
+    });
+  } catch (error) {
+    const raced = await db.select<Task[]>(
+      `${TASK_SELECT} WHERE tasks.generated_from_id=$1 AND tasks.due_date=$2 AND tasks.deleted_at IS NULL LIMIT 1`,
+      [source.id, draft.due_date],
+    );
+    if (raced[0]) return mapTask(raced[0]);
+    throw error;
+  }
 }
 
 async function recycleGeneratedOccurrences(source: Task): Promise<void> {
-  const expected = nextOccurrence(source);
-  if (!expected) return;
+  const reference = new Date(source.completed_at ?? nowIso());
+  const draft = nextRepeatTaskDraft(source, reference);
+  if (!draft?.due_date) return;
+  const expected = { due_date: draft.due_date, due_time: draft.due_time ?? null };
   const db = await getDb();
   const linked = await db.select<Task[]>(
     `${TASK_SELECT} WHERE tasks.generated_from_id = $1 AND tasks.deleted_at IS NULL`,

@@ -99,6 +99,17 @@ describe("native reminder lifecycle", () => {
     expect(plans[0].showSystemNotification).toBe(false);
   });
 
+  it("records every missed offset but only surfaces the newest one", () => {
+    const plans = buildMissedReminderPlans(
+      [task({ reminder_minutes: [60, 30] })],
+      30,
+      new Date("2026-07-30T08:00:00").getTime(),
+      new Date("2026-07-30T09:45:00").getTime(),
+    );
+    expect(plans).toHaveLength(2);
+    expect(plans.filter((item) => item.showSystemNotification)).toHaveLength(1);
+  });
+
   it("does not recover completed tasks", () => {
     expect(
       buildMissedReminderPlans(

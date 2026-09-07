@@ -4,6 +4,8 @@ import { notifyWidgetError, openMainWindow, runWidgetAction } from "@/lib/openMa
 import type { NavId } from "@/types";
 import { fetchTasks } from "@/lib/db/tasks";
 import { createMemo, fetchMemos, updateMemo } from "@/lib/db/memos";
+import { getSetting } from "@/lib/db/settings";
+import { isPrivacyModeEnabled } from "@/lib/privacy";
 import {
   createInspiration,
   fetchAnniversaries,
@@ -89,6 +91,7 @@ export function DashboardStripApp() {
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(false);
   const [month, setMonth] = useState(() => {
     const value = new Date();
     value.setDate(1);
@@ -130,6 +133,7 @@ export function DashboardStripApp() {
       nextAnniversaries,
       inspirations,
       reflections,
+      privacySetting,
     ] = await Promise.all([
       fetchTasks(),
       fetchMemos(),
@@ -139,6 +143,7 @@ export function DashboardStripApp() {
       fetchAnniversaries(),
       fetchInspirations(false),
       fetchDailyReflections(),
+      getSetting("privacy_mode"),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
@@ -146,6 +151,7 @@ export function DashboardStripApp() {
     setChecks(nextChecks);
     setTimers(nextTimers);
     setAnniversaries(nextAnniversaries);
+    setPrivacyMode(isPrivacyModeEnabled(privacySetting));
 
     const today = todayDateString();
     const highlight = reflections.find((item) => item.reflection_date === today)?.highlight?.trim();
@@ -337,6 +343,7 @@ export function DashboardStripApp() {
   return (
     <main
       className={`dashboard-strip ${opacity === 0 ? "is-fully-transparent" : ""}`}
+      data-privacy={privacyMode ? "on" : "off"}
       style={
         {
           "--widget-rgb": hexToRgb(color),
@@ -603,7 +610,11 @@ export function DashboardStripApp() {
               return (
                 <span
                   key={key}
-                  title={anniTitles?.join("、") || "打开主窗口"}
+                  title={
+                    privacyMode && anniTitles?.length
+                      ? "隐私模式已开启"
+                      : anniTitles?.join("、") || "打开主窗口"
+                  }
                   role="button"
                   tabIndex={0}
                   onClick={() => setSelectedDate(key)}

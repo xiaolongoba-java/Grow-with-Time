@@ -8,9 +8,20 @@ import type { AppNotification } from "@/types";
 export function NotificationPopupApp() {
   const [item, setItem] = useState<AppNotification | null>(null);
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    void listen<AppNotification>("notification:popup", (event) => setItem(event.payload)).then((fn) => { unlisten = fn; });
-    return () => unlisten?.();
+    let unlistenPopup: (() => void) | undefined;
+    let unlistenDismissed: (() => void) | undefined;
+    void listen<AppNotification>("notification:popup", (event) => setItem(event.payload)).then((fn) => { unlistenPopup = fn; });
+    void listen<string>("notification:task-dismissed", (event) => {
+      setItem((current) => {
+        if (current?.task_id !== event.payload) return current;
+        void getCurrentWebviewWindow().hide();
+        return null;
+      });
+    }).then((fn) => { unlistenDismissed = fn; });
+    return () => {
+      unlistenPopup?.();
+      unlistenDismissed?.();
+    };
   }, []);
   const hide = () => void getCurrentWebviewWindow().hide();
   if (!item) return null;

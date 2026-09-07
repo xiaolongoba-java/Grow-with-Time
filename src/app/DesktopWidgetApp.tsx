@@ -6,6 +6,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createTask, fetchTasks, toggleTaskComplete } from "@/lib/db/tasks";
 import { createMemo, fetchMemos, updateMemo } from "@/lib/db/memos";
+import { getSetting } from "@/lib/db/settings";
+import { isPrivacyModeEnabled } from "@/lib/privacy";
 import { fetchAnniversaries } from "@/lib/db/moments";
 import {
   anniversaryDatesInMonth,
@@ -76,6 +78,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   });
   const [busy, setBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(false);
   const [widgetColor, setWidgetColor] = useState(() => {
     try {
       return localStorage.getItem(`minimal.widget.color.${kind}`) ?? "#355b8a";
@@ -105,14 +108,16 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   }, [kind, widgetColor, widgetOpacity]);
 
   const refresh = async () => {
-    const [nextTasks, nextMemos, nextAnniversaries] = await Promise.all([
+    const [nextTasks, nextMemos, nextAnniversaries, privacySetting] = await Promise.all([
       fetchTasks(),
       fetchMemos(),
       fetchAnniversaries(),
+      getSetting("privacy_mode"),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
     setAnniversaries(nextAnniversaries);
+    setPrivacyMode(isPrivacyModeEnabled(privacySetting));
   };
 
   useEffect(() => {
@@ -246,6 +251,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
   return (
     <main
       className={`desktop-widget desktop-widget-${kind} ${widgetOpacity === 0 ? "is-fully-transparent" : ""}`}
+      data-privacy={privacyMode ? "on" : "off"}
       style={
         {
           "--widget-rgb": hexToRgb(widgetColor),
@@ -366,10 +372,14 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
               const key = dateKey(date);
               const dayTasks = activeTasksByDate.get(key) ?? [];
               const anniTitles = anniversaryMonthDates.get(key) ?? [];
-              const tipParts = [
-                ...dayTasks.map((task) => task.title),
-                ...anniTitles.map((title) => `纪念日 · ${title}`),
-              ];
+              const tipParts = privacyMode
+                ? dayTasks.length || anniTitles.length
+                  ? ["隐私模式已开启"]
+                  : []
+                : [
+                    ...dayTasks.map((task) => task.title),
+                    ...anniTitles.map((title) => `纪念日 · ${title}`),
+                  ];
               return (
                 <div
                   key={key}

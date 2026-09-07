@@ -9,6 +9,7 @@ import type {
 } from "@/types";
 import { nowIso } from "@/lib/dates";
 import { backupPayloadHas, sanitizeBackupPayload, validateBackupPayload } from "@/lib/backup";
+import { sanitizeImportedMemoContent } from "@/lib/richText";
 import { getDb, withTransaction } from "./client";
 import { saveTaskPlanningMetadata } from "./client";
 import { fetchTasks } from "./tasks";
@@ -22,10 +23,12 @@ import {
 import { fetchMemos } from "./memos";
 import { fetchTimers } from "./timers";
 import {
+  addGoalEntry,
   fetchAchievements,
   fetchGoalEntries,
   fetchGoalMilestones,
   fetchGoals,
+  refreshGoalProgress,
 } from "./growth";
 import {
   fetchAnniversaries,
@@ -80,6 +83,10 @@ export async function exportBackup(): Promise<BackupPayload> {
   const inspirations = await fetchInspirations(true);
   const futureLetters = await fetchFutureLetters();
   const anniversaries = await fetchAnniversaries();
+  const ledgerCategories = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_categories");
+  const ledgerAccounts = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_accounts");
+  const ledgerTransactions = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_transactions");
+  const ledgerBudgets = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_budgets");
   const settings = await getAllSettings();
   // API keys are credentials, not user content. Never copy them into a
   // portable JSON backup where they can be shared or synced accidentally.
@@ -87,7 +94,7 @@ export async function exportBackup(): Promise<BackupPayload> {
   for (const key of RETIRED_SETTING_KEYS) delete settings[key];
 
   return {
-    version: 7,
+    version: 8,
     exportedAt: nowIso(),
     tasks,
     tags,
@@ -113,6 +120,10 @@ export async function exportBackup(): Promise<BackupPayload> {
     inspirations,
     futureLetters,
     anniversaries,
+    ledgerCategories,
+    ledgerAccounts,
+    ledgerTransactions,
+    ledgerBudgets,
     settings,
   };
 }
@@ -124,6 +135,13 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
   const has = (key: keyof BackupPayload) => backupPayloadHas(raw, key);
 
   await withTransaction(async () => {
+    const restoreLedger = has("ledgerTransactions") && has("ledgerBudgets") && has("ledgerCategories") && has("ledgerAccounts");
+    if (restoreLedger) {
+      await db.execute("DELETE FROM ledger_transactions");
+      await db.execute("DELETE FROM ledger_budgets");
+      await db.execute("DELETE FROM ledger_categories");
+      await db.execute("DELETE FROM ledger_accounts");
+    }
     if (has("anniversaries")) await db.execute("DELETE FROM anniversaries");
     if (has("futureLetters")) await db.execute("DELETE FROM future_letters");
     if (has("inspirations")) await db.execute("DELETE FROM inspirations");
@@ -139,6 +157,10 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
       await db.execute("DELETE FROM goal_milestones");
       await db.execute("DELETE FROM goal_entries");
       await db.execute("DELETE FROM goals");
+    } else {
+      // Legacy backups replace tasks/habits but do not carry their derived
+      // goal ledger. Remove the old sources before their owners disappear.
+      await db.execute("DELETE FROM goal_entries WHERE source_type IN ('task','habit')");
     }
     if (has("focusSessions")) await db.execute("DELETE FROM focus_sessions");
     if (has("taskEvents")) await db.execute("DELETE FROM task_events");
@@ -157,6 +179,19 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
     if (has("taskTemplates")) await db.execute("DELETE FROM task_templates");
     if (has("projects")) await db.execute("DELETE FROM projects");
     await db.execute("DELETE FROM karma_ledger");
+
+  for (const category of payload.ledgerCategories ?? []) {
+    await db.execute(`INSERT INTO ledger_categories(id,kind,name,icon,color,sort_order,is_builtin,is_enabled,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [category.id,category.kind,category.name,category.icon,category.color,category.sort_order,category.is_builtin,category.is_enabled,category.created_at]);
+  }
+  for (const account of payload.ledgerAccounts ?? []) {
+    await db.execute(`INSERT INTO ledger_accounts(id,name,kind,color,sort_order,is_enabled,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)`, [account.id,account.name,account.kind,account.color,account.sort_order,account.is_enabled,account.created_at]);
+  }
+  for (const budget of payload.ledgerBudgets ?? []) {
+    await db.execute(`INSERT INTO ledger_budgets(id,month,amount_cents,created_at,updated_at) VALUES($1,$2,$3,$4,$5)`, [budget.id,budget.month,budget.amount_cents,budget.created_at,budget.updated_at]);
+  }
+  for (const transaction of payload.ledgerTransactions ?? []) {
+    await db.execute(`INSERT INTO ledger_transactions(id,type,amount_cents,date,category_id,account_id,note,is_deleted,version,created_at,updated_at,deleted_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [transaction.id,transaction.type,transaction.amount_cents,transaction.date,transaction.category_id,transaction.account_id,transaction.note,transaction.is_deleted,transaction.version,transaction.created_at,transaction.updated_at,transaction.deleted_at]);
+  }
 
   for (const task of payload.tasks) {
     await db.execute(
@@ -246,7 +281,7 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
       [
         m.id,
         m.title ?? "",
-        m.content,
+        sanitizeImportedMemoContent(m.content, m.format),
         m.pinned,
         m.archived ?? 0,
         m.format === "richtext" ? "richtext" : "markdown",
@@ -475,5 +510,19 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
   for (const key of RETIRED_SETTING_KEYS) {
     await db.execute("DELETE FROM settings WHERE key = $1", [key]);
   }
+  if (!has("goalEntries")) {
+    for (const task of payload.tasks) {
+      if (task.status !== "completed" || !task.goal_id) continue;
+      await addGoalEntry({ goal_id: task.goal_id, entry_date: (task.completed_at ?? task.updated_at).slice(0, 10), value: task.goal_contribution || 1, source_type: "task", source_id: task.id, note: task.title });
+    }
+    const habitsById = new Map(payload.habits.map((habit) => [habit.id, habit]));
+    for (const check of payload.habitChecks) {
+      const habit = habitsById.get(check.habit_id);
+      if (!habit?.goal_id) continue;
+      await addGoalEntry({ goal_id: habit.goal_id, entry_date: check.check_date, value: habit.goal_contribution || 1, source_type: "habit", source_id: `${habit.id}:${check.check_date}`, note: habit.title });
+    }
+  }
+  const retainedGoals = await db.select<{ id: string }[]>("SELECT id FROM goals");
+  for (const goal of retainedGoals) await refreshGoalProgress(goal.id);
   });
 }

@@ -119,6 +119,36 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.6.3 观流账本与数据安全
+
+本版本新增本地「观流账本」，并修复一批任务、备份与提醒问题。可直接覆盖安装 v1.6.2。**不支持降级到旧版本**（数据库会执行 migration 22–23）。
+
+**观流账本**
+- 记一笔、分类/账户、月预算与软删除；金额可隐藏
+- 全局快捷键默认 `Ctrl/Cmd+Shift+B`（设置里可改），主窗口在托盘时也会被唤起
+
+**任务与今日**
+- 晚间收尾「安排到明天」会同时顺延逾期截止日期
+- 完成重复任务后，下一次会出现在列表中
+- 今日时间轴包含仅加入今日计划的任务
+- 前置未完成或子任务未完成时，不能完成父任务
+
+**数据与提醒**
+- JSON 恢复前先做数据库快照，失败会回滚并重启
+- 开启 WAL 与跨窗口写锁；重复任务生成防重复
+- 富文本备忘导入与编辑均消毒；隐私模式会模糊主界面与桌面组件标题
+
+**升级建议**：从 v1.6.2 直接覆盖安装。若需回退旧版，请先导出 JSON 备份并卸载后再装，不要对已升级的数据库降级。
+
+### v1.6.3
+
+| 平台 | 文件 | GitHub | Gitee（国内推荐） |
+|------|------|--------|-------------------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.3/Grow.with.Time_1.6.3_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.3/Grow.with.Time_1.6.3_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.3/Grow.with.Time_1.6.3_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.3/Grow.with.Time_1.6.3_x64-setup.exe) |
+
+> GitHub 访问困难时，请优先使用 **Gitee** 列链接；若暂不可用，打开 [Gitee 发行版 v1.6.3](https://gitee.com/xiaolong-oba/grow-with-time/releases/tag/v1.6.3) 下载附件。GitHub 备用：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.3)。
+
 #### v1.6.2 紧急修复：桌面组件与停靠栏
 
 本版本为 **v1.6.1 的紧急修复**，可直接覆盖安装。

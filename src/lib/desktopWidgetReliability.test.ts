@@ -29,6 +29,7 @@ describe("desktop widget reliability contract", () => {
 
   it("validates widget navigation and targets only the main window", () => {
     expect(rust).toContain("widget_nav_allowed(value)");
+    expect(rust).toContain('"ledger" | "ledger-budget"');
     expect(rust).toContain('emit_to("main", "widget:navigate"');
   });
 
@@ -47,5 +48,20 @@ describe("desktop widget reliability contract", () => {
     expect(rust).not.toContain('show_dashboard_strip(app.clone(), Some("bottom".into()))');
     expect(rust).not.toContain('show_desktop_widgets(app.clone(), Some("bottom".into()))');
     expect(mainApp).toContain("current.desktopWidgetLayer");
+  });
+
+  it("applies a new layer only to already-visible widgets", () => {
+    expect(rust).toContain("fn apply_desktop_widget_layer");
+    expect(rust).toContain("already_visible");
+  });
+
+  it("does not flash HWND_TOPMOST when sending widgets to the bottom layer", () => {
+    const fn = rust.slice(
+      rust.indexOf("fn stabilize_widget_layer"),
+      rust.indexOf("fn detach_window_owner"),
+    );
+    const afterTopReturn = fn.slice(fn.indexOf("return Ok(());"));
+    expect(afterTopReturn).toContain("HWND_NOTOPMOST");
+    expect(afterTopReturn).not.toContain("HWND_TOPMOST");
   });
 });

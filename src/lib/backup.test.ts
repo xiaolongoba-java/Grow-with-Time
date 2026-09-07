@@ -58,7 +58,9 @@ describe("backup coverage", () => {
     expect(source).toContain("goal_contribution");
     expect(source).toContain("task.flexible ?? 1");
     expect(source).toContain("schedule_locked");
-    expect(source).toContain("version: 7");
+    expect(source).toContain("version: 8");
+    expect(source).toContain("ledgerTransactions");
+    expect(source).toContain("DELETE FROM goal_entries WHERE source_type IN ('task','habit')");
     expect(source).not.toContain("karmaLedger");
     expect(source).toContain("DELETE FROM karma_ledger");
     expect(source).toContain("DELETE FROM settings WHERE key");

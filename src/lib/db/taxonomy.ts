@@ -188,6 +188,14 @@ export async function createHabit(
 
 export async function deleteHabit(id: string): Promise<void> {
   const db = await getDb();
+  const habits = await db.select<Habit[]>("SELECT * FROM habits WHERE id=$1", [id]);
+  const checks = await db.select<HabitCheck[]>("SELECT * FROM habit_checks WHERE habit_id=$1", [id]);
+  const goalId = habits[0]?.goal_id ?? null;
+  if (goalId) {
+    for (const check of checks) {
+      await removeGoalEntryBySource(goalId, "habit", `${id}:${check.check_date}`);
+    }
+  }
   await db.execute("DELETE FROM habit_checks WHERE habit_id=$1", [id]);
   await db.execute("DELETE FROM habits WHERE id=$1", [id]);
 }
@@ -270,4 +278,3 @@ export async function updateHabitGoal(
     }
   }
 }
-

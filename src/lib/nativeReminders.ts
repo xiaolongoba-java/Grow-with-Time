@@ -134,16 +134,16 @@ export function buildMissedReminderPlans(
     const missed = reminders
       .map((remind) => ({ remind, fireAtMs: due - remind * 60 * 1000 }))
       .filter((item) => item.fireAtMs > lastScanMs && item.fireAtMs <= nowMs)
-      .sort((a, b) => b.fireAtMs - a.fireAtMs)[0];
-    if (!missed) continue;
-    plans.push({
-      reminderId: `${task.id}:${task.due_date}:${task.due_time ?? "23:59"}:${missed.remind}`,
+      .sort((a, b) => b.fireAtMs - a.fireAtMs);
+    missed.forEach((item, index) => plans.push({
+      reminderId: `${task.id}:${task.due_date}:${task.due_time ?? "23:59"}:${item.remind}`,
       taskId: task.id,
       title: "错过的任务提醒",
       body: `${task.title} 的提醒已错过`,
-      fireAtMs: missed.fireAtMs,
-      showSystemNotification: nowMs - missed.fireAtMs <= systemGraceMs,
-    });
+      fireAtMs: item.fireAtMs,
+      // Persist every missed offset, but only surface the newest one.
+      showSystemNotification: index === 0 && nowMs - item.fireAtMs <= systemGraceMs,
+    }));
   }
   return plans;
 }

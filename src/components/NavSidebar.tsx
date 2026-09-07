@@ -161,6 +161,13 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       >
         <span className="nav-item-label"><AppIcon name="layers" size={17} />工具箱</span>
       </button>
+      <div className="nav-section-label">观流账本</div>
+      <button type="button" className={`nav-item ${nav === "ledger" ? "active" : ""}`} onClick={() => setNav("ledger")}>
+        <span className="nav-item-label"><AppIcon name="wallet" size={17} />收支总览</span>
+      </button>
+      <button type="button" className={`nav-item ${nav === "ledger-budget" ? "active" : ""}`} onClick={() => setNav("ledger-budget")}>
+        <span className="nav-item-label"><AppIcon name="budget" size={17} />预算</span>
+      </button>
       <div className="nav-section-label">拾光</div>
       <button type="button" className={`nav-item nav-group-trigger ${["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav) ? "active" : ""}`} aria-expanded={momentsOpen} onClick={() => { setMomentsOpen((value) => !value); if (!["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav)) setNav("daily-reflection"); }}>
         <span className="nav-item-label"><AppIcon name="sparkle" size={17} />拾光</span><span className="nav-group-chevron">{momentsOpen ? "−" : "+"}</span>

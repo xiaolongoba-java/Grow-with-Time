@@ -29,6 +29,14 @@ export function sanitizeRichText(html: string): string {
   return root.innerHTML;
 }
 
+/** Keep portable backups from persisting active HTML in rich-text memos. */
+export function sanitizeImportedMemoContent(
+  content: string,
+  format: string | null | undefined,
+): string {
+  return format === "richtext" ? sanitizeRichText(content) : content;
+}
+
 export function richTextToPlainText(html: string): string {
   if (typeof DOMParser === "undefined") return html.replace(/<[^>]*>/g, " ");
   return new DOMParser().parseFromString(html, "text/html").body.textContent?.replace(/\s+/g, " ").trim() ?? "";

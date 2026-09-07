@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { register, isRegistered } from "@tauri-apps/plugin-global-shortcut";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { register, isRegistered, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -19,6 +19,7 @@ import { MorningPlanDialog } from "@/components/MorningPlanDialog";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { GlassTitlebar } from "@/components/GlassTitlebar";
 import { VersionUpdateNotice } from "@/components/VersionUpdateNotice";
+import { nextRunningTimerDueAt } from "@/lib/timers";
 import {
   createNotificationRecord,
   ensureReminderRecord,
@@ -84,9 +85,20 @@ export function MainApp() {
   const activeTagId = useAppStore((s) => s.activeTagId);
   const filter = useAppStore((s) => s.filter);
   const settings = useAppStore((s) => s.settings);
+  const timers = useAppStore((s) => s.timers);
   const settleTimers = useAppStore((s) => s.settleTimers);
+  const refreshTimers = useAppStore((s) => s.refreshTimers);
   const focusRunning = useAppStore((s) => s.focusRunning);
   const tickFocus = useAppStore((s) => s.tickFocus);
+
+  const overdueSignature = useMemo(
+    () =>
+      tasks
+        .filter((task) => task.status === "pending" && task.due_date && !task.parent_id)
+        .map((task) => `${task.id}:${task.due_date}:${task.due_time ?? ""}`)
+        .join("|"),
+    [tasks],
+  );
 
   const [navCollapsed, setNavCollapsed] = useState(() => {
     try {
@@ -274,6 +286,28 @@ export function MainApp() {
   useEffect(() => {
     const shortcut = "CommandOrControl+Shift+N";
     const inspirationShortcut = "CommandOrControl+Shift+Space";
+    let ledgerShortcut: string | null = null;
+    const openLedger = () => {
+      void invoke("open_main_window", { nav: "ledger" }).catch(() => {
+        setNav("ledger");
+      });
+      window.setTimeout(() => window.dispatchEvent(new Event("ledger:open-entry")), 60);
+    };
+    const syncLedgerShortcut = async () => {
+      const enabled = (await getSetting("hotkey.ledger.quick_add.enabled")) !== "false";
+      const next = (await getSetting("hotkey.ledger.quick_add.accelerator")) || "CommandOrControl+Shift+B";
+      if (!enabled) {
+        if (ledgerShortcut && await isRegistered(ledgerShortcut)) await unregister(ledgerShortcut);
+        ledgerShortcut = null;
+        return;
+      }
+      if (ledgerShortcut === next && await isRegistered(next)) return;
+      if (!(await isRegistered(next))) await register(next, openLedger);
+      const previous = ledgerShortcut;
+      ledgerShortcut = next;
+      if (previous && previous !== next && await isRegistered(previous)) await unregister(previous);
+    };
+    const onChanged = () => { void syncLedgerShortcut(); };
     void (async () => {
       try {
         if (!(await isRegistered(shortcut))) {
@@ -284,11 +318,14 @@ export function MainApp() {
         if (!(await isRegistered(inspirationShortcut))) {
           await register(inspirationShortcut, () => { void invoke("show_inspiration"); });
         }
+        await syncLedgerShortcut();
       } catch {
         /* ignore */
       }
     })();
-  }, []);
+    window.addEventListener("ledger-shortcut:changed", onChanged);
+    return () => window.removeEventListener("ledger-shortcut:changed", onChanged);
+  }, [setNav]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -397,7 +434,15 @@ export function MainApp() {
       window.clearInterval(fullTimer);
       window.clearInterval(missedTimer);
     };
-  }, [ready, tasks, settings.notifyAhead, settings.privacyMode]);
+  }, [ready, settings.notifyAhead, settings.privacyMode]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const debounce = window.setTimeout(() => {
+      void runFullReminderPassRef.current().catch(() => undefined);
+    }, 1600);
+    return () => window.clearTimeout(debounce);
+  }, [ready, tasks]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -409,7 +454,7 @@ export function MainApp() {
       firedAt: number;
     }>("native-reminder-fired", (event) => {
       const item = event.payload;
-      void createNotificationRecord({
+      void ensureReminderRecord({
         taskId: item.taskId,
         title: item.title,
         body: item.body,
@@ -424,6 +469,14 @@ export function MainApp() {
     }).then((fn) => {
       unlisten = fn;
     });
+    return () => unlisten?.();
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<string>("app:data-changed", () => {
+      void useAppStore.getState().refreshAll();
+    }).then((fn) => { unlisten = fn; });
     return () => unlisten?.();
   }, []);
 
@@ -475,10 +528,16 @@ export function MainApp() {
   }, []);
 
   useEffect(() => {
-    const tick = window.setInterval(async () => {
+    const dueAt = nextRunningTimerDueAt(timers);
+    if (dueAt == null) return;
+    const delay = Math.max(0, dueAt - Date.now());
+    const tick = window.setTimeout(async () => {
       try {
         const fired = await settleTimers();
-        if (!fired.length) return;
+        if (!fired.length) {
+          await refreshTimers();
+          return;
+        }
 
         let granted = await isPermissionGranted();
         if (!granted) {
@@ -517,9 +576,9 @@ export function MainApp() {
       } catch {
         /* ignore */
       }
-    }, 1000);
-    return () => window.clearInterval(tick);
-  }, [settleTimers, setToast]);
+    }, delay);
+    return () => window.clearTimeout(tick);
+  }, [timers, settleTimers, refreshTimers, setToast]);
 
   useEffect(() => {
     if (!settings.autoBackup) return;
@@ -597,22 +656,26 @@ export function MainApp() {
 
   useEffect(() => {
     if (!ready) return;
-    const now = Date.now();
-    const missed = tasks.filter((task) => {
-      if (task.status !== "pending" || !task.due_date || task.parent_id) {
-        return false;
-      }
-      const due = new Date(
-        `${task.due_date}T${task.due_time ?? "23:59"}:00`,
-      ).getTime();
-      return due < now;
-    });
-    void Promise.all(missed.map(ensureMissedNotification)).then(() => {
-      if (missed.length) {
-        window.dispatchEvent(new Event("notifications:changed"));
-      }
-    });
-  }, [ready, tasks]);
+    const debounce = window.setTimeout(() => {
+      const now = Date.now();
+      const current = useAppStore.getState().tasks;
+      const missed = current.filter((task) => {
+        if (task.status !== "pending" || !task.due_date || task.parent_id) {
+          return false;
+        }
+        const due = new Date(
+          `${task.due_date}T${task.due_time ?? "23:59"}:00`,
+        ).getTime();
+        return due < now;
+      });
+      void Promise.all(missed.map(ensureMissedNotification)).then(() => {
+        if (missed.length) {
+          window.dispatchEvent(new Event("notifications:changed"));
+        }
+      });
+    }, 800);
+    return () => window.clearTimeout(debounce);
+  }, [ready, overdueSignature]);
 
   if (!ready) {
     return <div className="empty-state">加载中…</div>;
@@ -622,7 +685,7 @@ export function MainApp() {
   const toggleNav = () => setNavCollapsed((v) => !v);
 
   return (
-    <div className="app-root">
+    <div className="app-root" data-privacy={settings.privacyMode ? "on" : "off"}>
       <GlassTitlebar />
       <div
         className={`app-body ${detailOpen ? "detail-open" : ""} ${navCollapsed ? "nav-collapsed" : ""}`}

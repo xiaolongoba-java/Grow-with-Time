@@ -55,7 +55,17 @@ export function MemosView() {
 
   useEffect(() => { void refresh(); }, []);
   useEffect(() => {
-    if (editing && editorRef.current) editorRef.current.innerHTML = content;
+    if (editing && editorRef.current) editorRef.current.innerHTML = sanitizeRichText(content);
+  }, [editing, selectedId]);
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editing || !editor) return;
+    const pastePlainText = (event: ClipboardEvent) => {
+      event.preventDefault();
+      document.execCommand("insertText", false, event.clipboardData?.getData("text/plain") ?? "");
+    };
+    editor.addEventListener("paste", pastePlainText);
+    return () => editor.removeEventListener("paste", pastePlainText);
   }, [editing, selectedId]);
 
   const visibleMemos = useMemo(() => {
@@ -112,6 +122,10 @@ export function MemosView() {
   };
 
   const runCommand = (command: string, value?: string) => {
+    if (command === "createLink" && value && !/^https?:\/\//i.test(value)) {
+      setToast("仅支持 http/https 链接");
+      return;
+    }
     editorRef.current?.focus();
     document.execCommand(command, false, value);
     setContent(editorRef.current?.innerHTML ?? "");

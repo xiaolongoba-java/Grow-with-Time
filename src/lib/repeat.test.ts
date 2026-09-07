@@ -4,6 +4,7 @@ import {
   isRecyclableGeneratedTask,
   monthlyRuleFromDate,
   nextOccurrence,
+  nextUpcomingOccurrence,
   nextRepeatTaskDraft,
   parseRepeatRule,
   stringifyRepeatRule,
@@ -39,6 +40,37 @@ describe("repeat rules", () => {
     ).toBe("2026-08-19");
   });
 
+  it("skips expired repeat occurrences in a single completion", () => {
+    const reference = new Date("2026-08-04T14:30:00");
+    expect(
+      nextUpcomingOccurrence(
+        task('{"frequency":"daily","interval":1}', "2026-07-28"),
+        reference,
+      ),
+    ).toEqual({ due_date: "2026-08-05", due_time: "09:00" });
+    expect(
+      nextUpcomingOccurrence(
+        task('{"frequency":"weekly","interval":1,"weekdays":[1,3]}', "2026-07-27"),
+        reference,
+      ),
+    ).toEqual({ due_date: "2026-08-05", due_time: "09:00" });
+  });
+
+  it("keeps today's all-day occurrence but skips a time that already passed", () => {
+    const reference = new Date("2026-08-04T14:30:00");
+    const allDay = {
+      ...task('{"frequency":"daily","interval":1}', "2026-08-03"),
+      due_time: null,
+    } as Task;
+    expect(nextUpcomingOccurrence(allDay, reference)?.due_date).toBe("2026-08-04");
+    expect(
+      nextUpcomingOccurrence(
+        task('{"frequency":"daily","interval":1}', "2026-08-03"),
+        reference,
+      )?.due_date,
+    ).toBe("2026-08-05");
+  });
+
   it("skips unused weeks for multi-weekday interval rules", () => {
     const rule = '{"frequency":"weekly","interval":2,"weekdays":[1,3]}';
     expect(nextOccurrence(task(rule, "2026-08-10"))?.due_date).toBe("2026-08-12");
@@ -72,7 +104,7 @@ describe("repeat rules", () => {
       goal_id: "goal-1",
       goal_contribution: 2,
     } as Task;
-    expect(nextRepeatTaskDraft(source)).toMatchObject({
+    expect(nextRepeatTaskDraft(source, new Date("2026-07-28T08:00:00"))).toMatchObject({
       due_date: "2026-07-29",
       reminder_minutes: [60, 30, 10],
       estimated_minutes: 45,

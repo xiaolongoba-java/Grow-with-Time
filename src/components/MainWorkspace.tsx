@@ -81,6 +81,9 @@ const ToolboxView = lazy(() =>
     default: module.ToolboxView,
   })),
 );
+const LedgerView = lazy(() =>
+  import("@/components/LedgerView").then((module) => ({ default: module.LedgerView })),
+);
 
 function BoardView({ tasks }: { tasks: Task[] }) {
   const cols = boardColumns(tasks);
@@ -349,7 +352,7 @@ function DayBoard() {
         } else if (choice === "remove") {
           await saveTask(task.id, { my_day_date: null });
         } else {
-          await saveTask(task.id, { my_day_date: addDays(cursor, 1) });
+          await saveTask(task.id, buildTaskDeferredUpdate(task, cursor, addDays(cursor, 1), today));
         }
       }
       setClosingDay(false);
@@ -1430,6 +1433,9 @@ export function MainWorkspace() {
         <ToolboxView />
       </Suspense>
     );
+  }
+  if (nav === "ledger" || nav === "ledger-budget") {
+    return <Suspense fallback={<div className="empty-state">正在打开观流账本…</div>}><LedgerView mode={nav === "ledger-budget" ? "budget" : "ledger"} /></Suspense>;
   }
   if (nav === "trash") {
     return (

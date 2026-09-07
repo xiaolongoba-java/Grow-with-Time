@@ -1,6 +1,6 @@
 import type { BackupPayload, Task, TaskPriority, TaskStatus } from "@/types";
 
-export const BACKUP_PAYLOAD_VERSIONS = [2, 3, 4, 5, 6, 7] as const;
+export const BACKUP_PAYLOAD_VERSIONS = [2, 3, 4, 5, 6, 7, 8] as const;
 
 const LEGACY_KARMA_SETTING_KEYS = [
   "karma",
@@ -97,6 +97,32 @@ export function inspectBackupPayload(payload: BackupPayload): BackupIntegrityRep
   const tagIds = collectIds(payload.tags, "标签", errors);
   const projectIds = collectIds(payload.projects, "项目", errors);
   const goalIds = collectIds(payload.goals, "成长目标", errors);
+  const notificationKeys = new Set<string>();
+  for (const item of payload.notifications ?? []) {
+    if (!item.task_id || !item.scheduled_at) continue;
+    const key = `${item.task_id}\u0000${item.kind}\u0000${item.scheduled_at}`;
+    if (notificationKeys.has(key)) errors.push(`通知备份存在重复投递记录：${item.task_id}`);
+    notificationKeys.add(key);
+  }
+  const ledgerKeys = (["ledgerCategories", "ledgerAccounts", "ledgerTransactions", "ledgerBudgets"] as const)
+    .filter((key) => backupPayloadHas(payload, key));
+  if (ledgerKeys.length > 0 && ledgerKeys.length < 4) {
+    errors.push("账本备份必须同时包含分类、账户、交易和预算，不能分段覆盖");
+  }
+  if (ledgerKeys.length === 4) {
+    const categories = payload.ledgerCategories ?? [];
+    const accounts = payload.ledgerAccounts ?? [];
+    const categoryIds = new Set(categories.map((item) => Number(item.id)));
+    const accountIds = new Set(accounts.map((item) => Number(item.id)));
+    for (const transaction of payload.ledgerTransactions ?? []) {
+      if (!categoryIds.has(Number(transaction.category_id))) errors.push(`账目 ${String(transaction.id)} 引用了不存在的分类`);
+      if (!accountIds.has(Number(transaction.account_id))) errors.push(`账目 ${String(transaction.id)} 引用了不存在的账户`);
+      if (!['expense', 'income'].includes(String(transaction.type))) errors.push(`账目 ${String(transaction.id)} 的收支类型无效`);
+      if (!Number.isSafeInteger(Number(transaction.amount_cents)) || Number(transaction.amount_cents) <= 0) errors.push(`账目 ${String(transaction.id)} 的金额无效`);
+      const category = categories.find((item) => Number(item.id) === Number(transaction.category_id));
+      if (category && String(category.kind) !== String(transaction.type)) errors.push(`账目 ${String(transaction.id)} 的分类与收支类型不一致`);
+    }
+  }
 
   for (const task of payload.tasks as Task[]) {
     if (!TASK_STATUSES.includes(task.status)) {

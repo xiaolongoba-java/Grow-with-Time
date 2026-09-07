@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import { useAppStore } from "@/store/app";
-import { exportBackup, importBackup, summarizeBackupRestore } from "@/lib/db";
+import { exportBackup, getSetting, importBackup, setSetting, summarizeBackupRestore } from "@/lib/db";
 import type { BackupPayload } from "@/types";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
@@ -35,6 +35,9 @@ export function SettingsView() {
   const [databaseBackups, setDatabaseBackups] = useState<DatabaseBackupInfo[]>([]);
   const [checkingData, setCheckingData] = useState(false);
   const [appVersion, setAppVersion] = useState("…");
+  const [ledgerShortcutEnabled, setLedgerShortcutEnabled] = useState(true);
+  const [ledgerShortcut, setLedgerShortcut] = useState("CommandOrControl+Shift+B");
+  const [recordingShortcut, setRecordingShortcut] = useState(false);
 
   const refreshDataHealth = async () => {
     setCheckingData(true);
@@ -55,8 +58,33 @@ export function SettingsView() {
   useEffect(() => {
     void refreshDataHealth();
     void getVersion().then(setAppVersion).catch(() => setAppVersion("未知"));
+    void Promise.all([getSetting("hotkey.ledger.quick_add.enabled"), getSetting("hotkey.ledger.quick_add.accelerator")]).then(([enabled, accelerator]) => {
+      setLedgerShortcutEnabled(enabled !== "false");
+      if (accelerator) setLedgerShortcut(accelerator);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const saveLedgerShortcut = async () => {
+    if (["CommandOrControl+Shift+N", "CommandOrControl+Shift+Space"].includes(ledgerShortcut)) {
+      setToast("该组合已被新建任务或拾念占用");
+      return;
+    }
+    await setSetting("hotkey.ledger.quick_add.enabled", String(ledgerShortcutEnabled));
+    await setSetting("hotkey.ledger.quick_add.accelerator", ledgerShortcut);
+    window.dispatchEvent(new Event("ledger-shortcut:changed"));
+    setToast("记账快捷键已更新");
+  };
+
+  const captureLedgerShortcut = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!recordingShortcut) return;
+    event.preventDefault();
+    if (event.key === "Escape") { setRecordingShortcut(false); return; }
+    const modifier = event.ctrlKey || event.metaKey;
+    if (!modifier || ["Control", "Meta", "Shift", "Alt"].includes(event.key)) return;
+    const keys = ["CommandOrControl", event.altKey ? "Alt" : "", event.shiftKey ? "Shift" : "", event.key.length === 1 ? event.key.toUpperCase() : event.key].filter(Boolean);
+    setLedgerShortcut(keys.join("+")); setRecordingShortcut(false);
+  };
 
   const restoreDatabaseBackup = async (backup: DatabaseBackupInfo) => {
     const created = new Date(backup.createdAt * 1000).toLocaleString();
@@ -120,9 +148,19 @@ export function SettingsView() {
     const text = await readTextFile(path);
     const payload = JSON.parse(text) as BackupPayload;
     if (!window.confirm(summarizeBackupRestore(payload))) return;
-    await importBackup(payload);
-    await useAppStore.getState().refreshAll();
-    setToast("已从备份恢复");
+    const backupId = await invoke<string>("create_database_backup");
+    // Keep a crash-safe rollback marker until every import write succeeds.
+    await invoke("schedule_database_restore", { backupId });
+    try {
+      await importBackup(payload);
+      await invoke("cancel_database_restore");
+      await useAppStore.getState().refreshAll();
+      setToast("已从备份恢复");
+    } catch (error) {
+      setToast(`恢复失败，正在从快照 ${backupId} 回滚并重启…`);
+      await invoke("restart_app");
+      throw error;
+    }
   };
 
   const toggleAutostart = async () => {
@@ -132,8 +170,10 @@ export function SettingsView() {
       else await disable();
       const enabled = await isEnabled();
       await updateSettings({ autostart: enabled });
-    } catch {
-      await updateSettings({ autostart: next });
+    } catch (error) {
+      const actual = await isEnabled().catch(() => settings.autostart);
+      await updateSettings({ autostart: actual });
+      setToast(`开机自启设置失败，已保持${actual ? "开启" : "关闭"}：${String(error)}`);
     }
   };
 
@@ -400,6 +440,19 @@ export function SettingsView() {
           ) : (
             <p className="settings-hint">下次启动时会生成第一份数据库快照。</p>
           )}
+        </div>
+      </section>
+
+      <section className="settings-card" style={{ marginTop: 12 }}>
+        <h3>全局快捷键</h3>
+        <p className="settings-hint">在其他应用中也能唤起功能；快捷键属于应用设置，而不是账本页面设置。</p>
+        <div className="settings-row" style={{ marginTop: 12 }}>
+          <div><strong>快速记一笔</strong><p className="settings-hint">打开观流账本并聚焦金额输入框</p></div>
+          <label className="ledger-checkbox"><input type="checkbox" checked={ledgerShortcutEnabled} onChange={(event) => setLedgerShortcutEnabled(event.target.checked)} />启用</label>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+          <button type="button" className="btn-ghost" disabled={!ledgerShortcutEnabled} onClick={() => setRecordingShortcut(true)} onKeyDown={captureLedgerShortcut} aria-pressed={recordingShortcut}>{recordingShortcut ? "请按 Ctrl/⌘ + 按键（Esc 取消）" : ledgerShortcut}</button>
+          <button type="button" className="btn-primary" style={{ width: "auto" }} onClick={() => void saveLedgerShortcut()}>保存快捷键</button>
         </div>
       </section>
 

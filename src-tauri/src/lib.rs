@@ -62,6 +62,19 @@ fn create_startup_database_backup(app_data_dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+#[tauri::command]
+fn create_database_backup(app: AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    if !dir.join("app.db").exists() {
+        return Err("数据库文件不存在".into());
+    }
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis();
+    let id = format!("startup-{stamp}");
+    copy_database_files(&dir, &dir.join(DATABASE_BACKUP_DIR).join(&id))
+        .map_err(|error| error.to_string())?;
+    Ok(id)
+}
+
 fn apply_pending_database_restore(app_data_dir: &Path) -> std::io::Result<()> {
     let marker = app_data_dir.join(PENDING_RESTORE_FILE);
     if !marker.exists() {
@@ -132,7 +145,8 @@ fn list_database_backups(app: AppHandle) -> Result<Vec<DatabaseBackupInfo>, Stri
             let id = entry.file_name().to_string_lossy().to_string();
             let database = entry.path().join("app.db");
             let size = database.metadata().ok()?.len();
-            let created_at = id.rsplit('-').next()?.parse().ok()?;
+            let raw_stamp: u64 = id.rsplit('-').next()?.parse().ok()?;
+            let created_at = if raw_stamp > 10_000_000_000 { raw_stamp / 1000 } else { raw_stamp };
             Some(DatabaseBackupInfo { id, size, created_at })
         })
         .collect::<Vec<_>>();
@@ -155,6 +169,15 @@ fn schedule_database_restore(app: AppHandle, backup_id: String) -> Result<(), St
     }
     std::fs::write(dir.join(PENDING_RESTORE_FILE), backup.to_string_lossy().as_bytes())
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn cancel_database_restore(app: AppHandle) -> Result<(), String> {
+    let marker = app.path().app_data_dir().map_err(|error| error.to_string())?.join(PENDING_RESTORE_FILE);
+    if marker.exists() {
+        std::fs::remove_file(marker).map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -732,6 +755,94 @@ INSERT OR REPLACE INTO settings (key, value)
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 22,
+            description: "observing_flow_ledger",
+            sql: r#"
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS ledger_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL CHECK (kind IN ('expense','income')),
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 12),
+  icon TEXT NOT NULL DEFAULT 'dots',
+  color TEXT NOT NULL DEFAULT '#8d99ab',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_builtin INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0,1)),
+  is_enabled INTEGER NOT NULL DEFAULT 1 CHECK (is_enabled IN (0,1)),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (id, kind), UNIQUE (kind, name)
+);
+CREATE TABLE IF NOT EXISTS ledger_accounts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 16),
+  kind TEXT NOT NULL DEFAULT 'custom' CHECK (kind IN ('cash','card','credit','alipay','wechat','custom')),
+  color TEXT NOT NULL DEFAULT '#2f6fed',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_enabled INTEGER NOT NULL DEFAULT 1 CHECK (is_enabled IN (0,1)),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE TABLE IF NOT EXISTS ledger_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL CHECK (type IN ('expense','income')),
+  amount_cents INTEGER NOT NULL CHECK (amount_cents > 0 AND amount_cents <= 9999999999),
+  date TEXT NOT NULL CHECK (date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+  category_id INTEGER NOT NULL,
+  account_id INTEGER NOT NULL REFERENCES ledger_accounts(id),
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 60),
+  is_deleted INTEGER NOT NULL DEFAULT 0 CHECK (is_deleted IN (0,1)),
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  deleted_at TEXT,
+  FOREIGN KEY (category_id, type) REFERENCES ledger_categories(id, kind)
+);
+CREATE TABLE IF NOT EXISTS ledger_budgets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  month TEXT NOT NULL UNIQUE CHECK (month GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]'),
+  amount_cents INTEGER NOT NULL DEFAULT 0 CHECK (amount_cents >= 0),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ledger_tx_date ON ledger_transactions(date DESC,id DESC) WHERE is_deleted=0;
+CREATE INDEX IF NOT EXISTS idx_ledger_tx_cat ON ledger_transactions(category_id,date DESC) WHERE is_deleted=0;
+CREATE INDEX IF NOT EXISTS idx_ledger_tx_acct ON ledger_transactions(account_id,date DESC) WHERE is_deleted=0;
+CREATE INDEX IF NOT EXISTS idx_ledger_tx_deleted ON ledger_transactions(deleted_at) WHERE is_deleted=1;
+INSERT OR IGNORE INTO ledger_categories(id,kind,name,icon,color,sort_order,is_builtin) VALUES
+(1,'expense','餐饮','food','#ef8b62',10,1),(2,'expense','交通','car','#5d83e8',20,1),(3,'expense','购物','bag','#a174e8',30,1),(4,'expense','居住','home','#42a39b',40,1),(5,'expense','娱乐','play','#df72aa',50,1),(6,'expense','医疗','medical','#df6670',60,1),(7,'expense','教育','book','#4c9fe8',70,1),(8,'expense','人情','gift','#c78a3a',80,1),(9,'expense','旅行','plane','#3a936d',90,1),(10,'expense','其他','dots','#8d99ab',100,1),
+(11,'income','工资','salary','#2f8f68',10,1),(12,'income','奖金','star','#d5a32b',20,1),(13,'income','理财','trend','#4c9fe8',30,1),(14,'income','兼职','zap','#966be0',40,1),(15,'income','退款','back','#dc73a8',50,1);
+INSERT OR IGNORE INTO ledger_accounts(id,name,kind,color,sort_order) VALUES
+(1,'现金','cash','#8090a7',10),(2,'储蓄卡','card','#2f6fed',20),(3,'信用卡','credit','#9a6bdd',30),(4,'支付宝','alipay','#2786e8',40),(5,'微信','wechat','#2f9a62',50);
+INSERT OR IGNORE INTO settings(key,value) VALUES
+('ledger_default_budget_cents','0'),('ledger_default_expense_category_id','1'),('ledger_default_income_category_id','11'),('ledger_default_account_id','2'),('ledger_hide_amount','false'),('hotkey.ledger.quick_add.enabled','true'),('hotkey.ledger.quick_add.accelerator','CommandOrControl+Shift+B');
+INSERT OR REPLACE INTO settings(key,value) VALUES ('schema_contract','22');
+"#,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 23,
+            description: "cross_window_write_guards",
+            sql: r#"
+UPDATE tasks SET generated_from_id=NULL
+WHERE generated_from_id IS NOT NULL AND id NOT IN (
+  SELECT MIN(id) FROM tasks
+  WHERE generated_from_id IS NOT NULL AND deleted_at IS NULL
+  GROUP BY generated_from_id, due_date
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tasks_repeat_occurrence
+  ON tasks(generated_from_id, due_date)
+  WHERE generated_from_id IS NOT NULL AND deleted_at IS NULL;
+DELETE FROM app_notifications WHERE id NOT IN (
+  SELECT MIN(id) FROM app_notifications
+  WHERE task_id IS NOT NULL AND scheduled_at IS NOT NULL
+  GROUP BY task_id, kind, scheduled_at
+) AND task_id IS NOT NULL AND scheduled_at IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_app_notification_delivery
+  ON app_notifications(task_id, kind, scheduled_at)
+  WHERE task_id IS NOT NULL AND scheduled_at IS NOT NULL;
+INSERT OR REPLACE INTO settings(key,value) VALUES('schema_contract','23');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -869,17 +980,17 @@ fn stabilize_widget_layer(window: &tauri::WebviewWindow, stay_top: bool) -> Resu
     };
     let hwnd = window.hwnd().map_err(|error| error.to_string())?;
     unsafe {
-        SetWindowPos(
-            hwnd,
-            Some(HWND_TOPMOST),
-            0,
-            0,
-            0,
-            0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
-        )
-        .map_err(|error| format!("桌面组件层级初始化失败: {error}"))?;
         if stay_top {
+            SetWindowPos(
+                hwnd,
+                Some(HWND_TOPMOST),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            )
+            .map_err(|error| format!("桌面组件层级初始化失败: {error}"))?;
             return Ok(());
         }
         SetWindowPos(
@@ -954,6 +1065,8 @@ fn pin_desktop_widget(
         "bottom" => false,
         _ => return Err("无效的桌面组件层级".into()),
     };
+    #[cfg_attr(not(windows), allow(unused_variables))]
+    let already_visible = window.is_visible().unwrap_or(false);
     window.set_ignore_cursor_events(false).map_err(|e| e.to_string())?;
     window.set_focusable(true).map_err(|e| e.to_string())?;
     window.unminimize().map_err(|e| e.to_string())?;
@@ -961,8 +1074,10 @@ fn pin_desktop_widget(
     window.show().map_err(|e| e.to_string())?;
     #[cfg(windows)]
     {
-        detach_window_owner(window);
-        apply_frameless_tool_window(window)?;
+        if !already_visible {
+            detach_window_owner(window);
+            apply_frameless_tool_window(window)?;
+        }
     }
 
     if stay_top {
@@ -1015,6 +1130,7 @@ fn widget_nav_allowed(value: &str) -> bool {
             | "calendar" | "tags" | "habits" | "reminders" | "review" | "growth"
             | "daily-reflection" | "inspirations" | "future-letters" | "anniversaries"
             | "memos" | "trash" | "settings" | "projects" | "smart" | "toolbox"
+            | "ledger" | "ledger-budget"
     )
 }
 
@@ -1024,6 +1140,25 @@ fn widgets_visible(app: &AppHandle, labels: &[&str]) -> bool {
             .and_then(|window| window.is_visible().ok())
             .unwrap_or(false)
     })
+}
+
+#[tauri::command]
+fn apply_desktop_widget_layer(app: AppHandle, layer: Option<String>) -> Result<(), String> {
+    let layer = resolve_widget_layer(layer)?;
+    if widgets_visible(&app, &["widget-dashboard"]) {
+        if let Some(window) = app.get_webview_window("widget-dashboard") {
+            pin_desktop_widget(&app, &window, &layer)?;
+        }
+        return Ok(());
+    }
+    for label in ["widget-calendar", "widget-today", "widget-memo"] {
+        if let Some(window) = app.get_webview_window(label) {
+            if window.is_visible().unwrap_or(false) {
+                pin_desktop_widget(&app, &window, &layer)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1136,7 +1271,7 @@ fn apply_shortcut_dock_glass(window: &tauri::WebviewWindow) -> Result<(), String
         let effects = EffectsBuilder::new()
             .state(EffectState::Active)
             .effect(Effect::HudWindow)
-            .radius(28.0);
+            .radius(24.0);
         window
             .set_effects(effects.build())
             .map_err(|e| e.to_string())?;
@@ -1152,7 +1287,7 @@ fn apply_shortcut_dock_glass(window: &tauri::WebviewWindow) -> Result<(), String
 
 #[tauri::command]
 fn open_shortcut_from_dock(app: AppHandle, path: String) -> Result<(), String> {
-    open_desktop_item(path)?;
+    open_desktop_item(app.clone(), path)?;
     if let Some(window) = app.get_webview_window("widget-shortcuts") {
         #[cfg(windows)]
         {
@@ -1163,7 +1298,7 @@ fn open_shortcut_from_dock(app: AppHandle, path: String) -> Result<(), String> {
     Ok(())
 }
 
-const SHORTCUT_DOCK_RADIUS_PX: f64 = 28.0;
+const SHORTCUT_DOCK_RADIUS_PX: f64 = 24.0;
 
 #[cfg(windows)]
 fn clip_shortcut_dock_rounded(window: &tauri::WebviewWindow) -> Result<(), String> {
@@ -1212,8 +1347,20 @@ fn present_shortcut_dock(
     Ok(())
 }
 
+const SHORTCUT_DOCK_ENABLED: bool = false;
+
+fn hide_shortcut_dock(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("widget-shortcuts") {
+        let _ = window.hide();
+    }
+}
+
 #[tauri::command]
 fn show_shortcut_dock(app: AppHandle, layer: Option<String>) -> Result<(), String> {
+    if !SHORTCUT_DOCK_ENABLED {
+        hide_shortcut_dock(&app);
+        return Ok(());
+    }
     let layer = resolve_widget_layer(layer)?;
     let Some(window) = app.get_webview_window("widget-shortcuts") else {
         return Err("快捷方式停靠栏还没创建，请重启应用后再试".into());
@@ -1224,6 +1371,10 @@ fn show_shortcut_dock(app: AppHandle, layer: Option<String>) -> Result<(), Strin
 
 #[tauri::command]
 fn toggle_shortcut_dock(app: AppHandle, layer: Option<String>) -> Result<bool, String> {
+    if !SHORTCUT_DOCK_ENABLED {
+        hide_shortcut_dock(&app);
+        return Ok(false);
+    }
     let Some(window) = app.get_webview_window("widget-shortcuts") else {
         return Err("快捷方式停靠栏还没创建，请重启应用后再试".into());
     };
@@ -1291,6 +1442,12 @@ fn start_notification_scheduler(app: AppHandle, scheduler: Arc<ReminderScheduler
                 }
             };
 
+        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        // After sleep, let the JS missed-reminder pass coalesce stale items
+        // instead of showing every overdue in-process reminder at once.
+        if now_ms.saturating_sub(reminder.fire_at_ms) > 2 * 60 * 1000 {
+            continue;
+        }
         let _ = app
             .notification()
             .builder()
@@ -1526,6 +1683,7 @@ pub fn run() {
             show_desktop_widgets,
             show_dashboard_strip,
             toggle_desktop_widgets,
+            apply_desktop_widget_layer,
             show_shortcut_dock,
             toggle_shortcut_dock,
             open_main_window,
@@ -1535,7 +1693,9 @@ pub fn run() {
             sync_native_notifications,
             database_health,
             list_database_backups,
+            create_database_backup,
             schedule_database_restore,
+            cancel_database_restore,
             open_data_directory,
             restart_app,
             scan_desktop,
@@ -1596,6 +1756,9 @@ pub fn run() {
             ] {
                 if let Some(window) = app.get_webview_window(label) {
                     make_webview_transparent(&window);
+                    if label == "widget-shortcuts" && !SHORTCUT_DOCK_ENABLED {
+                        let _ = window.hide();
+                    }
                     let app_handle = app.handle().clone();
                     let window_label = label.to_string();
                     window.on_window_event(move |event| {

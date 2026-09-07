@@ -34,6 +34,7 @@ import {
   type ReminderSyncStatus,
 } from "@/lib/nativeReminders";
 import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import { syncWindowChrome } from "@/lib/windowChrome";
 import { errorMessage } from "@/lib/errors";
 
@@ -339,7 +340,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       projects,
       taskTemplates,
     }));
-    void emitDataChanged("refresh");
   },
 
   setNavigationGuard: (navigationGuard) => set({ navigationGuard }),
@@ -401,8 +401,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   addTask: async (draft) => {
     try {
       const task = await db.createTask(draft);
-      await get().refreshAll();
-      set({ toast: "已创建任务" });
+      const [tasks, tagMap] = await Promise.all([
+        db.fetchTasks(),
+        db.fetchTaskTagMap(),
+      ]);
+      set({ tasks, tagMap, toast: "已创建任务" });
+      void emitDataChanged("task");
       return task;
     } catch (e) {
       set({ error: errorMessage(e, "创建失败") });
@@ -419,6 +423,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
             task.id === id ? updated : task,
           ),
         }));
+        void emitDataChanged("task");
+        if (updates.status === "completed") await get().refreshAll();
       }
     } catch (e) {
       const msg = errorMessage(e, "保存失败");
@@ -445,11 +451,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
       ),
     }));
     try {
-      const { task } = await db.toggleTaskComplete(id);
+      const { task, spawned } = await db.toggleTaskComplete(id);
       if (task?.status === "completed" && task.id) {
-        void db.setTaskNotificationsStatus(task.id, "dismissed")
-          .then(() => window.dispatchEvent(new Event("notifications:changed")))
-          .catch(() => undefined);
+        // Finish notification cleanup before refreshing reminder state. A
+        // fire-and-forget cleanup could race with the reminder scan and make a
+        // just-completed task pop up again.
+        await db.setTaskNotificationsStatus(task.id, "dismissed").catch(() => undefined);
+        await emit("notification:task-dismissed", task.id).catch(() => undefined);
+        window.dispatchEvent(new Event("notifications:changed"));
       }
       set({
         toast: task?.status === "completed" ? "任务已完成" : "已恢复为待办",
@@ -459,8 +468,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
           await get().refreshAll();
         },
       });
+      if (spawned) await get().refreshAll();
       try {
-        await get().refreshAll();
+        await emitDataChanged("task");
       } catch (e) {
         set({ toast: errorMessage(e, "已保存，但刷新列表失败") });
       }
@@ -487,7 +497,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
         await get().refreshAll();
       },
     });
-    await get().refreshAll();
+    const [tasks, trashTasks] = await Promise.all([
+      db.fetchTasks(),
+      db.fetchTrashTasks(),
+    ]);
+    set({ tasks, trashTasks });
+    void emitDataChanged("task");
   },
 
   batchComplete: async (ids) => {
@@ -497,11 +512,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!toComplete.length) return;
     try {
       await db.batchSetTaskStatus(toComplete, "completed");
-      void Promise.all(
+      await Promise.all(
         toComplete.map((taskId) => db.setTaskNotificationsStatus(taskId, "dismissed")),
       )
-        .then(() => window.dispatchEvent(new Event("notifications:changed")))
         .catch(() => undefined);
+      await Promise.all(
+        toComplete.map((taskId) => emit("notification:task-dismissed", taskId)),
+      ).catch(() => undefined);
+      window.dispatchEvent(new Event("notifications:changed"));
       await get().refreshAll();
       set({
         toast: `已完成 ${toComplete.length} 项任务`,
@@ -735,6 +753,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const fired = await db.settleExpiredTimers();
     if (fired.length) {
       await get().refreshTimers();
+      void emitDataChanged("timer");
     }
     return fired;
   },
@@ -767,11 +786,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
       if (patch.desktopWidgetLayer !== undefined) {
         await db.setSetting("desktop_widget_layer", patch.desktopWidgetLayer);
-        const { openDesktopWidgets } = await import("@/lib/desktopWidgets");
-        await openDesktopWidgets(
-          get().settings.desktopWidgetMode,
-          patch.desktopWidgetLayer,
-        );
+        const { applyVisibleDesktopWidgetLayer } = await import("@/lib/desktopWidgets");
+        await applyVisibleDesktopWidgetLayer(patch.desktopWidgetLayer);
       }
       if (patch.onboardingComplete !== undefined) {
         await db.setSetting(
@@ -780,6 +796,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         );
         if (patch.onboardingComplete) void get().offerMorningPlan();
       }
+      await emitDataChanged("settings");
     } catch (e) {
       set((state) => {
         const settings = { ...state.settings };

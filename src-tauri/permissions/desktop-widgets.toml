@@ -5,4 +5,5 @@ commands.allow = [
   "show_desktop_widgets",
   "show_dashboard_strip",
   "toggle_desktop_widgets",
+  "apply_desktop_widget_layer",
 ]

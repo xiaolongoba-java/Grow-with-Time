@@ -23,6 +23,20 @@ export async function openDesktopWidgets(
   }
 }
 
+/** Apply layer to currently visible widgets only; do not force-show hidden ones. */
+export async function applyVisibleDesktopWidgetLayer(
+  layer: DesktopWidgetLayer,
+): Promise<void> {
+  try {
+    await invoke("apply_desktop_widget_layer", { layer });
+  } catch (error) {
+    useAppStore.getState().setToast(
+      `桌面组件层级更新失败：${errorMessage(error, "未知错误")}`,
+    );
+    throw error;
+  }
+}
+
 /** Toggle desktop widgets on/off for the sidebar / icon rail entry. */
 export async function toggleDesktopWidgets(
   mode: DesktopWidgetMode,

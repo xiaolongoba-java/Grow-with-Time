@@ -228,20 +228,21 @@ export async function ensureReminderRecord(input: {
   scheduledAt: string;
 }): Promise<boolean> {
   const db = await getDb();
-  const existing = await db.select<{ id: string }[]>(
-    `SELECT id FROM app_notifications
-     WHERE task_id=$1 AND kind='reminder' AND scheduled_at=$2 LIMIT 1`,
-    [input.taskId, input.scheduledAt],
+  const result = await db.execute(
+    `INSERT OR IGNORE INTO app_notifications
+      (id, task_id, kind, title, body, scheduled_at, status, snoozed_until, created_at)
+     SELECT $1, task.id, 'reminder', $2, $3, $4, 'delivered', NULL, $5
+     FROM tasks AS task
+     WHERE task.id = $6
+       AND task.status NOT IN ('completed', 'cancelled')
+       AND task.deleted_at IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM app_notifications
+         WHERE task_id = $6 AND kind = 'reminder' AND scheduled_at = $4
+       )`,
+    [createId(), input.title, input.body, input.scheduledAt, nowIso(), input.taskId],
   );
-  if (existing.length) return false;
-  await createNotificationRecord({
-    taskId: input.taskId,
-    kind: "reminder",
-    title: input.title,
-    body: input.body,
-    scheduledAt: input.scheduledAt,
-  });
-  return true;
+  return (result.rowsAffected ?? 0) > 0;
 }
 
 export async function setNotificationStatus(

@@ -202,7 +202,12 @@ export type FiredTimer = {
 
 /** Settle expired running timers. Interval timers restart; task timers stop. */
 export async function settleExpiredTimers(): Promise<FiredTimer[]> {
-  const timers = await fetchTimers();
+  const db = await getDb();
+  const timers = (
+    await db.select<Timer[]>(
+      "SELECT * FROM timers WHERE running = 1 AND enabled = 1",
+    )
+  ).map(mapTimer);
   const now = Date.now();
   const fired: FiredTimer[] = [];
 

@@ -34,7 +34,9 @@ export type NavId =
   | "settings"
   | "projects"
   | "smart"
-  | "toolbox";
+  | "toolbox"
+  | "ledger"
+  | "ledger-budget";
 
 /** @deprecated use NavId */
 export type ViewId = NavId;
@@ -453,7 +455,7 @@ export interface AppNotification {
 }
 
 export interface BackupPayload {
-  version: 2 | 3 | 4 | 5 | 6 | 7;
+  version: 2 | 3 | 4 | 5 | 6 | 7 | 8;
   exportedAt: string;
   tasks: Task[];
   tags: Tag[];
@@ -479,5 +481,9 @@ export interface BackupPayload {
   inspirations?: Inspiration[];
   futureLetters?: FutureLetter[];
   anniversaries?: Anniversary[];
+  ledgerCategories?: Record<string, unknown>[];
+  ledgerAccounts?: Record<string, unknown>[];
+  ledgerTransactions?: Record<string, unknown>[];
+  ledgerBudgets?: Record<string, unknown>[];
   settings: Record<string, string>;
 }

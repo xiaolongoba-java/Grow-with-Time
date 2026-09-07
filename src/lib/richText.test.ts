@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
 
 import { describe, expect, it } from "vitest";
-import { richTextToPlainText, sanitizeRichText } from "./richText";
+import {
+  richTextToPlainText,
+  sanitizeImportedMemoContent,
+  sanitizeRichText,
+} from "./richText";
 
 describe("richText", () => {
   it("strips unsafe tags and event handlers", () => {
@@ -26,5 +30,11 @@ describe("richText", () => {
     expect(richTextToPlainText("<p>Hello <strong>world</strong></p>")).toBe(
       "Hello world",
     );
+  });
+
+  it("sanitizes imported rich text without rewriting markdown", () => {
+    const unsafe = '<p onclick="alert(1)">ok</p><script>alert(2)</script>';
+    expect(sanitizeImportedMemoContent(unsafe, "richtext")).toBe("<p>ok</p>alert(2)");
+    expect(sanitizeImportedMemoContent(unsafe, "markdown")).toBe(unsafe);
   });
 });

@@ -16,7 +16,7 @@ export function extractMomentTags(content: string): string[] {
 
 export function buildDailyMomentSummary(tasks: Task[], date: string): string {
   const completed = tasks.filter(
-    (task) => task.completed_at && localDateKey(new Date(task.completed_at)) === date,
+    (task) => !task.parent_id && task.completed_at && localDateKey(new Date(task.completed_at)) === date,
   );
   const minutes = completed.reduce(
     (sum, task) => sum + (task.actual_minutes || task.estimated_minutes || 0),

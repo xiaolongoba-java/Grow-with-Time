@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   fetchNotifications,
   setNotificationStatus,
@@ -30,7 +31,13 @@ export function DesktopNotificationCards() {
     const delivered = visibleNotifications(notifications);
     if (showOutside && knownIds.current) {
       const fresh = delivered.find((item) => !knownIds.current?.has(item.id));
-      if (fresh) void invoke("show_notification_popup", { notification: fresh });
+      // The main window already renders the notification card. Only use the
+      // separate desktop popup while the main window is hidden, otherwise the
+      // same reminder appears twice.
+      const mainVisible = await getCurrentWebviewWindow().isVisible().catch(() => true);
+      if (fresh && !mainVisible) {
+        void invoke("show_notification_popup", { notification: fresh });
+      }
     }
     knownIds.current = new Set(delivered.map((item) => item.id));
     setItems(delivered.slice(0, 3));

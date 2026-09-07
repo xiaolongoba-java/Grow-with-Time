@@ -22,6 +22,15 @@ describe("拾光规则", () => {
     expect(buildDailyMomentSummary(tasks, "2026-08-04")).toBe("今天完成 2 项任务，投入约 55 分钟。");
   });
 
+  it("每日摘要只统计根任务", () => {
+    const completed_at = "2026-08-04T08:00:00";
+    const tasks = [
+      { id: "parent", parent_id: null, completed_at, actual_minutes: 30 },
+      { id: "child", parent_id: "parent", completed_at, actual_minutes: 10 },
+    ] as Task[];
+    expect(buildDailyMomentSummary(tasks, "2026-08-04")).toBe("今天完成 1 项任务，投入约 30 分钟。");
+  });
+
   it("使用本地日期而不是截取 UTC 日期", () => {
     const completedAt = new Date(2026, 7, 4, 0, 15).toISOString();
     const task = { completed_at: completedAt, actual_minutes: 20 } as Task;

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Grow with Time",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "identifier": "com.minimal.todo",
   "build": {
     "frontendDist": "../dist",
@@ -165,11 +165,11 @@
       },
       {
         "label": "widget-shortcuts",
-        "title": "桌面快捷方式",
-        "width": 620,
-        "height": 92,
-        "minWidth": 360,
-        "minHeight": 80,
+        "title": "收纳篮",
+        "width": 720,
+        "height": 118,
+        "minWidth": 420,
+        "minHeight": 100,
         "visible": false,
         "alwaysOnTop": false,
         "resizable": false,

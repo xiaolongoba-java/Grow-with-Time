@@ -12,6 +12,17 @@ export const TASK_SELECT = `SELECT tasks.*,
 export async function getDb(): Promise<Database> {
   if (!dbPromise) {
     dbPromise = Database.load(DB_URL).then(async (db) => {
+      try {
+        await db.execute("PRAGMA foreign_keys = ON");
+      } catch {
+        /* ignore */
+      }
+      try {
+        await db.execute("PRAGMA journal_mode = WAL");
+        await db.execute("PRAGMA synchronous = NORMAL");
+      } catch {
+        /* another window may already be changing journal mode */
+      }
       // 防御：旧库漏跑迁移时补齐列
       try {
         await db.execute("ALTER TABLE tasks ADD COLUMN end_time TEXT");
@@ -132,12 +143,17 @@ let txDepth = 0;
 export function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
   if (txDepth > 0) return fn();
   const run = txQueue.then(async () => {
-    txDepth += 1;
-    try {
-      return await fn();
-    } finally {
-      txDepth -= 1;
+    const execute = async () => {
+      txDepth += 1;
+      try { return await fn(); }
+      finally { txDepth -= 1; }
+    };
+    // Web Locks are shared by every WebView of this app origin. They close the
+    // gap left by each window having its own module-level queue.
+    if (typeof navigator !== "undefined" && navigator.locks) {
+      return navigator.locks.request("grow-with-time:database-write", execute);
     }
+    return execute();
   });
   txQueue = run.then(
     () => undefined,

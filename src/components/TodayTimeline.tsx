@@ -179,8 +179,7 @@ export function TodayTimeline() {
         (t) =>
           !t.parent_id &&
           isActiveTask(t) &&
-          t.due_date !== null &&
-          t.due_date <= today,
+          (t.my_day_date === today || (t.due_date !== null && t.due_date <= today)),
       ),
     [tasks, today],
   );
