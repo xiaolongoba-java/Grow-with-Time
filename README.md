@@ -133,8 +133,8 @@
 
 | 平台 | 文件 | GitHub | Gitee（国内推荐） |
 |------|------|--------|-------------------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.4/Grow.with.Time_1.6.4_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.4/Grow.with.Time_1.6.4_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.4/Grow.with.Time_1.6.4_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.4/Grow.with.Time_1.6.4_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.4/Grow.with.Time_1.6.4_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.4/Grow%20with%20Time_1.6.4_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.4/Grow.with.Time_1.6.4_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.4/Grow%20with%20Time_1.6.4_x64-setup.exe) |
 
 > GitHub 访问困难时，请优先使用 **Gitee** 列链接；若暂不可用，打开 [Gitee 发行版 v1.6.4](https://gitee.com/xiaolong-oba/grow-with-time/releases/tag/v1.6.4) 下载附件。GitHub 备用：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.4)。
 
@@ -163,8 +163,8 @@
 
 | 平台 | 文件 | GitHub | Gitee（国内推荐） |
 |------|------|--------|-------------------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.3/Grow.with.Time_1.6.3_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.3/Grow.with.Time_1.6.3_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.3/Grow.with.Time_1.6.3_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.3/Grow.with.Time_1.6.3_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.3/Grow.with.Time_1.6.3_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.3/Grow%20with%20Time_1.6.3_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.3/Grow.with.Time_1.6.3_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.3/Grow%20with%20Time_1.6.3_x64-setup.exe) |
 
 > GitHub 访问困难时，请优先使用 **Gitee** 列链接；若暂不可用，打开 [Gitee 发行版 v1.6.3](https://gitee.com/xiaolong-oba/grow-with-time/releases/tag/v1.6.3) 下载附件。GitHub 备用：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.3)。
 
@@ -182,8 +182,8 @@
 
 | 平台 | 文件 | GitHub | Gitee（国内推荐） |
 |------|------|--------|-------------------|
-| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.2/Grow.with.Time_1.6.2_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.2/Grow.with.Time_1.6.2_aarch64.dmg) |
-| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.2/Grow.with.Time_1.6.2_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.2/Grow.with.Time_1.6.2_x64-setup.exe) |
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.2/Grow.with.Time_1.6.2_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.2/Grow%20with%20Time_1.6.2_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.2/Grow.with.Time_1.6.2_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.2/Grow%20with%20Time_1.6.2_x64-setup.exe) |
 
 > GitHub 访问困难时，请优先使用 **Gitee** 列链接；若暂不可用，打开 [Gitee 发行版 v1.6.2](https://gitee.com/xiaolong-oba/grow-with-time/releases/tag/v1.6.2) 下载附件。GitHub 备用：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.2)。
 

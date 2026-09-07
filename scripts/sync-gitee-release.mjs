@@ -8,7 +8,7 @@
  * GitHub Actions: store GITEE_TOKEN in repository secrets.
  */
 import { readFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
@@ -42,12 +42,20 @@ function parseArgs(argv) {
   return options;
 }
 
-function extractReleaseNotes(version) {
-  const readme = readFileSync(new URL("README.md", root), "utf8");
+/** Match GitHub Release / README: Tauri keeps spaces, gh-release rewrites them to dots. */
+export function normalizeInstallerName(name) {
+  return basename(name).replaceAll(" ", ".");
+}
+
+export function extractReleaseNotes(version, readme = readFileSync(new URL("README.md", root), "utf8")) {
   const marker = `#### v${version}`;
   const start = readme.indexOf(marker);
   if (start < 0) return `Release v${version}`;
-  const next = readme.indexOf("\n#### v", start + marker.length);
+  const after = start + marker.length;
+  const nextMarkers = ["\n#### v", "\n### v"]
+    .map((token) => readme.indexOf(token, after))
+    .filter((index) => index > start);
+  const next = nextMarkers.length ? Math.min(...nextMarkers) : -1;
   const block = next > start ? readme.slice(start, next) : readme.slice(start, start + 4000);
   return block.replace(/^####[^\n]*\n?/, "").trim();
 }
@@ -110,22 +118,40 @@ async function downloadToTemp(url, name) {
 
 async function ensureGiteeRelease({ token, owner, repo, tag }) {
   const version = tag.replace(/^v/, "");
-  const existing = await giteeApi(
-    `/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(tag)}`,
-    { token },
-  );
-  if (existing?.id) return existing;
+  const payload = {
+    tag_name: tag,
+    name: tag,
+    body: extractReleaseNotes(version),
+    target_commitish: "main",
+  };
+  let existing = null;
+  try {
+    existing = await giteeApi(
+      `/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(tag)}`,
+      { token },
+    );
+  } catch (error) {
+    if (!String(error.message).includes("(404)")) throw error;
+  }
+  if (existing?.id) {
+    try {
+      await giteeApi(`/repos/${owner}/${repo}/releases/${existing.id}`, {
+        token,
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.warn(`更新 Gitee Release 说明失败：${error.message}`);
+    }
+    return existing;
+  }
 
   return giteeApi(`/repos/${owner}/${repo}/releases`, {
     token,
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      tag_name: tag,
-      name: tag,
-      body: extractReleaseNotes(version),
-      target_commitish: "main",
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -178,8 +204,10 @@ async function uploadLocalFile({ token, owner, repo, releaseId, filePath }) {
 
 async function replaceAttachment(ctx, file) {
   const existing = await listAttachFiles(ctx);
-  const sameName = existing.filter((item) => item.name === file.name);
-  for (const item of sameName) {
+  const sameInstaller = existing.filter(
+    (item) => normalizeInstallerName(item.name) === file.name,
+  );
+  for (const item of sameInstaller) {
     await deleteAttachFile({ ...ctx, attachId: item.id });
   }
   await uploadAttachFile({ ...ctx, file });
@@ -214,7 +242,10 @@ async function main() {
     const assets = await getGithubReleaseAssets(options.tag);
     if (!assets.length) throw new Error(`GitHub Release ${options.tag} 没有可下载的安装包`);
     console.log(`从 GitHub 下载 ${assets.length} 个文件…`);
-    files = await Promise.all(assets.map((asset) => downloadToTemp(asset.url, asset.name)));
+    const installers = assets.filter((asset) => /\.(exe|dmg)$/i.test(asset.name));
+    if (!installers.length) throw new Error(`GitHub Release ${options.tag} 没有 .exe/.dmg 安装包`);
+    console.log(`从 GitHub 下载 ${installers.length} 个安装包…`);
+    files = await Promise.all(installers.map((asset) => downloadToTemp(asset.url, asset.name)));
   } else {
     files = await Promise.all(
       options.files.map(async (filePath) => {
@@ -224,6 +255,8 @@ async function main() {
       }),
     );
   }
+
+  files = files.map((file) => ({ ...file, name: normalizeInstallerName(file.name) }));
 
   for (const file of files) {
     console.log(`上传 ${file.name}…`);
@@ -240,7 +273,15 @@ async function main() {
   console.log(`请在 README v${version} 下载表中补充 Gitee 链接。`);
 }
 
-main().catch((error) => {
-  console.error(error.message || error);
-  process.exit(1);
-});
+function isDirectRun() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  return resolve(fileURLToPath(import.meta.url)).toLowerCase() === resolve(entry).toLowerCase();
+}
+
+if (isDirectRun()) {
+  main().catch((error) => {
+    console.error(error.message || error);
+    process.exit(1);
+  });
+}

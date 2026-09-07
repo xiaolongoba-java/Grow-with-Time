@@ -6,7 +6,7 @@ on:
       tag:
         description: Release tag to mirror (e.g. v1.6.0)
         required: true
-        default: v1.6.0
+        default: v1.6.4
       source:
         description: Asset source
         required: true
