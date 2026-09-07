@@ -119,6 +119,25 @@
 
 > 维护约定：从 v1.4.3 起，每次代码推送都必须同步更新 README 中的版本说明，确保仓库首页与实际代码状态一致。
 
+#### v1.6.4 修复观流账本界面穿透
+
+本版本修复 v1.6.3 观流账本「收支总览 / 预算 / 记一笔」卡片和抽屉背景未正确着色的问题。可直接覆盖安装 v1.6.3，数据库结构不变。
+
+- 账本页改用现有主题色板，卡片不再透出后面窗口
+- 预算金额输入框不再出现白块遮挡
+- 「记一笔」分类图标与名称分行，抽屉背景不透明
+
+**升级建议**：已安装 v1.6.3 的用户请覆盖安装本版。
+
+### v1.6.4
+
+| 平台 | 文件 | GitHub | Gitee（国内推荐） |
+|------|------|--------|-------------------|
+| macOS（Apple Silicon，M1/M2/M3/M4） | `.dmg` | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.4/Grow.with.Time_1.6.4_aarch64.dmg) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.4/Grow.with.Time_1.6.4_aarch64.dmg) |
+| Windows x64 | `.exe` 安装包 | [下载](https://github.com/xiaolongoba-java/Grow-with-Time/releases/download/v1.6.4/Grow.with.Time_1.6.4_x64-setup.exe) | [下载](https://gitee.com/xiaolong-oba/grow-with-time/releases/download/v1.6.4/Grow.with.Time_1.6.4_x64-setup.exe) |
+
+> GitHub 访问困难时，请优先使用 **Gitee** 列链接；若暂不可用，打开 [Gitee 发行版 v1.6.4](https://gitee.com/xiaolong-oba/grow-with-time/releases/tag/v1.6.4) 下载附件。GitHub 备用：[Releases](https://github.com/xiaolongoba-java/Grow-with-Time/releases/tag/v1.6.4)。
+
 #### v1.6.3 观流账本与数据安全
 
 本版本新增本地「观流账本」，并修复一批任务、备份与提醒问题。可直接覆盖安装 v1.6.2。**不支持降级到旧版本**（数据库会执行 migration 22–23）。
