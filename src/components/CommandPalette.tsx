@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { AppIcon } from "@/components/AppIcon";
+import { getSetting } from "@/lib/db";
 import type { NavId } from "@/types";
+import {
+  HOTKEYS_CHANGED_EVENT,
+  hotkeyActionById,
+  isHotkeyEnabled,
+  matchesAccelerator,
+  resolveAccelerator,
+} from "@/lib/hotkeys";
 
 const destinations: { id: NavId; label: string }[] = [
   { id: "today", label: "打开今日" },
@@ -27,18 +35,43 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const paletteHotkey = hotkeyActionById("command_palette");
+  const [paletteBinding, setPaletteBinding] = useState({
+    enabled: true,
+    accelerator: paletteHotkey.defaultAccelerator,
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      const [enabled, accelerator] = await Promise.all([
+        getSetting(paletteHotkey.enabledKey),
+        getSetting(paletteHotkey.acceleratorKey),
+      ]);
+      setPaletteBinding({
+        enabled: isHotkeyEnabled(enabled),
+        accelerator: resolveAccelerator(paletteHotkey, accelerator),
+      });
+    };
+    void load();
+    const onChanged = () => {
+      void load();
+    };
+    window.addEventListener(HOTKEYS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(HOTKEYS_CHANGED_EVENT, onChanged);
+  }, [paletteHotkey]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      if (event.key === "Escape") setOpen(false);
+      if (!paletteBinding.enabled) return;
+      if (matchesAccelerator(event, paletteBinding.accelerator)) {
         event.preventDefault();
         setOpen((value) => !value);
       }
-      if (event.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [paletteBinding]);
 
   useEffect(() => {
     if (!open) return;

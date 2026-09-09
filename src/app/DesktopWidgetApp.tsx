@@ -22,6 +22,7 @@ import type { Anniversary, Memo, Task } from "@/types";
 type WidgetKind = "calendar" | "today" | "memo";
 
 const WIDGET_PALETTES = [
+  { id: "cloud", name: "云雾浅色", color: "#e8eef5" },
   { id: "ocean", name: "深海蓝", color: "#355b8a" },
   { id: "mist", name: "雾霾蓝", color: "#60758d" },
   { id: "apricot", name: "暖杏色", color: "#8b6554" },
@@ -41,6 +42,19 @@ function hexToRgb(hex: string) {
       : value;
   const parsed = Number.parseInt(normalized, 16);
   return `${(parsed >> 16) & 255}, ${(parsed >> 8) & 255}, ${parsed & 255}`;
+}
+
+function isLightColor(hex: string) {
+  const value = hex.replace("#", "");
+  const normalized = value.length === 3
+    ? value.split("").map((part) => part + part).join("")
+    : value;
+  const parsed = Number.parseInt(normalized, 16);
+  if (Number.isNaN(parsed)) return false;
+  const red = (parsed >> 16) & 255;
+  const green = (parsed >> 8) & 255;
+  const blue = parsed & 255;
+  return (red * 299 + green * 587 + blue * 114) / 1000 >= 175;
 }
 
 const TITLES: Record<WidgetKind, string> = {
@@ -250,7 +264,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
 
   return (
     <main
-      className={`desktop-widget desktop-widget-${kind} ${widgetOpacity === 0 ? "is-fully-transparent" : ""}`}
+      className={`desktop-widget desktop-widget-${kind} ${widgetOpacity === 0 ? "is-fully-transparent" : ""} ${widgetOpacity > 0 && isLightColor(widgetColor) ? "is-light" : ""}`}
       data-privacy={privacyMode ? "on" : "off"}
       style={
         {

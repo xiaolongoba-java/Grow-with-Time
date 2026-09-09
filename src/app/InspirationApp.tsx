@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { createInspiration } from "@/lib/db";
+import { createInspiration, getSetting } from "@/lib/db";
+import { displayAccelerator, hotkeyActionById, resolveAccelerator } from "@/lib/hotkeys";
 import { emitDataChanged } from "@/lib/widgetRefresh";
 import { useAppStore } from "@/store/app";
 
@@ -10,9 +11,16 @@ export function InspirationApp() {
   const theme = useAppStore((state) => state.settings.theme);
   const [content, setContent] = useState("");
   const [saved, setSaved] = useState(false);
+  const [shortcutLabel, setShortcutLabel] = useState("Ctrl/⌘ + Shift + Space");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { void bootstrap(); }, [bootstrap]);
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => {
+    const action = hotkeyActionById("inspiration");
+    void getSetting(action.acceleratorKey).then((value) => {
+      setShortcutLabel(displayAccelerator(resolveAccelerator(action, value)));
+    });
+  }, []);
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     void listen("inspiration:focus", () => inputRef.current?.focus()).then((fn) => { unlisten = fn; });
@@ -26,5 +34,5 @@ export function InspirationApp() {
     void emitDataChanged("inspiration");
     window.setTimeout(() => { setSaved(false); void getCurrentWebviewWindow().hide(); }, 500);
   };
-  return <main className="inspiration-shell"><header><div><span>拾念</span><strong>拾起一闪而过的灵感</strong></div><small>Ctrl/Cmd + Shift + Space</small></header><textarea ref={inputRef} autoFocus value={content} onChange={(event) => setContent(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void save(); } }} placeholder="现在想到了什么？ #标签" /><footer><span>{saved ? "已拾起" : "Enter 保存 · Shift+Enter 换行"}</span><button onClick={() => void save()}>拾起</button></footer></main>;
+  return <main className="inspiration-shell"><header><div><span>拾念</span><strong>拾起一闪而过的灵感</strong></div><small>{shortcutLabel}</small></header><textarea ref={inputRef} autoFocus value={content} onChange={(event) => setContent(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void save(); } }} placeholder="现在想到了什么？ #标签" /><footer><span>{saved ? "已拾起" : "Enter 保存 · Shift+Enter 换行"}</span><button onClick={() => void save()}>拾起</button></footer></main>;
 }

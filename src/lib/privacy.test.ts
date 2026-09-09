@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { isPrivacyModeEnabled, privacySafeNotification } from "./privacy";
 
@@ -29,5 +30,13 @@ describe("privacySafeNotification", () => {
       title: "日进·拾光",
       body: "你有一条提醒",
     });
+  });
+});
+
+describe("privacy UI masking", () => {
+  it("does not CSS-blur ledger status or amounts", () => {
+    const css = readFileSync("src/styles/parts/global-11-ledger.css", "utf8");
+    const privacyBlock = css.slice(css.indexOf('.app-root[data-privacy="on"]'));
+    expect(privacyBlock).not.toMatch(/ledger-stat-grid|ledger-budget-hero|ledger-row/);
   });
 });

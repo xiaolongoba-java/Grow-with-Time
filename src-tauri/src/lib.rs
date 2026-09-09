@@ -843,6 +843,21 @@ INSERT OR REPLACE INTO settings(key,value) VALUES('schema_contract','23');
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 24,
+            description: "configurable_global_hotkeys",
+            sql: r#"
+INSERT OR IGNORE INTO settings(key,value) VALUES
+('hotkey.quick_add.enabled','true'),
+('hotkey.quick_add.accelerator','CommandOrControl+Shift+N'),
+('hotkey.inspiration.enabled','true'),
+('hotkey.inspiration.accelerator','CommandOrControl+Shift+Space'),
+('hotkey.command_palette.enabled','true'),
+('hotkey.command_palette.accelerator','CommandOrControl+K');
+INSERT OR REPLACE INTO settings(key,value) VALUES('schema_contract','24');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -1020,12 +1035,58 @@ fn detach_window_owner(window: &tauri::WebviewWindow) {
 }
 
 #[cfg(windows)]
+unsafe extern "system" fn widget_frame_proc(
+    hwnd: windows::Win32::Foundation::HWND,
+    message: u32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: windows::Win32::Foundation::LPARAM,
+    id: usize,
+    _data: usize,
+) -> windows::Win32::Foundation::LRESULT {
+    use windows::Win32::Foundation::{LPARAM, LRESULT};
+    use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass};
+    use windows::Win32::UI::WindowsAndMessaging::{WM_NCPAINT, WM_NCACTIVATE, WM_NCDESTROY};
+    // UXTheme can paint a caption during activation changes without sending
+    // WM_NCPAINT. These messages must not reach the default themed painter.
+    const WM_NCUAHDRAWCAPTION: u32 = 0x00AE;
+    const WM_NCUAHDRAWFRAME: u32 = 0x00AF;
+    match message {
+        WM_NCPAINT | WM_NCUAHDRAWCAPTION | WM_NCUAHDRAWFRAME => LRESULT(0),
+        WM_NCACTIVATE => {
+            use windows::Win32::UI::WindowsAndMessaging::{
+                GetWindowLongPtrW, SetWindowLongPtrW, GWL_STYLE, WS_VISIBLE,
+            };
+            // The classic non-client painter can ignore the -1 repaint hint.
+            // Keep Tao's focus bookkeeping, but mask visibility only while its
+            // default activation handler runs. No ShowWindow/resize is issued.
+            let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+            let visible = WS_VISIBLE.0 as isize;
+            if style & visible != 0 {
+                SetWindowLongPtrW(hwnd, GWL_STYLE, style & !visible);
+            }
+            let result = DefSubclassProc(hwnd, message, wparam, LPARAM(-1));
+            if style & visible != 0 {
+                let current = GetWindowLongPtrW(hwnd, GWL_STYLE);
+                SetWindowLongPtrW(hwnd, GWL_STYLE, current | visible);
+            }
+            result
+        },
+        WM_NCDESTROY => {
+            let _ = RemoveWindowSubclass(hwnd, Some(widget_frame_proc), id);
+            DefSubclassProc(hwnd, message, wparam, lparam)
+        }
+        _ => DefSubclassProc(hwnd, message, wparam, lparam),
+    }
+}
+
+#[cfg(windows)]
 fn apply_frameless_tool_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     use windows::Win32::UI::WindowsAndMessaging::{
         GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
-        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CAPTION,
-        WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_SYSMENU,
-        WS_THICKFRAME,
+        SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_BORDER,
+        WS_CAPTION, WS_DLGFRAME, WS_EX_APPWINDOW, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME,
+        WS_EX_STATICEDGE, WS_EX_TOOLWINDOW, WS_EX_WINDOWEDGE, WS_MAXIMIZEBOX, WS_MINIMIZEBOX,
+        WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
     };
 
     window.set_decorations(false).map_err(|e| e.to_string())?;
@@ -1034,11 +1095,27 @@ fn apply_frameless_tool_window(window: &tauri::WebviewWindow) -> Result<(), Stri
 
     let hwnd = window.hwnd().map_err(|e| e.to_string())?;
     unsafe {
-        let style = GetWindowLongPtrW(hwnd, GWL_STYLE) as u32
-            & !(WS_CAPTION.0 | WS_THICKFRAME.0 | WS_MINIMIZEBOX.0 | WS_MAXIMIZEBOX.0 | WS_SYSMENU.0);
+        use windows::Win32::UI::Shell::SetWindowSubclass;
+        if !SetWindowSubclass(hwnd, Some(widget_frame_proc), 0x475754, 0).as_bool() {
+            return Err("安装桌面组件无边框绘制处理失败".into());
+        }
+        let style = (GetWindowLongPtrW(hwnd, GWL_STYLE) as u32
+            & !(WS_CAPTION.0
+                | WS_THICKFRAME.0
+                | WS_BORDER.0
+                | WS_DLGFRAME.0
+                | WS_MINIMIZEBOX.0
+                | WS_MAXIMIZEBOX.0
+                | WS_SYSMENU.0))
+            | WS_POPUP.0;
         SetWindowLongPtrW(hwnd, GWL_STYLE, style as isize);
 
-        let ex = (GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 | WS_EX_TOOLWINDOW.0) & !WS_EX_APPWINDOW.0;
+        let ex = (GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 | WS_EX_TOOLWINDOW.0)
+            & !(WS_EX_APPWINDOW.0
+                | WS_EX_CLIENTEDGE.0
+                | WS_EX_WINDOWEDGE.0
+                | WS_EX_DLGMODALFRAME.0
+                | WS_EX_STATICEDGE.0);
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex as isize);
 
         SetWindowPos(
@@ -1051,8 +1128,62 @@ fn apply_frameless_tool_window(window: &tauri::WebviewWindow) -> Result<(), Stri
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
         )
         .map_err(|error| format!("窗口无边框刷新失败: {error}"))?;
+
+        hide_widget_system_chrome(hwnd);
     }
     Ok(())
+}
+
+#[cfg(windows)]
+unsafe fn hide_widget_system_chrome(hwnd: windows::Win32::Foundation::HWND) {
+    use windows::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DwmExtendFrameIntoClientArea, DWMWA_NCRENDERING_POLICY,
+        DWMNCRP_DISABLED, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWINDOWATTRIBUTE, DWMWCP_DONOTROUND,
+    };
+    use windows::Win32::UI::Controls::MARGINS;
+
+    // These windows draw all chrome in the WebView. Disable native frame
+    // rendering as well as WS_CAPTION so activation cannot paint a title strip.
+    let policy = DWMNCRP_DISABLED;
+    let _ = DwmSetWindowAttribute(
+        hwnd,
+        DWMWA_NCRENDERING_POLICY,
+        &policy as *const _ as *const std::ffi::c_void,
+        std::mem::size_of_val(&policy) as u32,
+    );
+    let _ = DwmExtendFrameIntoClientArea(hwnd, &MARGINS::default());
+
+    const DWMWA_BORDER_COLOR: DWMWINDOWATTRIBUTE = DWMWINDOWATTRIBUTE(34);
+    const DWMWA_CAPTION_COLOR: DWMWINDOWATTRIBUTE = DWMWINDOWATTRIBUTE(35);
+    const DWMWA_VISIBLE_FRAME_BORDER_THICKNESS: DWMWINDOWATTRIBUTE = DWMWINDOWATTRIBUTE(37);
+    const DWMWA_COLOR_NONE: u32 = 0xFFFFFFFE;
+    let none = DWMWA_COLOR_NONE;
+    let thickness: u32 = 0;
+    let _ = DwmSetWindowAttribute(
+        hwnd,
+        DWMWA_BORDER_COLOR,
+        &none as *const u32 as *const std::ffi::c_void,
+        std::mem::size_of::<u32>() as u32,
+    );
+    let _ = DwmSetWindowAttribute(
+        hwnd,
+        DWMWA_CAPTION_COLOR,
+        &none as *const u32 as *const std::ffi::c_void,
+        std::mem::size_of::<u32>() as u32,
+    );
+    let _ = DwmSetWindowAttribute(
+        hwnd,
+        DWMWA_VISIBLE_FRAME_BORDER_THICKNESS,
+        &thickness as *const u32 as *const std::ffi::c_void,
+        std::mem::size_of::<u32>() as u32,
+    );
+    let preference = DWMWCP_DONOTROUND;
+    let _ = DwmSetWindowAttribute(
+        hwnd,
+        DWMWA_WINDOW_CORNER_PREFERENCE,
+        &preference as *const _ as *const std::ffi::c_void,
+        std::mem::size_of_val(&preference) as u32,
+    );
 }
 
 fn pin_desktop_widget(
@@ -1077,7 +1208,12 @@ fn pin_desktop_widget(
         if !already_visible {
             detach_window_owner(window);
             apply_frameless_tool_window(window)?;
+        } else if let Ok(hwnd) = window.hwnd() {
+            unsafe {
+                hide_widget_system_chrome(hwnd);
+            }
         }
+        clip_widget_rounded(window, widget_corner_radius_px(window.label()))?;
     }
 
     if stay_top {
@@ -1300,19 +1436,42 @@ fn open_shortcut_from_dock(app: AppHandle, path: String) -> Result<(), String> {
 
 const SHORTCUT_DOCK_RADIUS_PX: f64 = 24.0;
 
+fn widget_corner_radius_px(label: &str) -> f64 {
+    match label {
+        "widget-dashboard" => 24.0,
+        "widget-shortcuts" => SHORTCUT_DOCK_RADIUS_PX,
+        _ => 18.0,
+    }
+}
+
 #[cfg(windows)]
-fn clip_shortcut_dock_rounded(window: &tauri::WebviewWindow) -> Result<(), String> {
+fn clip_widget_rounded(window: &tauri::WebviewWindow, radius_px: f64) -> Result<(), String> {
     use windows::Win32::Graphics::Dwm::{
         DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
     };
     use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
 
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
+
     let hwnd = window.hwnd().map_err(|error| error.to_string())?;
-    let size = window.outer_size().map_err(|error| error.to_string())?;
+    if radius_px <= 0.0 {
+        unsafe {
+            SetWindowRgn(hwnd, None, true);
+        }
+        return Ok(());
+    }
     let scale = window.scale_factor().unwrap_or(1.0);
-    let width = size.width as i32;
-    let height = size.height as i32;
-    let diameter = ((SHORTCUT_DOCK_RADIUS_PX * scale).round() as i32).max(2) * 2;
+    let mut rect = RECT::default();
+    unsafe {
+        GetClientRect(hwnd, &mut rect).map_err(|error| error.to_string())?;
+    }
+    let width = rect.right - rect.left;
+    let height = rect.bottom - rect.top;
+    if width <= 0 || height <= 0 {
+        return Ok(());
+    }
+    let diameter = ((radius_px * scale).round() as i32).max(2) * 2;
     let preference = DWMWCP_DONOTROUND;
     let _ = unsafe {
         DwmSetWindowAttribute(
@@ -1327,6 +1486,30 @@ fn clip_shortcut_dock_rounded(window: &tauri::WebviewWindow) -> Result<(), Strin
         SetWindowRgn(hwnd, Some(region), true);
     }
     Ok(())
+}
+
+#[cfg(windows)]
+fn clip_shortcut_dock_rounded(window: &tauri::WebviewWindow) -> Result<(), String> {
+    clip_widget_rounded(window, SHORTCUT_DOCK_RADIUS_PX)
+}
+
+fn refresh_widget_chrome(window: &tauri::WebviewWindow, label: &str) {
+    #[cfg(windows)]
+    {
+        if !label.starts_with("widget-") {
+            return;
+        }
+        if let Ok(hwnd) = window.hwnd() {
+            unsafe {
+                hide_widget_system_chrome(hwnd);
+            }
+        }
+        let _ = clip_widget_rounded(window, widget_corner_radius_px(label));
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, label);
+    }
 }
 
 fn resolve_widget_layer(layer: Option<String>) -> Result<String, String> {
@@ -1762,11 +1945,19 @@ pub fn run() {
                     let app_handle = app.handle().clone();
                     let window_label = label.to_string();
                     window.on_window_event(move |event| {
-                        if let WindowEvent::CloseRequested { api, .. } = event {
-                            api.prevent_close();
-                            if let Some(w) = app_handle.get_webview_window(&window_label) {
-                                let _ = w.hide();
+                        match event {
+                            WindowEvent::CloseRequested { api, .. } => {
+                                api.prevent_close();
+                                if let Some(w) = app_handle.get_webview_window(&window_label) {
+                                    let _ = w.hide();
+                                }
                             }
+                            WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
+                                if let Some(w) = app_handle.get_webview_window(&window_label) {
+                                    refresh_widget_chrome(&w, &window_label);
+                                }
+                            }
+                            _ => {}
                         }
                     });
                 }

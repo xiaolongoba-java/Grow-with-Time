@@ -249,24 +249,38 @@
 .ledger-empty span { font-size: 18px; font-weight: 800; color: var(--text-heading); }
 .ledger-empty p { margin: 8px 0 18px; color: var(--text-muted); }
 
+body:has(.ledger-overlay) .nav-edge-collapse,
+body:has(.ledger-overlay) .nav-edge-expand {
+  display: none;
+}
+
 .ledger-overlay {
   position: fixed;
-  inset: 0;
+  top: 40px;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 80;
   background: rgb(12 20 32 / 46%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
 }
 .ledger-drawer {
-  width: min(470px, 100vw);
-  height: 100%;
+  width: min(380px, 100%);
+  max-height: 100%;
+  height: auto;
   overflow: auto;
   background: var(--surface-elevated);
   color: var(--text-primary);
-  box-shadow: -22px 0 60px rgb(13 22 37 / 20%);
-  padding: 26px;
+  box-shadow: 0 18px 48px rgb(13 22 37 / 22%);
+  padding: 18px 18px 8px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
   animation: ledger-in 0.22s ease-out;
 }
 .ledger-drawer header {
@@ -274,7 +288,7 @@
   justify-content: space-between;
   align-items: flex-start;
 }
-.ledger-drawer h3 { font-size: 24px; margin: 2px 0 18px; color: var(--text-heading); }
+.ledger-drawer h3 { font-size: 20px; margin: 2px 0 12px; color: var(--text-heading); }
 .ledger-close {
   width: 34px;
   height: 34px;
@@ -291,7 +305,7 @@
   background: var(--surface-soft);
   padding: 4px;
   border-radius: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 .ledger-kind-tabs button {
   border: 0;
@@ -335,16 +349,16 @@
   border-bottom: 1px solid var(--border);
   padding: 0 4px;
 }
-.ledger-amount b { font-size: 25px; color: var(--text-muted); }
+.ledger-amount b { font-size: 20px; color: var(--text-muted); }
 .ledger-amount input {
   border: 0;
   background: transparent;
   color: var(--text-primary);
-  font-size: 42px;
+  font-size: 28px;
   font-weight: 760;
   letter-spacing: -0.04em;
   margin: 0;
-  padding: 8px;
+  padding: 4px 8px;
   outline: none;
   appearance: none;
   -webkit-appearance: none;
@@ -361,11 +375,11 @@
 .ledger-choice-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 7px;
+  gap: 6px;
 }
 .ledger-choice-grid button {
-  min-height: 76px;
-  padding: 10px 4px 8px;
+  min-height: 58px;
+  padding: 6px 4px;
   border: 1px solid var(--border);
   background: var(--bg-input);
   border-radius: 11px;
@@ -401,9 +415,9 @@
   justify-content: flex-end;
   gap: 8px;
   position: sticky;
-  bottom: -26px;
+  bottom: -8px;
   background: var(--surface-elevated);
-  padding: 14px 0 26px;
+  padding: 10px 0 12px;
 }
 
 .ledger-toast {
@@ -502,7 +516,7 @@
 .ledger-budget-form small { color: var(--text-muted); }
 
 @keyframes ledger-in {
-  from { transform: translateX(35px); opacity: 0.65; }
+  from { transform: translateY(12px); opacity: 0.65; }
   to { transform: none; opacity: 1; }
 }
 
@@ -533,11 +547,7 @@
   .pomodoro-task,
   .memo-list-title-copy,
   .memo-list-preview,
-  .memo-reading-surface,
-  .ledger-stat-grid strong,
-  .ledger-row-main,
-  .ledger-row > strong,
-  .ledger-budget-hero > strong
+  .memo-reading-surface
 ) {
   filter: blur(5px);
   user-select: none;
@@ -551,8 +561,195 @@
   .dash-detail-card strong,
   .dash-day-task p,
   .dash-timers li > span,
-  .dashboard-strip-quote p
+  .dashboard-strip-quote p,
+  .dash-ledger-latest span
 ) {
   filter: blur(5px);
   user-select: none;
+}
+
+/* Daylight palette for the three classic desktop widgets. Custom colors with a
+   light luminance receive this system automatically from DesktopWidgetApp. */
+.desktop-widget.is-light {
+  color: #26384f;
+  background:
+    radial-gradient(circle at 12% -12%, rgba(255, 255, 255, 0.76), transparent 38%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.24), transparent 52%),
+    rgba(var(--widget-rgb), var(--widget-opacity));
+  box-shadow:
+    inset 0 0 0 1px rgba(52, 73, 98, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 18px 42px rgba(36, 53, 75, 0.18);
+}
+
+.desktop-widget.is-light .desktop-widget-head {
+  border-bottom-color: rgba(50, 72, 98, 0.1);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.desktop-widget.is-light .desktop-widget-kicker {
+  color: rgba(43, 71, 101, 0.58);
+}
+
+.desktop-widget.is-light .desktop-widget-head strong,
+.desktop-widget.is-light .widget-calendar-toolbar strong,
+.desktop-widget.is-light .widget-task strong,
+.desktop-widget.is-light .widget-progress strong {
+  color: #1f3148;
+}
+
+.desktop-widget.is-light :is(
+  .desktop-widget-actions button,
+  .widget-calendar-toolbar button,
+  .widget-quick-row button,
+  .widget-memo-compose button
+) {
+  color: #29435d;
+  border-color: rgba(47, 70, 97, 0.15);
+  background: rgba(49, 83, 116, 0.09);
+}
+
+.desktop-widget.is-light :is(
+  .desktop-widget-actions button,
+  .widget-calendar-toolbar button,
+  .widget-quick-row button,
+  .widget-memo-compose button
+):hover,
+.desktop-widget.is-light .desktop-widget-actions button.is-active {
+  color: #fff;
+  border-color: #3d7db4;
+  background: #3d7db4;
+}
+
+.desktop-widget.is-light .widget-palette {
+  color: #26384f;
+  border-color: rgba(48, 69, 94, 0.18);
+  background: rgba(248, 251, 255, 0.97);
+  box-shadow: 0 16px 38px rgba(39, 56, 77, 0.18);
+}
+
+.desktop-widget.is-light .widget-palette-title span,
+.desktop-widget.is-light .widget-opacity-control,
+.desktop-widget.is-light .widget-calendar-weekdays span,
+.desktop-widget.is-light .widget-calendar-summary,
+.desktop-widget.is-light .widget-progress,
+.desktop-widget.is-light .widget-task span,
+.desktop-widget.is-light .widget-empty {
+  color: rgba(38, 56, 79, 0.6);
+}
+
+.desktop-widget.is-light .widget-palette-swatches > button,
+.desktop-widget.is-light .widget-custom-color {
+  border-color: rgba(43, 61, 83, 0.25);
+}
+
+.desktop-widget.is-light .widget-palette-swatches > button.is-active::after {
+  border-color: #29435d;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.78);
+}
+
+.desktop-widget.is-light .widget-calendar-grid {
+  border-top-color: rgba(47, 70, 96, 0.14);
+  border-left-color: rgba(47, 70, 96, 0.14);
+}
+
+.desktop-widget.is-light .widget-calendar-day {
+  color: #2b3d53;
+  border-right-color: rgba(47, 70, 96, 0.14);
+  border-bottom-color: rgba(47, 70, 96, 0.14);
+}
+
+.desktop-widget.is-light .widget-calendar-day:hover {
+  background: rgba(50, 91, 128, 0.07);
+}
+
+.desktop-widget.is-light .widget-calendar-day.is-outside {
+  color: rgba(38, 56, 79, 0.3);
+}
+
+.desktop-widget.is-light .widget-calendar-day.is-today > span {
+  color: #fff;
+  background: #3e7fb7;
+  box-shadow: 0 3px 9px rgba(46, 102, 151, 0.22);
+}
+
+.desktop-widget.is-light .widget-calendar-day.has-anni > span,
+.desktop-widget.is-light .widget-anni-list li strong {
+  color: #93601d;
+}
+
+.desktop-widget.is-light .widget-calendar-day.is-today.has-anni > span {
+  color: #fff;
+}
+
+.desktop-widget.is-light .widget-anni-list li {
+  color: #26384f;
+  border-color: rgba(151, 98, 29, 0.18);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.desktop-widget.is-light .widget-anni-list li em {
+  color: rgba(38, 56, 79, 0.58);
+}
+
+.desktop-widget.is-light .widget-anni-list li.is-today {
+  border-color: rgba(151, 98, 29, 0.34);
+  background: rgba(199, 144, 65, 0.1);
+}
+
+.desktop-widget.is-light :is(
+  .widget-anni-list li.is-clickable,
+  .widget-memo-card.is-clickable,
+  .widget-task-body.is-clickable
+):hover {
+  border-color: rgba(57, 121, 174, 0.32);
+  background: rgba(62, 127, 183, 0.09);
+}
+
+.desktop-widget.is-light .widget-quick-row input,
+.desktop-widget.is-light .widget-memo-compose textarea {
+  color: #203249;
+  border-color: rgba(48, 70, 96, 0.17);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.desktop-widget.is-light :is(.widget-quick-row input, .widget-memo-compose textarea)::placeholder {
+  color: rgba(38, 56, 79, 0.42);
+}
+
+.desktop-widget.is-light .widget-task-list,
+.desktop-widget.is-light .widget-memo-list {
+  scrollbar-color: rgba(48, 70, 96, 0.22) transparent;
+}
+
+.desktop-widget.is-light .widget-task {
+  border-bottom-color: rgba(47, 70, 96, 0.12);
+}
+
+.desktop-widget.is-light .widget-task-check {
+  border-color: rgba(42, 69, 98, 0.48);
+}
+
+.desktop-widget.is-light .widget-task-check:hover {
+  border-color: #397db6;
+  background: rgba(57, 125, 182, 0.14);
+}
+
+.desktop-widget.is-light .widget-task.is-overdue span {
+  color: #aa4845;
+}
+
+.desktop-widget.is-light .widget-memo-card {
+  color: #2b3d53;
+  border-color: rgba(48, 70, 96, 0.13);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.desktop-widget.is-light .widget-memo-actions button {
+  color: rgba(45, 99, 145, 0.72);
+}
+
+.desktop-widget.is-light .widget-memo-actions button:hover {
+  color: #245d8d;
+  background: rgba(50, 91, 128, 0.1);
 }

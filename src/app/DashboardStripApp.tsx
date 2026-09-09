@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { notifyWidgetError, openMainWindow, runWidgetAction } from "@/lib/openMainWindow";
 import type { NavId } from "@/types";
@@ -14,6 +14,19 @@ import {
 } from "@/lib/db/moments";
 import { fetchHabitChecks, fetchHabits, toggleHabitCheck } from "@/lib/db/taxonomy";
 import { fetchTimers } from "@/lib/db/timers";
+import {
+  createLedgerTransaction,
+  fetchLedgerAccounts,
+  fetchLedgerCategories,
+  fetchLedgerTransactions,
+  formatLedgerMoney,
+  getLedgerBudget,
+  parseAmountToCents,
+  type LedgerAccount,
+  type LedgerCategory,
+  type LedgerKind,
+  type LedgerTransaction,
+} from "@/lib/db/ledger";
 import { formatLongDate, todayDateString } from "@/lib/dates";
 import {
   anniversaryDatesInMonth,
@@ -34,6 +47,7 @@ const FALLBACK_QUOTES = [
 ];
 
 const PALETTES = [
+  { id: "cloud", name: "云雾浅色", color: "#e8eef5" },
   { id: "ocean", name: "深海蓝", color: "#355b8a" },
   { id: "mist", name: "雾霾蓝", color: "#60758d" },
   { id: "apricot", name: "暖杏色", color: "#8b6554" },
@@ -53,6 +67,19 @@ function hexToRgb(hex: string) {
       : value;
   const parsed = Number.parseInt(normalized, 16);
   return `${(parsed >> 16) & 255}, ${(parsed >> 8) & 255}, ${parsed & 255}`;
+}
+
+function isLightColor(hex: string) {
+  const value = hex.replace("#", "");
+  const normalized = value.length === 3
+    ? value.split("").map((part) => part + part).join("")
+    : value;
+  const parsed = Number.parseInt(normalized, 16);
+  if (Number.isNaN(parsed)) return false;
+  const red = (parsed >> 16) & 255;
+  const green = (parsed >> 8) & 255;
+  const blue = parsed & 255;
+  return (red * 299 + green * 587 + blue * 114) / 1000 >= 175;
 }
 
 function greetingForHour(hour: number) {
@@ -82,6 +109,18 @@ export function DashboardStripApp() {
   const [checks, setChecks] = useState<HabitCheck[]>([]);
   const [timers, setTimers] = useState<Timer[]>([]);
   const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
+  const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>([]);
+  const [ledgerCategories, setLedgerCategories] = useState<LedgerCategory[]>([]);
+  const [ledgerAccounts, setLedgerAccounts] = useState<LedgerAccount[]>([]);
+  const [ledgerBudget, setLedgerBudget] = useState(0);
+  const [ledgerAmountsHidden, setLedgerAmountsHidden] = useState(false);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [ledgerKind, setLedgerKind] = useState<LedgerKind>("expense");
+  const [ledgerAmount, setLedgerAmount] = useState("");
+  const [ledgerCategoryId, setLedgerCategoryId] = useState(0);
+  const [ledgerNote, setLedgerNote] = useState("");
+  const [ledgerError, setLedgerError] = useState("");
+  const [ledgerNotice, setLedgerNotice] = useState("");
   const [quote, setQuote] = useState(FALLBACK_QUOTES[0]);
   const [memoText, setMemoText] = useState("");
   const [momentText, setMomentText] = useState("");
@@ -92,6 +131,7 @@ export function DashboardStripApp() {
   const [nowMs, setNowMs] = useState(Date.now());
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
+  const ledgerAmountRef = useRef<HTMLInputElement>(null);
   const [month, setMonth] = useState(() => {
     const value = new Date();
     value.setDate(1);
@@ -124,6 +164,7 @@ export function DashboardStripApp() {
   }, [color, opacity]);
 
   const refresh = async () => {
+    const ledgerMonth = monthKey(new Date());
     const [
       nextTasks,
       nextMemos,
@@ -134,6 +175,11 @@ export function DashboardStripApp() {
       inspirations,
       reflections,
       privacySetting,
+      nextLedgerTransactions,
+      nextLedgerCategories,
+      nextLedgerAccounts,
+      nextLedgerBudget,
+      hideLedgerAmounts,
     ] = await Promise.all([
       fetchTasks(),
       fetchMemos(),
@@ -144,6 +190,11 @@ export function DashboardStripApp() {
       fetchInspirations(false),
       fetchDailyReflections(),
       getSetting("privacy_mode"),
+      fetchLedgerTransactions(ledgerMonth),
+      fetchLedgerCategories(),
+      fetchLedgerAccounts(),
+      getLedgerBudget(ledgerMonth),
+      getSetting("ledger_hide_amount"),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
@@ -152,6 +203,11 @@ export function DashboardStripApp() {
     setTimers(nextTimers);
     setAnniversaries(nextAnniversaries);
     setPrivacyMode(isPrivacyModeEnabled(privacySetting));
+    setLedgerTransactions(nextLedgerTransactions);
+    setLedgerCategories(nextLedgerCategories);
+    setLedgerAccounts(nextLedgerAccounts);
+    setLedgerBudget(nextLedgerBudget);
+    setLedgerAmountsHidden(hideLedgerAmounts === "true");
 
     const today = todayDateString();
     const highlight = reflections.find((item) => item.reflection_date === today)?.highlight?.trim();
@@ -192,6 +248,21 @@ export function DashboardStripApp() {
       delete document.body.dataset.desktopWidget;
     };
   }, []);
+
+  useEffect(() => {
+    if (!ledgerNotice) return;
+    const timer = window.setTimeout(() => setLedgerNotice(""), 3000);
+    return () => window.clearTimeout(timer);
+  }, [ledgerNotice]);
+
+  useEffect(() => {
+    if (!ledgerOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLedgerOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [ledgerOpen]);
 
   const today = todayDateString();
   const greeting = greetingForHour(new Date(nowMs).getHours());
@@ -286,6 +357,80 @@ export function DashboardStripApp() {
     [timers],
   );
 
+  const ledgerExpense = useMemo(
+    () => ledgerTransactions
+      .filter((item) => item.type === "expense")
+      .reduce((sum, item) => sum + item.amount_cents, 0),
+    [ledgerTransactions],
+  );
+  const ledgerIncome = useMemo(
+    () => ledgerTransactions
+      .filter((item) => item.type === "income")
+      .reduce((sum, item) => sum + item.amount_cents, 0),
+    [ledgerTransactions],
+  );
+  const ledgerMasked = privacyMode || ledgerAmountsHidden;
+  const activeLedgerCategories = useMemo(
+    () => ledgerCategories.filter((item) => item.kind === ledgerKind && item.is_enabled),
+    [ledgerCategories, ledgerKind],
+  );
+
+  const chooseLedgerKind = (kind: LedgerKind) => {
+    setLedgerKind(kind);
+    setLedgerCategoryId(
+      ledgerCategories.find((item) => item.kind === kind && item.is_enabled)?.id ?? 0,
+    );
+    setLedgerError("");
+  };
+
+  const openLedgerEntry = () => {
+    const defaultKind: LedgerKind = "expense";
+    setLedgerKind(defaultKind);
+    setLedgerCategoryId(
+      ledgerCategories.find((item) => item.kind === defaultKind && item.is_enabled)?.id ?? 0,
+    );
+    setLedgerAmount("");
+    setLedgerNote("");
+    setLedgerError("");
+    setLedgerOpen(true);
+    window.setTimeout(() => ledgerAmountRef.current?.focus(), 80);
+  };
+
+  const saveLedgerEntry = async () => {
+    if (busy) return;
+    const amountCents = parseAmountToCents(ledgerAmount);
+    if (!amountCents) {
+      setLedgerError("请输入有效金额，最多两位小数");
+      ledgerAmountRef.current?.focus();
+      return;
+    }
+    const category = activeLedgerCategories.find((item) => item.id === ledgerCategoryId);
+    const account = ledgerAccounts.find((item) => item.is_enabled);
+    if (!category || !account) {
+      setLedgerError(!category ? "请先选择可用分类" : "请先在主账本中启用一个账户");
+      return;
+    }
+    setBusy(true);
+    try {
+      await createLedgerTransaction({
+        kind: ledgerKind,
+        amountCents,
+        categoryId: category.id,
+        accountId: account.id,
+        occurredOn: today,
+        note: ledgerNote,
+      });
+      setLedgerOpen(false);
+      setLedgerNotice(`已记入账本 · ${category.name} ${formatLedgerMoney(amountCents)}`);
+      await refresh();
+      void emitDataChanged("ledger");
+    } catch (cause) {
+      setLedgerError(cause instanceof Error ? cause.message : "保存失败，请重试");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveMemo = async () => {
     const content = memoText.trim();
     if (!content || busy) return;
@@ -342,7 +487,7 @@ export function DashboardStripApp() {
 
   return (
     <main
-      className={`dashboard-strip ${opacity === 0 ? "is-fully-transparent" : ""}`}
+      className={`dashboard-strip ${opacity === 0 ? "is-fully-transparent" : ""} ${opacity > 0 && isLightColor(color) ? "is-light" : ""}`}
       data-privacy={privacyMode ? "on" : "off"}
       style={
         {
@@ -353,28 +498,53 @@ export function DashboardStripApp() {
       }
     >
       <header className="dashboard-strip-head" data-tauri-drag-region>
-        <div data-tauri-drag-region>
-          <span className="desktop-widget-kicker">GROW WITH TIME</span>
-          <strong data-tauri-drag-region>桌面仪表盘</strong>
+        <div className="dashboard-brand" data-tauri-drag-region>
+          <span className="dashboard-brand-mark" data-tauri-drag-region aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 20V8" />
+              <path d="M12 12C8 12 5.5 9.8 5 6c4 0 6.5 2.2 7 6Z" />
+              <path d="M12 16c4 0 6.5-2.2 7-6-4 0-6.5 2.2-7 6Z" />
+            </svg>
+          </span>
+          <div className="dashboard-brand-copy" data-tauri-drag-region>
+            <strong data-tauri-drag-region>日进·拾光</strong>
+            <span data-tauri-drag-region>桌面仪表盘</span>
+          </div>
+        </div>
+        <div className="dashboard-sync" data-tauri-drag-region>
+          <i aria-hidden="true" />
+          <span data-tauri-drag-region>{formatLongDate(today)} · 数据已同步</span>
         </div>
         <div className="desktop-widget-actions">
           <button
             type="button"
             title="调整配色"
+            aria-label="调整配色"
             className={paletteOpen ? "is-active" : ""}
             onClick={() => setPaletteOpen((value) => !value)}
           >
-            ◐
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.7-.9 1.2-1.8-.5-1-.1-2.2 1.4-2.2H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10Z" />
+              <circle cx="7.5" cy="10" r="1" />
+              <circle cx="10" cy="6.8" r="1" />
+              <circle cx="15" cy="7.5" r="1" />
+            </svg>
           </button>
-          <button type="button" title="打开主程序" onClick={() => openMain()}>
-            ↗
+          <button type="button" title="打开主程序" aria-label="打开主程序" onClick={() => openMain()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M14 4h6v6M20 4 11 13" />
+              <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
+            </svg>
           </button>
           <button
             type="button"
             title="隐藏"
+            aria-label="隐藏组件"
             onClick={hideWidget}
           >
-            ×
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
           </button>
         </div>
       </header>
@@ -683,12 +853,133 @@ export function DashboardStripApp() {
             </ul>
           )}
         </section>
+
+        <section
+          className="dash-panel dash-ledger"
+          role="button"
+          tabIndex={0}
+          aria-label="打开快捷记账"
+          onClick={openLedgerEntry}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openLedgerEntry();
+            }
+          }}
+        >
+          <div className="dash-panel-title">
+            <span>本月账本</span>
+            <span className="dash-ledger-add" aria-hidden="true">＋</span>
+          </div>
+          <div className="dash-ledger-balance">
+            <span>结余</span>
+            <strong>{formatLedgerMoney(ledgerIncome - ledgerExpense, ledgerMasked)}</strong>
+          </div>
+          <div className="dash-ledger-flow">
+            <div><span>收入</span><strong>{formatLedgerMoney(ledgerIncome, ledgerMasked)}</strong></div>
+            <i />
+            <div><span>支出</span><strong>{formatLedgerMoney(ledgerExpense, ledgerMasked)}</strong></div>
+          </div>
+          <div className="dash-ledger-budget">
+            <span>预算</span>
+            <div><i style={{ width: `${ledgerBudget ? Math.min(100, ledgerExpense / ledgerBudget * 100) : 0}%` }} /></div>
+            <b>{ledgerBudget ? `${Math.round(ledgerExpense / ledgerBudget * 100)}%` : "未设"}</b>
+          </div>
+          <div className="dash-ledger-latest">
+            {ledgerTransactions.length ? ledgerTransactions.slice(0, 2).map((item) => (
+              <div key={item.id}>
+                <span>{item.category_name}{item.note ? ` · ${item.note}` : ""}</span>
+                <strong className={item.type}>{item.type === "expense" ? "−" : "+"}{formatLedgerMoney(item.amount_cents, ledgerMasked)}</strong>
+              </div>
+            )) : <p className="dash-empty">记下第一笔，开始看见流向</p>}
+          </div>
+        </section>
       </div>
 
       <footer className="dashboard-strip-quote">
         <form onSubmit={(event) => { event.preventDefault(); void saveMoment(); }}><span>时光便签</span><input value={momentText} onChange={(event) => setMomentText(event.target.value)} placeholder="留住刚刚闪过的一念…" /><button type="submit" disabled={busy || !momentText.trim()}>收好</button></form>
         <p data-tauri-drag-region>{quote}</p>
       </footer>
+
+      {ledgerOpen ? <button type="button" className="dash-ledger-scrim" aria-label="关闭快捷记账" onClick={() => setLedgerOpen(false)} /> : null}
+
+      {ledgerOpen ? (
+        <section
+          className="dash-ledger-entry"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dash-ledger-entry-title"
+        >
+          <form
+            className="dash-ledger-entry-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveLedgerEntry();
+            }}
+          >
+            <header>
+              <div>
+                <i aria-hidden="true" />
+                <span>
+                  <strong id="dash-ledger-entry-title">快速记一笔</strong>
+                  <small>今天 · 自动同步到账本</small>
+                </span>
+              </div>
+              <button type="button" onClick={() => setLedgerOpen(false)} aria-label="关闭快捷记账">×</button>
+            </header>
+            <div className="dash-ledger-entry-main">
+              <div className="dash-ledger-kind" aria-label="收支类型">
+                <button type="button" className={ledgerKind === "expense" ? "is-active" : ""} onClick={() => chooseLedgerKind("expense")}>支出</button>
+                <button type="button" className={ledgerKind === "income" ? "is-active" : ""} onClick={() => chooseLedgerKind("income")}>收入</button>
+              </div>
+              <label className="dash-ledger-amount">
+                <span>¥</span>
+                <input
+                  ref={ledgerAmountRef}
+                  inputMode="decimal"
+                  value={ledgerAmount}
+                  onChange={(event) => {
+                    setLedgerAmount(event.target.value.replace(/[^\d.]/g, ""));
+                    setLedgerError("");
+                  }}
+                  aria-label="金额"
+                  aria-invalid={Boolean(ledgerError)}
+                  placeholder="0.00"
+                />
+              </label>
+            </div>
+            <div className="dash-ledger-categories" aria-label="账目分类">
+              {activeLedgerCategories.slice(0, 5).map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  className={ledgerCategoryId === category.id ? "is-active" : ""}
+                  onClick={() => {
+                    setLedgerCategoryId(category.id);
+                    setLedgerError("");
+                  }}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+            <div className="dash-ledger-entry-footer">
+              <input
+                value={ledgerNote}
+                onChange={(event) => setLedgerNote(event.target.value)}
+                maxLength={80}
+                aria-label="备注"
+                placeholder="备注（可选）"
+              />
+              <span className="dash-ledger-account"><i aria-hidden="true" />{ledgerAccounts.find((item) => item.is_enabled)?.name ?? "未设置账户"}</span>
+              <button type="submit" disabled={busy}>{busy ? "保存中…" : "记入账本"}</button>
+            </div>
+            {ledgerError ? <p className="dash-ledger-error" role="alert">{ledgerError}</p> : null}
+          </form>
+        </section>
+      ) : null}
+
+      {ledgerNotice ? <div className="dash-ledger-toast" role="status"><i />{ledgerNotice}</div> : null}
 
       {selectedDate ? <div className="dash-detail-backdrop" onMouseDown={() => setSelectedDate(null)}><section className="dash-detail-card dash-day-detail" role="dialog" aria-modal="true" aria-label={`${selectedDate} 代办详情`} onMouseDown={(event) => event.stopPropagation()}><header><div><span>每日代办</span><strong>{new Date(`${selectedDate}T12:00:00`).toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" })}</strong></div><button onClick={() => setSelectedDate(null)} aria-label="关闭">×</button></header><div className="dash-detail-scroll">{(tasksByDate.get(selectedDate) ?? []).length ? (tasksByDate.get(selectedDate) ?? []).map((task) => <article className="dash-day-task" key={task.id}><i className={`is-${task.status}`} /><div><strong>{task.title}</strong><span>{task.due_time ? `${task.due_time}${task.end_time ? `–${task.end_time}` : ""}` : "全天"} · {task.status === "completed" ? "已完成" : task.status === "cancelled" ? "已取消" : "待完成"}</span>{task.description ? <p>{task.description}</p> : null}</div></article>) : <div className="dash-detail-empty">这一天没有代办。</div>}</div><footer><button onClick={() => openMain("calendar")}>在日历中查看</button></footer></section></div> : null}
 

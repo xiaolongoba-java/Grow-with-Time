@@ -55,6 +55,13 @@ describe("desktop widget reliability contract", () => {
     expect(rust).toContain("already_visible");
   });
 
+  it("clips rounded widgets and hides native caption chrome", () => {
+    expect(rust).toContain("fn clip_widget_rounded");
+    expect(rust).toContain("fn hide_widget_system_chrome");
+    expect(rust).toContain("refresh_widget_chrome");
+    expect(rust).toContain("DWMWA_CAPTION_COLOR");
+  });
+
   it("does not flash HWND_TOPMOST when sending widgets to the bottom layer", () => {
     const fn = rust.slice(
       rust.indexOf("fn stabilize_widget_layer"),

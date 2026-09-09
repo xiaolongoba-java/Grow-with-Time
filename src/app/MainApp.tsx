@@ -37,6 +37,12 @@ import { filterTasksByView } from "@/lib/tasks";
 import { todayDateString } from "@/lib/dates";
 import { openDesktopWidgets } from "@/lib/desktopWidgets";
 import {
+  HOTKEY_ACTIONS,
+  HOTKEYS_CHANGED_EVENT,
+  isHotkeyEnabled,
+  resolveAccelerator,
+} from "@/lib/hotkeys";
+import {
   applyPrivacyToReminderPlans,
   buildMissedReminderPlans,
   buildNativeReminderPlans,
@@ -284,47 +290,50 @@ export function MainApp() {
   }, [toast, canUndo, setToast]);
 
   useEffect(() => {
-    const shortcut = "CommandOrControl+Shift+N";
-    const inspirationShortcut = "CommandOrControl+Shift+Space";
-    let ledgerShortcut: string | null = null;
-    const openLedger = () => {
-      void invoke("open_main_window", { nav: "ledger" }).catch(() => {
-        setNav("ledger");
-      });
-      window.setTimeout(() => window.dispatchEvent(new Event("ledger:open-entry")), 60);
+    const registered = new Map<string, string>();
+    const handlers: Record<string, () => void> = {
+      quick_add: () => {
+        void invoke("show_quick_add");
+      },
+      inspiration: () => {
+        void invoke("show_inspiration");
+      },
+      ledger_quick_add: () => {
+        void invoke("open_main_window", { nav: "ledger" }).catch(() => {
+          setNav("ledger");
+        });
+        window.setTimeout(() => window.dispatchEvent(new Event("ledger:open-entry")), 60);
+      },
     };
-    const syncLedgerShortcut = async () => {
-      const enabled = (await getSetting("hotkey.ledger.quick_add.enabled")) !== "false";
-      const next = (await getSetting("hotkey.ledger.quick_add.accelerator")) || "CommandOrControl+Shift+B";
-      if (!enabled) {
-        if (ledgerShortcut && await isRegistered(ledgerShortcut)) await unregister(ledgerShortcut);
-        ledgerShortcut = null;
-        return;
+    const sync = async () => {
+      for (const action of HOTKEY_ACTIONS.filter((item) => item.scope === "global")) {
+        const enabled = isHotkeyEnabled(await getSetting(action.enabledKey));
+        const next = resolveAccelerator(action, await getSetting(action.acceleratorKey));
+        const previous = registered.get(action.id);
+        if (!enabled) {
+          if (previous && (await isRegistered(previous))) await unregister(previous);
+          registered.delete(action.id);
+          continue;
+        }
+        try {
+          if (previous === next && (await isRegistered(next))) continue;
+          if (await isRegistered(next)) await unregister(next);
+          await register(next, handlers[action.id]);
+          if (previous && previous !== next && (await isRegistered(previous))) {
+            await unregister(previous);
+          }
+          registered.set(action.id, next);
+        } catch {
+          /* keep the previous binding if the new combination fails */
+        }
       }
-      if (ledgerShortcut === next && await isRegistered(next)) return;
-      if (!(await isRegistered(next))) await register(next, openLedger);
-      const previous = ledgerShortcut;
-      ledgerShortcut = next;
-      if (previous && previous !== next && await isRegistered(previous)) await unregister(previous);
     };
-    const onChanged = () => { void syncLedgerShortcut(); };
-    void (async () => {
-      try {
-        if (!(await isRegistered(shortcut))) {
-          await register(shortcut, () => {
-            void invoke("show_quick_add");
-          });
-        }
-        if (!(await isRegistered(inspirationShortcut))) {
-          await register(inspirationShortcut, () => { void invoke("show_inspiration"); });
-        }
-        await syncLedgerShortcut();
-      } catch {
-        /* ignore */
-      }
-    })();
-    window.addEventListener("ledger-shortcut:changed", onChanged);
-    return () => window.removeEventListener("ledger-shortcut:changed", onChanged);
+    const onChanged = () => {
+      void sync();
+    };
+    void sync().catch(() => undefined);
+    window.addEventListener(HOTKEYS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(HOTKEYS_CHANGED_EVENT, onChanged);
   }, [setNav]);
 
   useEffect(() => {

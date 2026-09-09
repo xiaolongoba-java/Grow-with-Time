@@ -9,6 +9,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { themeMeta, type VisualTheme } from "@/lib/themes";
 import { OS_REMINDER_LIMIT } from "@/lib/nativeReminders";
+import {
+  HOTKEY_ACTIONS,
+  acceleratorFromKeyboardEvent,
+  displayAccelerator,
+  findHotkeyConflict,
+  isHotkeyEnabled,
+  notifyHotkeysChanged,
+  resolveAccelerator,
+  type HotkeyActionId,
+  type HotkeyDraft,
+} from "@/lib/hotkeys";
 
 type DatabaseHealth = {
   healthy: boolean;
@@ -35,9 +46,15 @@ export function SettingsView() {
   const [databaseBackups, setDatabaseBackups] = useState<DatabaseBackupInfo[]>([]);
   const [checkingData, setCheckingData] = useState(false);
   const [appVersion, setAppVersion] = useState("…");
-  const [ledgerShortcutEnabled, setLedgerShortcutEnabled] = useState(true);
-  const [ledgerShortcut, setLedgerShortcut] = useState("CommandOrControl+Shift+B");
-  const [recordingShortcut, setRecordingShortcut] = useState(false);
+  const [hotkeys, setHotkeys] = useState<Record<HotkeyActionId, HotkeyDraft>>(() =>
+    Object.fromEntries(
+      HOTKEY_ACTIONS.map((action) => [
+        action.id,
+        { enabled: true, accelerator: action.defaultAccelerator },
+      ]),
+    ) as Record<HotkeyActionId, HotkeyDraft>,
+  );
+  const [recordingHotkey, setRecordingHotkey] = useState<HotkeyActionId | null>(null);
 
   const refreshDataHealth = async () => {
     setCheckingData(true);
@@ -58,32 +75,56 @@ export function SettingsView() {
   useEffect(() => {
     void refreshDataHealth();
     void getVersion().then(setAppVersion).catch(() => setAppVersion("未知"));
-    void Promise.all([getSetting("hotkey.ledger.quick_add.enabled"), getSetting("hotkey.ledger.quick_add.accelerator")]).then(([enabled, accelerator]) => {
-      setLedgerShortcutEnabled(enabled !== "false");
-      if (accelerator) setLedgerShortcut(accelerator);
+    void Promise.all(
+      HOTKEY_ACTIONS.map(async (action) => {
+        const [enabled, accelerator] = await Promise.all([
+          getSetting(action.enabledKey),
+          getSetting(action.acceleratorKey),
+        ]);
+        return [
+          action.id,
+          {
+            enabled: isHotkeyEnabled(enabled),
+            accelerator: resolveAccelerator(action, accelerator),
+          },
+        ] as const;
+      }),
+    ).then((entries) => {
+      setHotkeys(Object.fromEntries(entries) as Record<HotkeyActionId, HotkeyDraft>);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const saveLedgerShortcut = async () => {
-    if (["CommandOrControl+Shift+N", "CommandOrControl+Shift+Space"].includes(ledgerShortcut)) {
-      setToast("该组合已被新建任务或拾念占用");
-      return;
-    }
-    await setSetting("hotkey.ledger.quick_add.enabled", String(ledgerShortcutEnabled));
-    await setSetting("hotkey.ledger.quick_add.accelerator", ledgerShortcut);
-    window.dispatchEvent(new Event("ledger-shortcut:changed"));
-    setToast("记账快捷键已更新");
+  const patchHotkey = (id: HotkeyActionId, patch: Partial<HotkeyDraft>) => {
+    setHotkeys((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
   };
 
-  const captureLedgerShortcut = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (!recordingShortcut) return;
+  const saveHotkey = async (id: HotkeyActionId) => {
+    const action = HOTKEY_ACTIONS.find((item) => item.id === id);
+    if (!action) return;
+    const conflict = findHotkeyConflict(id, hotkeys);
+    if (conflict) {
+      setToast(`该组合已被「${conflict.label}」占用`);
+      return;
+    }
+    const draft = hotkeys[id];
+    await setSetting(action.enabledKey, String(draft.enabled));
+    await setSetting(action.acceleratorKey, draft.accelerator);
+    notifyHotkeysChanged();
+    setToast(`${action.label}快捷键已更新`);
+  };
+
+  const captureHotkey = (id: HotkeyActionId, event: KeyboardEvent<HTMLButtonElement>) => {
+    if (recordingHotkey !== id) return;
     event.preventDefault();
-    if (event.key === "Escape") { setRecordingShortcut(false); return; }
-    const modifier = event.ctrlKey || event.metaKey;
-    if (!modifier || ["Control", "Meta", "Shift", "Alt"].includes(event.key)) return;
-    const keys = ["CommandOrControl", event.altKey ? "Alt" : "", event.shiftKey ? "Shift" : "", event.key.length === 1 ? event.key.toUpperCase() : event.key].filter(Boolean);
-    setLedgerShortcut(keys.join("+")); setRecordingShortcut(false);
+    if (event.key === "Escape") {
+      setRecordingHotkey(null);
+      return;
+    }
+    const accelerator = acceleratorFromKeyboardEvent(event.nativeEvent);
+    if (!accelerator) return;
+    patchHotkey(id, { accelerator });
+    setRecordingHotkey(null);
   };
 
   const restoreDatabaseBackup = async (backup: DatabaseBackupInfo) => {
@@ -231,7 +272,7 @@ export function SettingsView() {
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
           关闭主窗口会放到托盘，不会退出；彻底退出请用托盘「退出应用」。
           系统会登记到期提醒，完全退出后仍可能弹出。若系统通知权限被关，则无法保证准点。
-          全局快捷键 Ctrl/Cmd+Shift+N。
+          全局快捷键可在下方「全局快捷键」中启停和改绑。
         </p>
         <ReminderSyncStatusCard />
       </section>
@@ -340,7 +381,7 @@ export function SettingsView() {
           无痕模式：{settings.privacyMode ? "开启" : "关闭"}
         </button>
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
-          开启后，系统通知只显示「日进·拾光 / 你有一条提醒」，不展示具体任务标题与内容。
+          开启后，系统通知只显示「日进·拾光 / 你有一条提醒」；任务标题会打码；账本金额显示为圆点，状态文案（如「尚未设置」）保持清晰。
         </p>
       </section>
 
@@ -445,15 +486,65 @@ export function SettingsView() {
 
       <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>全局快捷键</h3>
-        <p className="settings-hint">在其他应用中也能唤起功能；快捷键属于应用设置，而不是账本页面设置。</p>
-        <div className="settings-row" style={{ marginTop: 12 }}>
-          <div><strong>快速记一笔</strong><p className="settings-hint">打开观流账本并聚焦金额输入框</p></div>
-          <label className="ledger-checkbox"><input type="checkbox" checked={ledgerShortcutEnabled} onChange={(event) => setLedgerShortcutEnabled(event.target.checked)} />启用</label>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
-          <button type="button" className="btn-ghost" disabled={!ledgerShortcutEnabled} onClick={() => setRecordingShortcut(true)} onKeyDown={captureLedgerShortcut} aria-pressed={recordingShortcut}>{recordingShortcut ? "请按 Ctrl/⌘ + 按键（Esc 取消）" : ledgerShortcut}</button>
-          <button type="button" className="btn-primary" style={{ width: "auto" }} onClick={() => void saveLedgerShortcut()}>保存快捷键</button>
-        </div>
+        <p className="settings-hint">所有带快捷键的功能都在这里配置。标了「全局」的在其他应用中也能唤起；命令面板仅在主窗口内生效。</p>
+        {HOTKEY_ACTIONS.map((action) => {
+          const draft = hotkeys[action.id];
+          const recording = recordingHotkey === action.id;
+          const conflict = findHotkeyConflict(action.id, hotkeys);
+          return (
+            <div key={action.id} style={{ marginTop: 14 }}>
+              <div className="settings-row">
+                <div>
+                  <strong>{action.label}</strong>
+                  <p className="settings-hint">
+                    {action.hint}
+                    {action.scope === "global" ? " · 全局" : " · 仅主窗口"}
+                  </p>
+                </div>
+                <label className="ledger-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={draft.enabled}
+                    onChange={(event) => patchHotkey(action.id, { enabled: event.target.checked })}
+                  />
+                  启用
+                </label>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  disabled={!draft.enabled}
+                  onClick={() => setRecordingHotkey(action.id)}
+                  onKeyDown={(event) => captureHotkey(action.id, event)}
+                  aria-pressed={recording}
+                >
+                  {recording ? "请按 Ctrl/⌘ + 按键（Esc 取消）" : displayAccelerator(draft.accelerator)}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  disabled={!draft.enabled}
+                  onClick={() => patchHotkey(action.id, { accelerator: action.defaultAccelerator })}
+                >
+                  恢复默认
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ width: "auto" }}
+                  disabled={draft.enabled && Boolean(conflict)}
+                  onClick={() => void saveHotkey(action.id)}
+                >
+                  保存
+                </button>
+              </div>
+              {conflict && draft.enabled ? (
+                <p className="settings-hint" role="alert">与「{conflict.label}」冲突，请更换后再保存</p>
+              ) : null}
+            </div>
+          );
+        })}
       </section>
 
       <section className="settings-card" style={{ marginTop: 12 }}>

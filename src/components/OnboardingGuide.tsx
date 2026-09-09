@@ -20,7 +20,7 @@ const steps: {
     icon: "sparkle",
     title: "拾光：把时间留下",
     body: "拾念记瞬间，今日拾光记今天，备忘录存长期，拾光变迁寄未来。它们各自保存不同时间尺度的内容。",
-    hint: "快捷键 Ctrl / Cmd + Shift + Space 随时拾起灵感",
+    hint: "可在设置 → 全局快捷键中改绑「拾念」",
   },
   {
     icon: "bell",
