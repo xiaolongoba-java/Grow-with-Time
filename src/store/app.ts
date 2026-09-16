@@ -14,6 +14,7 @@ import type {
   TaskDraft,
   TaskUpdate,
   TaskTemplate,
+  TaskStatusFilter,
   ThemeMode,
   Timer,
   TimerDraft,
@@ -28,7 +29,7 @@ import {
 } from "@/lib/focusTimer";
 import { emitDataChanged } from "@/lib/widgetRefresh";
 import { interpretOpenFocus, toSafeIso, type FocusRecovery } from "@/lib/focusRecovery";
-import { buildMorningPlan, buildTodayPlanPicker, type MorningPlanItem } from "@/lib/morningPlan";
+import { buildTodayPlanPicker, type MorningPlanItem } from "@/lib/morningPlan";
 import {
   EMPTY_REMINDER_SYNC,
   type ReminderSyncStatus,
@@ -73,6 +74,7 @@ interface AppStore {
   activeTagId: string | null;
   activeSmartListId: string | null;
   filter: FilterState;
+  allTasksFilter: TaskStatusFilter;
   focusTaskId: string | null;
   focusSeconds: number;
   focusEndsAt: number | null;
@@ -90,6 +92,7 @@ interface AppStore {
   maybeRollover: () => Promise<void>;
   refreshAll: () => Promise<void>;
   setNav: (nav: NavId) => void;
+  setAllTasksFilter: (filter: TaskStatusFilter) => void;
   setNavigationGuard: (guard: (() => boolean) | null) => void;
   setViewMode: (mode: ViewMode) => void;
   setDateScope: (scope: DateScope) => void;
@@ -157,7 +160,6 @@ interface AppStore {
   resolveFocusRecovery: (
     action: "continue" | "settle_activity" | "settle_planned" | "abandon",
   ) => Promise<void>;
-  offerMorningPlan: () => Promise<void>;
   openMorningPlan: () => Promise<void>;
   resolveMorningPlan: (
     payload: { taskIds: string[]; titles?: string[] } | null,
@@ -211,6 +213,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activeTagId: null,
   activeSmartListId: null,
   filter: emptyFilter(),
+  allTasksFilter: "all",
   focusTaskId: null,
   focusSeconds: 25 * 60,
   focusEndsAt: null,
@@ -230,6 +233,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const rolled = await db.rolloverOverdueTasks();
       await db.backfillGeneratedFromIds();
       const staleFocusClosed = await db.abandonStaleOpenFocusSessions();
+      const purgedLedgerRows = await db.purgeOldLedgerTrash();
       await get().refreshAll();
       applyTheme(get().settings.theme);
       const openFocus = await db.fetchOpenFocusSessions();
@@ -253,13 +257,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ready: true,
         error: null,
         calendarCursor: today,
-        ...(staleFocusClosed > 0
+        ...(purgedLedgerRows > 0
+          ? { toast: `已清理 ${purgedLedgerRows} 条超过 30 天的账本回收记录` }
+          : staleFocusClosed > 0
           ? { toast: `已清理 ${staleFocusClosed} 条过期未结束的专注` }
           : rolled > 0
             ? { toast: `已将 ${rolled} 项逾期任务加入今日计划，截止日期未改` }
             : {}),
       });
-      await get().offerMorningPlan();
     } catch (e) {
       const detail = errorMessage(e, "初始化失败");
       const diskHint =
@@ -290,7 +295,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
             : {}),
         });
       }
-      await get().offerMorningPlan();
     } catch {
       /* ignore rollover errors */
     }
@@ -345,11 +349,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setNavigationGuard: (navigationGuard) => set({ navigationGuard }),
   setNav: (nav) => {
     if (nav === "myday") nav = "today";
-    if (nav === get().nav) return;
+    const legacyCompleted = nav === "completed";
+    if (legacyCompleted) nav = "all";
+    if (nav === get().nav) {
+      if (legacyCompleted) set({ allTasksFilter: "completed" });
+      return;
+    }
     const guard = get().navigationGuard;
     if (guard && !guard()) return;
     set({
       nav,
+      ...(legacyCompleted ? { allTasksFilter: "completed" as const } : {}),
       selectedTaskId: null,
       dateScope:
         nav === "today" || nav === "inbox" || nav === "all"
@@ -369,6 +379,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
             : get().viewMode,
     });
   },
+  setAllTasksFilter: (allTasksFilter) => set({ allTasksFilter }),
   setViewMode: (viewMode) => set({ viewMode }),
   setDateScope: (dateScope) => set({ dateScope }),
   setCalendarCursor: (calendarCursor) => set({ calendarCursor }),
@@ -794,7 +805,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
           "onboarding_complete",
           String(patch.onboardingComplete),
         );
-        if (patch.onboardingComplete) void get().offerMorningPlan();
       }
       await emitDataChanged("settings");
     } catch (e) {
@@ -1051,15 +1061,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
         /* ignore */
       }
     }
-  },
-  offerMorningPlan: async () => {
-    if (!get().settings.onboardingComplete) return;
-    if (get().pendingMorningPlan) return;
-    const today = todayDateString();
-    const planned = await db.getSetting("last_morning_plan_date");
-    if (planned === today) return;
-    const candidates = buildMorningPlan(get().tasks, today);
-    if (candidates.length) set({ pendingMorningPlan: candidates });
   },
   openMorningPlan: async () => {
     if (get().pendingMorningPlan) return;

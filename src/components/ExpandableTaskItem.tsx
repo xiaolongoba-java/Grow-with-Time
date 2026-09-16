@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useAppStore } from "@/store/app";
 import { getSubtasks, subtaskProgress } from "@/lib/tasks";
 import { priorityLabel } from "@/lib/dates";
+import { describeRepeatRule, parseRepeatRule } from "@/lib/repeat";
 import type { Task } from "@/types";
 
 export function ExpandableTaskItem({
@@ -29,6 +30,7 @@ export function ExpandableTaskItem({
   const subs = getSubtasks(tasks, task.id);
   const progress = subtaskProgress(tasks, task.id);
   const doneCount = subs.filter((s) => s.status === "completed").length;
+  const repeatRule = parseRepeatRule(task.repeat_rule);
 
   const toggleExpand = () => {
     setExpanded((v) => !v);
@@ -64,7 +66,15 @@ export function ExpandableTaskItem({
           {task.status === "completed" ? "✓" : ""}
         </button>
         <div className="expand-task-main">
-          <p className="task-title">{task.title}</p>
+          <div className="expand-task-title-row">
+            <p className="task-title">{task.title}</p>
+            {repeatRule ? (
+              <span className="task-repeat-chip" title={`循环任务：${describeRepeatRule(repeatRule)}`}>
+                <span aria-hidden="true">↻</span>
+                {describeRepeatRule(repeatRule)}
+              </span>
+            ) : null}
+          </div>
           <div className="task-meta">
             {meta}
             {task.estimated_minutes ? (

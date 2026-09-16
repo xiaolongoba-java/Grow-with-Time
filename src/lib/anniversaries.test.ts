@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   anniversaryHeadline,
+  listAnniversariesForWidget,
   listUpcomingAnniversaries,
   lunarToSolarYmd,
   nextAnniversaryDate,
@@ -114,5 +115,20 @@ describe("anniversaries helpers", () => {
     );
     expect(list.map((row) => row.item.id)).toEqual(["today", "near"]);
     expect(list[0].daysLeft).toBe(0);
+  });
+
+  it("keeps desktop widgets populated beyond the 30-day window", () => {
+    const list = listAnniversariesForWidget(
+      [
+        anni({ id: "far", title: "远期纪念日", event_date: "2010-12-01" }),
+        anni({ id: "past", title: "已记录单次", event_date: "2020-01-01", recur_yearly: 0 }),
+      ],
+      "2026-08-12",
+      4,
+    );
+
+    expect(list.map((row) => row.item.id)).toEqual(["far", "past"]);
+    expect(list[0].daysLeft).toBeGreaterThan(30);
+    expect(list[1].daysLeft).toBeNull();
   });
 });

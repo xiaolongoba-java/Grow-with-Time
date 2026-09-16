@@ -1,4 +1,4 @@
-import { StrictMode, Component, type ReactNode } from "react";
+import { StrictMode, Component, useEffect, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -6,6 +6,23 @@ import { detectDesktopPlatform } from "@/lib/platform";
 import "@/styles/index.css";
 
 function BootError({ message }: { message: string }) {
+  useEffect(() => {
+    let secondFrame: number | null = null;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const appWindow = getCurrentWebviewWindow();
+        void appWindow
+          .show()
+          .then(() => appWindow.setFocus())
+          .catch(() => undefined);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
+    };
+  }, []);
+
   const restart = async () => {
     try {
       await invoke("restart_app");

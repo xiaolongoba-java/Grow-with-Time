@@ -1,4 +1,4 @@
-import type { Goal, GoalEntry } from "@/types";
+import type { Goal, GoalEntry, HabitCheck, Task } from "@/types";
 
 export function goalAcceptsSource(
   goal: Goal,
@@ -47,6 +47,57 @@ export function activityLevel(entries: GoalEntry[]): 0 | 1 | 2 | 3 | 4 {
   if (value < 5) return 2;
   if (value < 10) return 3;
   return 4;
+}
+
+export function activityCountLevel(count: number): 0 | 1 | 2 | 3 | 4 {
+  if (count <= 0) return 0;
+  if (count === 1) return 1;
+  if (count <= 3) return 2;
+  if (count <= 6) return 3;
+  return 4;
+}
+
+/**
+ * Build a unit-neutral activity calendar. Goal values cannot be added together
+ * (minutes, kilograms and counts are different units), so the overview counts
+ * distinct actions instead. Linked task/habit entries are deduplicated against
+ * their source records.
+ */
+export function buildGrowthActivityDays(
+  tasks: Task[],
+  habitChecks: HabitCheck[],
+  entries: GoalEntry[],
+): Map<string, number> {
+  const days = new Map<string, number>();
+  const sourceKeys = new Set<string>();
+  const add = (date: string, sourceKey: string) => {
+    if (!date || sourceKeys.has(sourceKey)) return;
+    sourceKeys.add(sourceKey);
+    days.set(date, (days.get(date) ?? 0) + 1);
+  };
+
+  for (const task of tasks) {
+    if (task.parent_id || task.deleted_at || task.status !== "completed" || !task.completed_at) continue;
+    const stamp = Date.parse(task.completed_at);
+    if (!Number.isNaN(stamp)) add(localDateKey(new Date(stamp)), `task:${task.id}`);
+  }
+  for (const check of habitChecks) {
+    add(check.check_date, `habit:${check.habit_id}:${check.check_date}`);
+  }
+  for (const entry of entries) {
+    const sourceKey = entry.source_id
+      ? `${entry.source_type}:${entry.source_id}`
+      : `entry:${entry.id}`;
+    add(entry.entry_date, sourceKey);
+  }
+  return days;
+}
+
+export function normalizeGoalContribution(goal: Goal, value: number): number {
+  if (goal.goal_type === "quantity" && goal.target_value < goal.start_value) {
+    return -Math.abs(value);
+  }
+  return value;
 }
 
 export function longestDateStreak(dateKeys: string[]): number {

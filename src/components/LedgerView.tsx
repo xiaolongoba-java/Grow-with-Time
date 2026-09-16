@@ -23,6 +23,8 @@ import {
   type LedgerTransaction,
 } from "@/lib/db";
 import { useAppStore } from "@/store/app";
+import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
+import { subscribeLedgerEntryOpen } from "@/lib/ledgerQuickAdd";
 
 const ICONS: Record<string, string> = {
   food: "餐", car: "行", bag: "购", home: "住", play: "娱", medical: "医",
@@ -72,28 +74,43 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
   const [editing, setEditing] = useState<LedgerTransaction | null>(null);
   const [draft, setDraft] = useState<DraftState>({ kind: "expense", amount: "", categoryId: 1, accountId: 2, date: today(), note: "" });
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState<{ text: string; undoId?: number } | null>(null);
+  const [notice, setNotice] = useState<{ text: string; undoId?: number; undoVersion?: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [defaultExpenseCategoryId, setDefaultExpenseCategoryId] = useState(1);
+  const [defaultIncomeCategoryId, setDefaultIncomeCategoryId] = useState(11);
+  const [defaultAccountId, setDefaultAccountId] = useState(2);
   const amountRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLInputElement>(null);
+  const savingRef = useRef(false);
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     setLoading(true);
     try {
-      const [tx, cats, accts, parts, months, limit, hide] = await Promise.all([
+      const [tx, cats, accts, parts, months, limit, hide, expenseCategory, incomeCategory, account] = await Promise.all([
         fetchLedgerTransactions(month), fetchLedgerCategories(undefined, true), fetchLedgerAccounts(true),
         fetchLedgerCategorySummary(month), fetchLedgerTrend(month), getLedgerBudget(month), getSetting("ledger_hide_amount"),
+        getSetting("ledger_default_expense_category_id"), getSetting("ledger_default_income_category_id"),
+        getSetting("ledger_default_account_id"),
       ]);
+      if (generation !== loadGeneration.current) return;
       setTransactions(tx); setCategories(cats); setAccounts(accts); setSummary(parts); setTrend(months); setBudget(limit); setHidden(hide === "true");
+      setDefaultExpenseCategoryId(Number(expenseCategory) || 1);
+      setDefaultIncomeCategoryId(Number(incomeCategory) || 11);
+      setDefaultAccountId(Number(account) || 2);
     } catch (reason) {
+      if (generation !== loadGeneration.current) return;
       setNotice({ text: reason instanceof Error ? reason.message : "账本加载失败" });
-    } finally { setLoading(false); }
+    } finally {
+      if (generation === loadGeneration.current) setLoading(false);
+    }
   }, [month]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => bindVisibleDataRefresh(load, { fallbackMs: 60_000 }), [load]);
   useEffect(() => {
-    const open = () => openDrawer();
-    window.addEventListener("ledger:open-entry", open);
-    return () => window.removeEventListener("ledger:open-entry", open);
+    return subscribeLedgerEntryOpen(() => openDrawer());
   }, [categories, accounts]);
   useEffect(() => {
     if (!notice) return;
@@ -101,8 +118,8 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const activeCategories = categories.filter((item) => item.kind === draft.kind && item.is_enabled);
-  const activeAccounts = accounts.filter((item) => item.is_enabled);
+  const activeCategories = categories.filter((item) => item.kind === draft.kind && (item.is_enabled || item.id === editing?.category_id));
+  const activeAccounts = accounts.filter((item) => item.is_enabled || item.id === editing?.account_id);
   const expense = transactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount_cents, 0);
   const income = transactions.filter((item) => item.type === "income").reduce((sum, item) => sum + item.amount_cents, 0);
   const budgetRatio = budget ? expense / budget : 0;
@@ -119,13 +136,19 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
   function openDrawer(item?: LedgerTransaction) {
     setError(""); setEditing(item ?? null);
     const kind = item?.type ?? "expense";
-    const firstCategory = categories.find((entry) => entry.kind === kind && entry.is_enabled)?.id ?? (kind === "expense" ? 1 : 11);
+    const preferredCategory = kind === "expense" ? defaultExpenseCategoryId : defaultIncomeCategoryId;
+    const firstCategory = categories.find((entry) => entry.id === preferredCategory && entry.kind === kind && entry.is_enabled)?.id
+      ?? categories.find((entry) => entry.kind === kind && entry.is_enabled)?.id
+      ?? preferredCategory;
+    const preferredAccount = accounts.find((entry) => entry.id === defaultAccountId && entry.is_enabled)?.id
+      ?? accounts.find((entry) => entry.is_enabled)?.id
+      ?? defaultAccountId;
     setDraft(item ? {
       kind, amount: (item.amount_cents / 100).toFixed(2), categoryId: item.category_id,
       accountId: item.account_id, date: item.date, note: item.note,
-    } : { kind, amount: "", categoryId: firstCategory, accountId: accounts.find((entry) => entry.is_enabled)?.id ?? 2, date: today(), note: "" });
+    } : { kind, amount: "", categoryId: firstCategory, accountId: preferredAccount, date: today(), note: "" });
     setDrawer(true);
-    window.setTimeout(() => noteRef.current?.focus(), 50);
+    window.setTimeout(() => amountRef.current?.focus(), 50);
   }
 
   function setKind(kind: LedgerKind) {
@@ -133,6 +156,7 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
   }
 
   async function save() {
+    if (savingRef.current) return;
     const cents = parseAmountToCents(draft.amount);
     if (!cents) { setError("请输入 0.01～99,999,999.99 的有效金额，最多两位小数"); amountRef.current?.focus(); return; }
     if (!draft.categoryId || !draft.accountId) { setError("请选择分类和账户"); return; }
@@ -140,19 +164,39 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
     const selectedCategory = categories.find((item) => item.id === draft.categoryId);
     if (!selectedCategory || selectedCategory.kind !== draft.kind) { setError("所选分类与收支类型不一致，请重新选择"); return; }
     try {
+      savingRef.current = true;
+      setSaving(true);
       const payload = { kind: draft.kind, amountCents: cents, categoryId: draft.categoryId, accountId: draft.accountId, occurredOn: draft.date, note: draft.note };
       if (editing) await updateLedgerTransaction(editing.id, editing.version, payload);
       else await createLedgerTransaction(payload);
+      await setSetting("ledger_default_account_id", String(draft.accountId));
+      setDefaultAccountId(draft.accountId);
       setDrawer(false); setNotice({ text: editing ? "记录已更新" : "已记一笔" }); await load();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败"); }
+      void emitDataChanged("ledger");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "保存失败");
+      await load();
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
   async function remove(item: LedgerTransaction) {
     if (!await softDeleteLedgerTransaction(item.id, item.version)) { setNotice({ text: "记录已经变化，请刷新后重试" }); return; }
-    setNotice({ text: "已移入账本回收站", undoId: item.id }); await load();
+    setNotice({ text: "已移入账本回收站", undoId: item.id, undoVersion: item.version + 1 }); await load();
+    void emitDataChanged("ledger");
   }
 
-  async function undoDelete(id: number) { await restoreLedgerTransaction(id); setNotice({ text: "已恢复记录" }); await load(); }
+  async function undoDelete(id: number, version: number) {
+    if (!await restoreLedgerTransaction(id, version)) {
+      setNotice({ text: "记录已经变化，请刷新后重试" });
+      await load();
+      return;
+    }
+    setNotice({ text: "已恢复记录" }); await load();
+    void emitDataChanged("ledger");
+  }
 
   async function toggleHidden() {
     if (privacyMode && !hidden) {
@@ -301,12 +345,12 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
             {error && <p className="ledger-error" id="ledger-error" role="alert">{error}</p>}
             <footer>
               <button className="btn-ghost" onClick={() => setDrawer(false)}>取消</button>
-              <button className="btn-primary" onClick={() => void save()}>保存记录</button>
+              <button className="btn-primary" disabled={saving} onClick={() => void save()}>{saving ? "保存中…" : "保存记录"}</button>
             </footer>
           </section>
         </div>
       )}
-      {notice && <div className="ledger-toast" role="status"><span>{notice.text}</span>{notice.undoId && <button onClick={() => void undoDelete(notice.undoId!)}>撤销</button>}</div>}
+      {notice && <div className="ledger-toast" role="status"><span>{notice.text}</span>{notice.undoId && notice.undoVersion && <button onClick={() => void undoDelete(notice.undoId!, notice.undoVersion!)}>撤销</button>}</div>}
     </main>
   );
 }

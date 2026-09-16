@@ -5,6 +5,7 @@ import {
   backupPayloadHas,
   inspectBackupPayload,
   sanitizeBackupPayload,
+  sanitizePortableSettings,
   summarizeBackupRestore,
   validateBackupPayload,
 } from "./backup";
@@ -67,12 +68,12 @@ describe("backup coverage", () => {
     expect(source).toContain("payload.dailyReflections");
     expect(source).toContain("payload.inspirations");
     expect(source).toContain("payload.futureLetters");
-    expect(source).toContain("saveTaskPlanningMetadata(task)");
-    expect(source).not.toContain("saveTaskPlanningMetadata(mapTask(task))");
+    expect(source).toContain("INSERT INTO task_planning_metadata");
+    expect(source).toContain("execute_database_batch");
     expect(source).toContain("txQueue");
     expect(source).toContain("withTransaction");
     expect(source).toContain("sanitizeBackupPayload");
-    expect(source).toContain("delete settings.ai_api_key");
+    expect(source).toContain("sanitizePortableSettings");
     const barrel = readFileSync("src/lib/db.ts", "utf8");
     expect(barrel).toContain("summarizeBackupRestore");
     expect(source).toContain("backupPayloadHas");
@@ -81,6 +82,17 @@ describe("backup coverage", () => {
 });
 
 describe("backup pure helpers", () => {
+  it("keeps only portable settings and never imports AI connection details", () => {
+    expect(sanitizePortableSettings({
+      theme: "dark",
+      ai_base_url: "https://example.invalid/v1",
+      ai_api_key: "secret",
+      active_focus: "private-runtime-state",
+    })).toEqual({ theme: "dark" });
+    expect(sanitizeBackupPayload(minimalPayload({
+      settings: { theme: "dark", ai_base_url: "https://example.invalid/v1" },
+    })).settings).toEqual({ theme: "dark" });
+  });
   it("detects own keys for merge semantics", () => {
     const payload = minimalPayload();
     expect(backupPayloadHas(payload, "tasks")).toBe(true);
@@ -99,7 +111,13 @@ describe("backup pure helpers", () => {
         ...minimalPayload(),
         tasks: undefined as never,
       }),
-    ).toThrow(/任务或标签/);
+    ).toThrow(/必要数据集合.*tasks/);
+    expect(() =>
+      validateBackupPayload({
+        ...minimalPayload(),
+        habits: undefined as never,
+      }),
+    ).toThrow(/必要数据集合.*habits/);
   });
 
   it("summarizes preserved sections when optional collections are missing", () => {

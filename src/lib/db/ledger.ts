@@ -87,10 +87,23 @@ export function monthRange(month: string): [string, string] {
   if (!match) throw new Error("月份格式无效");
   const year = Number(match[1]);
   const index = Number(match[2]) - 1;
+  if (index < 0 || index > 11) throw new Error("月份格式无效");
   const start = `${match[1]}-${match[2]}-01`;
   const endDate = new Date(year, index + 1, 1);
   const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-01`;
   return [start, end];
+}
+
+export function isValidLedgerDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(year, month - 1, day, 12);
+  return parsed.getFullYear() === year
+    && parsed.getMonth() === month - 1
+    && parsed.getDate() === day;
 }
 
 export async function fetchLedgerCategories(kind?: LedgerKind, includeDisabled = false) {
@@ -157,7 +170,7 @@ export async function createLedgerTransaction(draft: LedgerDraft) {
   if (!Number.isSafeInteger(draft.amountCents) || draft.amountCents <= 0) throw new Error("金额无效");
   const nowDate = new Date();
   const localToday = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}-${String(nowDate.getDate()).padStart(2, "0")}`;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.occurredOn) || draft.occurredOn > localToday) throw new Error("记账日期不能晚于今天");
+  if (!isValidLedgerDate(draft.occurredOn) || draft.occurredOn > localToday) throw new Error("记账日期无效或晚于今天");
   return withTransaction(async () => {
     const db = await getDb();
     const category = await db.select<{ kind: LedgerKind; is_enabled: number }[]>("SELECT kind,is_enabled FROM ledger_categories WHERE id=$1 LIMIT 1", [draft.categoryId]);
@@ -176,15 +189,21 @@ export async function createLedgerTransaction(draft: LedgerDraft) {
 }
 
 export async function updateLedgerTransaction(id: number, version: number, draft: LedgerDraft) {
+  if (!Number.isSafeInteger(draft.amountCents) || draft.amountCents <= 0) throw new Error("金额无效");
   const nowDate = new Date();
   const localToday = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, "0")}-${String(nowDate.getDate()).padStart(2, "0")}`;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.occurredOn) || draft.occurredOn > localToday) throw new Error("记账日期不能晚于今天");
+  if (!isValidLedgerDate(draft.occurredOn) || draft.occurredOn > localToday) throw new Error("记账日期无效或晚于今天");
   return withTransaction(async () => {
     const db = await getDb();
+    const current = await db.select<{ category_id: number; account_id: number }[]>(
+      "SELECT category_id,account_id FROM ledger_transactions WHERE id=$1 AND version=$2 AND is_deleted=0 LIMIT 1",
+      [id, version],
+    );
+    if (!current[0]) throw new Error("这笔记录已在别处修改，请刷新后重试");
     const category = await db.select<{ kind: LedgerKind; is_enabled: number }[]>("SELECT kind,is_enabled FROM ledger_categories WHERE id=$1 LIMIT 1", [draft.categoryId]);
-    if (!category[0] || category[0].kind !== draft.kind || !category[0].is_enabled) throw new Error("分类与收支类型不一致或已停用");
+    if (!category[0] || category[0].kind !== draft.kind || (!category[0].is_enabled && current[0].category_id !== draft.categoryId)) throw new Error("分类与收支类型不一致或已停用");
     const account = await db.select<{ is_enabled: number }[]>("SELECT is_enabled FROM ledger_accounts WHERE id=$1 LIMIT 1", [draft.accountId]);
-    if (!account[0]?.is_enabled) throw new Error("账户不存在或已停用");
+    if (!account[0] || (!account[0].is_enabled && current[0].account_id !== draft.accountId)) throw new Error("账户不存在或已停用");
     const result = await db.execute(
       `UPDATE ledger_transactions SET type=$1,amount_cents=$2,category_id=$3,account_id=$4,
         date=$5,note=$6,version=version+1,updated_at=$7
@@ -205,12 +224,12 @@ export async function softDeleteLedgerTransaction(id: number, version: number) {
   return Boolean(result.rowsAffected);
 }
 
-export async function restoreLedgerTransaction(id: number) {
+export async function restoreLedgerTransaction(id: number, version: number) {
   const db = await getDb();
   const now = new Date().toISOString();
   const result = await db.execute(
-    "UPDATE ledger_transactions SET is_deleted=0,deleted_at=NULL,version=version+1,updated_at=$1 WHERE id=$2 AND is_deleted=1",
-    [now, id],
+    "UPDATE ledger_transactions SET is_deleted=0,deleted_at=NULL,version=version+1,updated_at=$1 WHERE id=$2 AND version=$3 AND is_deleted=1",
+    [now, id, version],
   );
   return Boolean(result.rowsAffected);
 }
@@ -239,21 +258,25 @@ export async function setLedgerBudget(month: string, amountCents: number, asDefa
 }
 
 export async function saveLedgerCategory(input: { id?: number; name: string; icon: string; color: string; kind: LedgerKind }) {
+  const name = input.name.trim();
+  if (!name) throw new Error("分类名称不能为空");
   const db = await getDb();
   if (input.id) {
-    await db.execute("UPDATE ledger_categories SET name=$1,icon=$2,color=$3 WHERE id=$4", [input.name.trim(), input.icon, input.color, input.id]);
+    await db.execute("UPDATE ledger_categories SET name=$1,icon=$2,color=$3 WHERE id=$4", [name, input.icon, input.color, input.id]);
   } else {
     await db.execute(
       "INSERT INTO ledger_categories(name,icon,color,kind,sort_order,is_builtin) VALUES($1,$2,$3,$4,(SELECT COALESCE(MAX(sort_order),0)+1 FROM ledger_categories WHERE kind=$4),0)",
-      [input.name.trim(), input.icon, input.color, input.kind],
+      [name, input.icon, input.color, input.kind],
     );
   }
 }
 
 export async function saveLedgerAccount(input: { id?: number; name: string; kind?: string; color?: string }) {
+  const name = input.name.trim();
+  if (!name) throw new Error("支付渠道名称不能为空");
   const db = await getDb();
-  if (input.id) await db.execute("UPDATE ledger_accounts SET name=$1,kind=$2,color=$3 WHERE id=$4", [input.name.trim(), input.kind ?? "custom", input.color ?? "#2f6fed", input.id]);
-  else await db.execute("INSERT INTO ledger_accounts(name,kind,color,sort_order) VALUES($1,$2,$3,(SELECT COALESCE(MAX(sort_order),0)+1 FROM ledger_accounts))", [input.name.trim(), input.kind ?? "custom", input.color ?? "#2f6fed"]);
+  if (input.id) await db.execute("UPDATE ledger_accounts SET name=$1,kind=$2,color=$3 WHERE id=$4", [name, input.kind ?? "custom", input.color ?? "#2f6fed", input.id]);
+  else await db.execute("INSERT INTO ledger_accounts(name,kind,color,sort_order) VALUES($1,$2,$3,(SELECT COALESCE(MAX(sort_order),0)+1 FROM ledger_accounts))", [name, input.kind ?? "custom", input.color ?? "#2f6fed"]);
 }
 
 export async function toggleLedgerCategory(id: number, enabled: boolean) {

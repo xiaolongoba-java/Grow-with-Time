@@ -37,6 +37,12 @@ export const WEEKLY_CATEGORIES: WeeklyCategory[] = [
     color: "#f472b6",
     aliases: ["学习", "成长", "learning", "study", "read"],
   },
+  {
+    id: "other",
+    label: "未分类",
+    color: "#7f8fa6",
+    aliases: [],
+  },
 ];
 
 export function mondayWeekDates(anchor: string): string[] {

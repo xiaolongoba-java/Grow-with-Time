@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { register, isRegistered, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   isPermissionGranted,
   requestPermission,
@@ -39,9 +40,11 @@ import { openDesktopWidgets } from "@/lib/desktopWidgets";
 import {
   HOTKEY_ACTIONS,
   HOTKEYS_CHANGED_EVENT,
+  hotkeyRegistrationErrorKey,
   isHotkeyEnabled,
   resolveAccelerator,
 } from "@/lib/hotkeys";
+import { requestLedgerEntryOpen } from "@/lib/ledgerQuickAdd";
 import {
   applyPrivacyToReminderPlans,
   buildMissedReminderPlans,
@@ -140,11 +143,7 @@ export function MainApp() {
       lastError: null,
     };
     try {
-      let granted = await isPermissionGranted();
-      if (!granted) {
-        const perm = await requestPermission();
-        granted = perm === "granted";
-      }
+      const granted = await isPermissionGranted();
       status.permissionGranted = granted;
       const snapshot = useAppStore.getState();
       const scheduled = applyPrivacyToReminderPlans(
@@ -241,6 +240,29 @@ export function MainApp() {
     void bootstrap();
   }, [bootstrap]);
 
+  useEffect(() => {
+    if (!ready) return;
+
+    let cancelled = false;
+    let secondFrame: number | null = null;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        const appWindow = getCurrentWindow();
+        void appWindow
+          .show()
+          .then(() => appWindow.setFocus())
+          .catch(() => undefined);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [ready]);
+
   // Single global focus ticker — uses absolute endsAt so sleep gaps are settled.
   useEffect(() => {
     if (!focusRunning) return;
@@ -299,10 +321,9 @@ export function MainApp() {
         void invoke("show_inspiration");
       },
       ledger_quick_add: () => {
-        void invoke("open_main_window", { nav: "ledger" }).catch(() => {
-          setNav("ledger");
-        });
-        window.setTimeout(() => window.dispatchEvent(new Event("ledger:open-entry")), 60);
+        setNav("ledger");
+        requestLedgerEntryOpen();
+        void invoke("open_main_window", { nav: "ledger" }).catch(() => undefined);
       },
     };
     const sync = async () => {
@@ -323,8 +344,12 @@ export function MainApp() {
             await unregister(previous);
           }
           registered.set(action.id, next);
-        } catch {
-          /* keep the previous binding if the new combination fails */
+          await setSetting(hotkeyRegistrationErrorKey(action.id), "");
+        } catch (error) {
+          await setSetting(
+            hotkeyRegistrationErrorKey(action.id),
+            error instanceof Error ? error.message : String(error),
+          );
         }
       }
     };
@@ -343,6 +368,14 @@ export function MainApp() {
     });
     return () => unlisten?.();
   }, [setNav]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<string>("notification:open-task", (event) => {
+      selectTask(event.payload);
+    }).then((fn) => { unlisten = fn; });
+    return () => unlisten?.();
+  }, [selectTask]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -444,6 +477,14 @@ export function MainApp() {
       window.clearInterval(missedTimer);
     };
   }, [ready, settings.notifyAhead, settings.privacyMode]);
+
+  useEffect(() => {
+    const onPermissionChanged = () => {
+      void runFullReminderPassRef.current().catch(() => undefined);
+    };
+    window.addEventListener("notifications:permission-changed", onPermissionChanged);
+    return () => window.removeEventListener("notifications:permission-changed", onPermissionChanged);
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -590,7 +631,8 @@ export function MainApp() {
   }, [timers, settleTimers, refreshTimers, setToast]);
 
   useEffect(() => {
-    if (!settings.autoBackup) return;
+    if (!ready || !settings.autoBackup) return;
+    const backupIntervalMs = 6 * 60 * 60 * 1000;
     const backup = async () => {
       try {
         const [
@@ -658,10 +700,22 @@ export function MainApp() {
         }
       }
     };
-    void backup();
-    const timer = window.setInterval(() => void backup(), 6 * 60 * 60 * 1000);
-    return () => window.clearInterval(timer);
-  }, [settings.autoBackup]);
+    const lastOkMs = settings.autoBackupLastOk
+      ? new Date(settings.autoBackupLastOk).getTime()
+      : Number.NaN;
+    const dueInMs = Number.isFinite(lastOkMs)
+      ? Math.max(30_000, lastOkMs + backupIntervalMs - Date.now())
+      : 30_000;
+    let interval = 0;
+    const firstRun = window.setTimeout(() => {
+      void backup();
+      interval = window.setInterval(() => void backup(), backupIntervalMs);
+    }, dueInMs);
+    return () => {
+      window.clearTimeout(firstRun);
+      if (interval) window.clearInterval(interval);
+    };
+  }, [ready, settings.autoBackup, settings.autoBackupLastOk]);
 
   useEffect(() => {
     if (!ready) return;

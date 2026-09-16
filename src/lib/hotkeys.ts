@@ -18,6 +18,10 @@ export type HotkeyAction = {
 
 export const HOTKEYS_CHANGED_EVENT = "hotkeys:changed";
 
+export function hotkeyRegistrationErrorKey(id: HotkeyActionId): string {
+  return `hotkey.${id}.registration_error`;
+}
+
 export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
   {
     id: "quick_add",
@@ -88,12 +92,12 @@ export function displayAccelerator(accelerator: string): string {
 
 export function acceleratorFromKeyboardEvent(event: KeyboardEvent): string | null {
   if (["Escape", "Tab", "Backspace"].includes(event.key)) return null;
-  const hasModifier = event.ctrlKey || event.metaKey;
+  const hasModifier = event.ctrlKey || event.metaKey || event.altKey;
   if (!hasModifier) return null;
   if (["Control", "Meta", "Shift", "Alt"].includes(event.key)) return null;
   const key = keyToken(event.key);
   if (!key) return null;
-  return ["CommandOrControl", event.altKey ? "Alt" : "", event.shiftKey ? "Shift" : "", key]
+  return [event.ctrlKey || event.metaKey ? "CommandOrControl" : "", event.altKey ? "Alt" : "", event.shiftKey ? "Shift" : "", key]
     .filter(Boolean)
     .join("+");
 }

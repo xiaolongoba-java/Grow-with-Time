@@ -86,7 +86,11 @@ fn compact_id(reminder_id: &str) -> String {
     use std::hash::{Hash, Hasher};
     let mut hasher = DefaultHasher::new();
     reminder_id.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+    // Windows documents a 16-character ceiling, but some desktop WinRT hosts
+    // count the terminating character as part of the developer-id buffer and
+    // reject an exact 16-character value with WPN_E_DEV_ID_SIZE. Keep one
+    // character of headroom while retaining a stable 60-bit identifier.
+    format!("{:015x}", hasher.finish() & 0x0fff_ffff_ffff_ffff)
 }
 
 #[cfg(windows)]

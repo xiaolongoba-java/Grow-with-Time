@@ -51,6 +51,7 @@ describe("hotkey registry", () => {
       "CommandOrControl+Shift+N",
     );
     expect(acceleratorFromKeyboardEvent(keyEvent({ key: "N", ctrlKey: false }))).toBeNull();
+    expect(acceleratorFromKeyboardEvent(keyEvent({ key: "b", altKey: true }))).toBe("Alt+B");
   });
 
   it("matches in-app accelerators including Ctrl/Cmd+K", () => {

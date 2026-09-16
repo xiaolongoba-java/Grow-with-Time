@@ -1,25 +1,45 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { useAppStore } from "@/store/app";
-import { exportBackup, getSetting, importBackup, setSetting, summarizeBackupRestore } from "@/lib/db";
+import {
+  exportBackup,
+  fetchLedgerAccounts,
+  fetchLedgerCategories,
+  getSetting,
+  importBackup,
+  saveLedgerAccount,
+  saveLedgerCategory,
+  setSetting,
+  summarizeBackupRestore,
+  toggleLedgerAccount,
+  toggleLedgerCategory,
+  type LedgerAccount,
+  type LedgerCategory,
+  type LedgerKind,
+} from "@/lib/db";
 import type { BackupPayload } from "@/types";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { invoke } from "@tauri-apps/api/core";
+import { isRegistered, register, unregister } from "@tauri-apps/plugin-global-shortcut";
+import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { getVersion } from "@tauri-apps/api/app";
 import { themeMeta, type VisualTheme } from "@/lib/themes";
 import { OS_REMINDER_LIMIT } from "@/lib/nativeReminders";
+import { emitDataChanged } from "@/lib/widgetRefresh";
 import {
   HOTKEY_ACTIONS,
   acceleratorFromKeyboardEvent,
   displayAccelerator,
   findHotkeyConflict,
+  hotkeyRegistrationErrorKey,
   isHotkeyEnabled,
   notifyHotkeysChanged,
   resolveAccelerator,
   type HotkeyActionId,
   type HotkeyDraft,
 } from "@/lib/hotkeys";
+import { requestLedgerEntryOpen } from "@/lib/ledgerQuickAdd";
 
 type DatabaseHealth = {
   healthy: boolean;
@@ -55,6 +75,9 @@ export function SettingsView() {
     ) as Record<HotkeyActionId, HotkeyDraft>,
   );
   const [recordingHotkey, setRecordingHotkey] = useState<HotkeyActionId | null>(null);
+  const [recordingOriginal, setRecordingOriginal] = useState("");
+  const [hotkeyErrors, setHotkeyErrors] = useState<Partial<Record<HotkeyActionId, string>>>({});
+  const [notificationPermission, setNotificationPermission] = useState<boolean | null>(null);
 
   const refreshDataHealth = async () => {
     setCheckingData(true);
@@ -75,11 +98,13 @@ export function SettingsView() {
   useEffect(() => {
     void refreshDataHealth();
     void getVersion().then(setAppVersion).catch(() => setAppVersion("未知"));
+    void isPermissionGranted().then(setNotificationPermission).catch(() => setNotificationPermission(false));
     void Promise.all(
       HOTKEY_ACTIONS.map(async (action) => {
-        const [enabled, accelerator] = await Promise.all([
+        const [enabled, accelerator, registrationError] = await Promise.all([
           getSetting(action.enabledKey),
           getSetting(action.acceleratorKey),
+          getSetting(hotkeyRegistrationErrorKey(action.id)),
         ]);
         return [
           action.id,
@@ -87,10 +112,12 @@ export function SettingsView() {
             enabled: isHotkeyEnabled(enabled),
             accelerator: resolveAccelerator(action, accelerator),
           },
+          registrationError ?? "",
         ] as const;
       }),
     ).then((entries) => {
-      setHotkeys(Object.fromEntries(entries) as Record<HotkeyActionId, HotkeyDraft>);
+      setHotkeys(Object.fromEntries(entries.map(([id, draft]) => [id, draft])) as Record<HotkeyActionId, HotkeyDraft>);
+      setHotkeyErrors(Object.fromEntries(entries.map(([id, , error]) => [id, error])));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -108,22 +135,92 @@ export function SettingsView() {
       return;
     }
     const draft = hotkeys[id];
-    await setSetting(action.enabledKey, String(draft.enabled));
-    await setSetting(action.acceleratorKey, draft.accelerator);
-    notifyHotkeysChanged();
-    setToast(`${action.label}快捷键已更新`);
+    const previousEnabled = isHotkeyEnabled(await getSetting(action.enabledKey));
+    const previousAccelerator = resolveAccelerator(
+      action,
+      await getSetting(action.acceleratorKey),
+    );
+    const handler = () => {
+      if (id === "quick_add") void invoke("show_quick_add");
+      if (id === "inspiration") void invoke("show_inspiration");
+      if (id === "ledger_quick_add") {
+        useAppStore.getState().setNav("ledger");
+        requestLedgerEntryOpen();
+        void invoke("open_main_window", { nav: "ledger" });
+      }
+    };
+    let registeredNew = false;
+    let removedPrevious = false;
+    try {
+      if (action.scope === "global") {
+        if (!draft.enabled) {
+          if (previousEnabled && await isRegistered(previousAccelerator)) {
+            await unregister(previousAccelerator);
+            removedPrevious = true;
+          }
+        } else if (!(previousAccelerator === draft.accelerator && await isRegistered(draft.accelerator))) {
+          if (await isRegistered(draft.accelerator)) {
+            throw new Error("该组合键已被应用内其他动作占用");
+          }
+          await register(draft.accelerator, handler);
+          registeredNew = true;
+          if (previousEnabled && previousAccelerator !== draft.accelerator && await isRegistered(previousAccelerator)) {
+            await unregister(previousAccelerator);
+            removedPrevious = true;
+          }
+        }
+      }
+      await setSetting(action.enabledKey, String(draft.enabled));
+      await setSetting(action.acceleratorKey, draft.accelerator);
+      await setSetting(hotkeyRegistrationErrorKey(id), "");
+      setHotkeyErrors((current) => ({ ...current, [id]: "" }));
+      notifyHotkeysChanged();
+      setToast(`${action.label}快捷键已更新`);
+    } catch (error) {
+      if (registeredNew && await isRegistered(draft.accelerator).catch(() => false)) {
+        await unregister(draft.accelerator).catch(() => undefined);
+      }
+      if (removedPrevious && previousEnabled && !(await isRegistered(previousAccelerator).catch(() => false))) {
+        await register(previousAccelerator, handler).catch(() => undefined);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      await setSetting(hotkeyRegistrationErrorKey(id), message);
+      setHotkeyErrors((current) => ({ ...current, [id]: message }));
+      setToast(`${action.label}启用失败，请更换组合键：${message}`);
+    }
   };
 
   const captureHotkey = (id: HotkeyActionId, event: KeyboardEvent<HTMLButtonElement>) => {
     if (recordingHotkey !== id) return;
     event.preventDefault();
     if (event.key === "Escape") {
+      patchHotkey(id, { accelerator: recordingOriginal });
       setRecordingHotkey(null);
+      return;
+    }
+    if (event.key === "Backspace" || event.key === "Delete") {
+      patchHotkey(id, { accelerator: "" });
       return;
     }
     const accelerator = acceleratorFromKeyboardEvent(event.nativeEvent);
     if (!accelerator) return;
     patchHotkey(id, { accelerator });
+    setRecordingHotkey(null);
+  };
+
+  const toggleHotkeyRecording = (id: HotkeyActionId) => {
+    if (recordingHotkey === id) {
+      patchHotkey(id, { accelerator: recordingOriginal });
+      setRecordingHotkey(null);
+      return;
+    }
+    setRecordingOriginal(hotkeys[id].accelerator);
+    setRecordingHotkey(id);
+  };
+
+  const cancelHotkeyRecording = (id: HotkeyActionId) => {
+    if (recordingHotkey !== id) return;
+    patchHotkey(id, { accelerator: recordingOriginal });
     setRecordingHotkey(null);
   };
 
@@ -218,6 +315,19 @@ export function SettingsView() {
     }
   };
 
+  const enableNotifications = async () => {
+    try {
+      const permission = await requestPermission();
+      const granted = permission === "granted";
+      setNotificationPermission(granted);
+      setToast(granted ? "系统通知权限已开启" : "系统通知权限未授予");
+      window.dispatchEvent(new Event("notifications:permission-changed"));
+    } catch (error) {
+      setNotificationPermission(false);
+      setToast(`通知权限申请失败：${String(error)}`);
+    }
+  };
+
   return (
     <main className="main-workspace" style={{ padding: 22, overflow: "auto" }}>
       <h2 className="workspace-top" style={{ padding: 0 }}>
@@ -267,6 +377,15 @@ export function SettingsView() {
         <div style={{ marginTop: 10 }}>
           <button type="button" className="btn-ghost" onClick={() => void toggleAutostart()}>
             开机自启：{settings.autostart ? "已开启" : "已关闭"}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            style={{ marginLeft: 8 }}
+            disabled={notificationPermission === true}
+            onClick={() => void enableNotifications()}
+          >
+            系统通知：{notificationPermission === null ? "检测中…" : notificationPermission ? "已授权" : "点击授权"}
           </button>
         </div>
         <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
@@ -485,6 +604,10 @@ export function SettingsView() {
       </section>
 
       <section className="settings-card" style={{ marginTop: 12 }}>
+        <LedgerSettingsPanel setToast={setToast} />
+      </section>
+
+      <section className="settings-card" style={{ marginTop: 12 }}>
         <h3>全局快捷键</h3>
         <p className="settings-hint">所有带快捷键的功能都在这里配置。标了「全局」的在其他应用中也能唤起；命令面板仅在主窗口内生效。</p>
         {HOTKEY_ACTIONS.map((action) => {
@@ -515,8 +638,9 @@ export function SettingsView() {
                   type="button"
                   className="btn-ghost"
                   disabled={!draft.enabled}
-                  onClick={() => setRecordingHotkey(action.id)}
+                  onClick={() => toggleHotkeyRecording(action.id)}
                   onKeyDown={(event) => captureHotkey(action.id, event)}
+                  onBlur={() => cancelHotkeyRecording(action.id)}
                   aria-pressed={recording}
                 >
                   {recording ? "请按 Ctrl/⌘ + 按键（Esc 取消）" : displayAccelerator(draft.accelerator)}
@@ -533,7 +657,7 @@ export function SettingsView() {
                   type="button"
                   className="btn-primary"
                   style={{ width: "auto" }}
-                  disabled={draft.enabled && Boolean(conflict)}
+                  disabled={draft.enabled && (!draft.accelerator || Boolean(conflict))}
                   onClick={() => void saveHotkey(action.id)}
                 >
                   保存
@@ -541,6 +665,12 @@ export function SettingsView() {
               </div>
               {conflict && draft.enabled ? (
                 <p className="settings-hint" role="alert">与「{conflict.label}」冲突，请更换后再保存</p>
+              ) : null}
+              {!draft.accelerator && draft.enabled ? (
+                <p className="settings-hint" role="alert">请录制一个组合键，或先关闭此快捷键</p>
+              ) : null}
+              {hotkeyErrors[action.id] ? (
+                <p className="settings-hint" role="alert">当前未启用：{hotkeyErrors[action.id]}</p>
               ) : null}
             </div>
           );
@@ -583,6 +713,177 @@ export function SettingsView() {
       </section>
     </main>
   );
+}
+
+function LedgerSettingsPanel({ setToast }: { setToast: (message: string | null) => void }) {
+  const [categories, setCategories] = useState<LedgerCategory[]>([]);
+  const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
+  const [expenseDefault, setExpenseDefault] = useState(1);
+  const [incomeDefault, setIncomeDefault] = useState(11);
+  const [accountDefault, setAccountDefault] = useState(2);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryKind, setNewCategoryKind] = useState<LedgerKind>("expense");
+  const [newAccountName, setNewAccountName] = useState("");
+
+  const load = async () => {
+    const [nextCategories, nextAccounts, expense, income, account] = await Promise.all([
+      fetchLedgerCategories(undefined, true),
+      fetchLedgerAccounts(true),
+      getSetting("ledger_default_expense_category_id"),
+      getSetting("ledger_default_income_category_id"),
+      getSetting("ledger_default_account_id"),
+    ]);
+    const enabledExpenses = nextCategories.filter((item) => item.kind === "expense" && item.is_enabled);
+    const enabledIncomes = nextCategories.filter((item) => item.kind === "income" && item.is_enabled);
+    const enabledAccounts = nextAccounts.filter((item) => item.is_enabled);
+    const configuredExpense = Number(expense);
+    const configuredIncome = Number(income);
+    const configuredAccount = Number(account);
+    setCategories(nextCategories);
+    setAccounts(nextAccounts);
+    setExpenseDefault(enabledExpenses.some((item) => item.id === configuredExpense) ? configuredExpense : enabledExpenses[0]?.id ?? 0);
+    setIncomeDefault(enabledIncomes.some((item) => item.id === configuredIncome) ? configuredIncome : enabledIncomes[0]?.id ?? 0);
+    setAccountDefault(enabledAccounts.some((item) => item.id === configuredAccount) ? configuredAccount : enabledAccounts[0]?.id ?? 0);
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const saveDefault = async (key: string, value: number) => {
+    await setSetting(key, String(value));
+    if (key.includes("expense")) setExpenseDefault(value);
+    else if (key.includes("income")) setIncomeDefault(value);
+    else setAccountDefault(value);
+    setToast("账本默认项已更新");
+    await emitDataChanged("ledger-settings");
+  };
+
+  const toggleCategory = async (category: LedgerCategory) => {
+    const enabledForKind = categories.filter((item) => item.kind === category.kind && item.is_enabled);
+    if (category.is_enabled && enabledForKind.length <= 1) {
+      setToast(`${category.kind === "expense" ? "支出" : "收入"}至少保留一个可用分类`);
+      return;
+    }
+    try {
+      if (category.is_enabled) {
+        const fallback = enabledForKind.find((item) => item.id !== category.id);
+        const currentDefault = category.kind === "expense" ? expenseDefault : incomeDefault;
+        if (fallback && currentDefault === category.id) {
+          await saveDefault(
+            category.kind === "expense" ? "ledger_default_expense_category_id" : "ledger_default_income_category_id",
+            fallback.id,
+          );
+        }
+      }
+      await toggleLedgerCategory(category.id, !category.is_enabled);
+      await load();
+      await emitDataChanged("ledger-settings");
+    } catch (error) {
+      setToast(`分类状态更新失败：${String(error)}`);
+    }
+  };
+
+  const toggleAccount = async (account: LedgerAccount) => {
+    const enabledAccounts = accounts.filter((item) => item.is_enabled);
+    if (account.is_enabled && enabledAccounts.length <= 1) {
+      setToast("至少保留一个可用支付渠道");
+      return;
+    }
+    try {
+      if (account.is_enabled && accountDefault === account.id) {
+        const fallback = enabledAccounts.find((item) => item.id !== account.id);
+        if (fallback) await saveDefault("ledger_default_account_id", fallback.id);
+      }
+      await toggleLedgerAccount(account.id, !account.is_enabled);
+      await load();
+      await emitDataChanged("ledger-settings");
+    } catch (error) {
+      setToast(`支付渠道状态更新失败：${String(error)}`);
+    }
+  };
+
+  const addCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    try {
+      await saveLedgerCategory({ name, kind: newCategoryKind, icon: "dots", color: newCategoryKind === "expense" ? "#8d99ab" : "#2f8f68" });
+      setNewCategoryName("");
+      await load();
+      setToast("分类已添加");
+      await emitDataChanged("ledger-settings");
+    } catch (error) {
+      setToast(`分类添加失败：${String(error)}`);
+    }
+  };
+
+  const addAccount = async () => {
+    const name = newAccountName.trim();
+    if (!name) return;
+    try {
+      await saveLedgerAccount({ name });
+      setNewAccountName("");
+      await load();
+      setToast("支付渠道已添加");
+      await emitDataChanged("ledger-settings");
+    } catch (error) {
+      setToast(`支付渠道添加失败：${String(error)}`);
+    }
+  };
+
+  return (
+    <div className="ledger-settings-panel">
+      <div className="theme-section-heading">
+        <div><h3>观流账本</h3><p>设置快速记账的默认项，维护分类和支付渠道。</p></div>
+        <span>少填一步，记得更快</span>
+      </div>
+      <div className="ledger-settings-defaults">
+        <label>默认支出分类<select value={expenseDefault} onChange={(event) => void saveDefault("ledger_default_expense_category_id", Number(event.target.value))}>{categories.filter((item) => item.kind === "expense" && item.is_enabled).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>默认收入分类<select value={incomeDefault} onChange={(event) => void saveDefault("ledger_default_income_category_id", Number(event.target.value))}>{categories.filter((item) => item.kind === "income" && item.is_enabled).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>默认支付渠道<select value={accountDefault} onChange={(event) => void saveDefault("ledger_default_account_id", Number(event.target.value))}>{accounts.filter((item) => item.is_enabled).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      </div>
+      <div className="ledger-settings-columns">
+        <div>
+          <h4>收支分类</h4>
+          <div className="ledger-settings-add"><select value={newCategoryKind} onChange={(event) => setNewCategoryKind(event.target.value as LedgerKind)}><option value="expense">支出</option><option value="income">收入</option></select><input maxLength={12} value={newCategoryName} placeholder="新分类名称" onChange={(event) => setNewCategoryName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void addCategory(); }} /><button className="btn-ghost" onClick={() => void addCategory()}>添加</button></div>
+          <div className="ledger-settings-list">{categories.map((category) => <LedgerCategorySettingRow key={category.id} category={category} onChanged={load} onToggle={toggleCategory} setToast={setToast} />)}</div>
+        </div>
+        <div>
+          <h4>支付渠道</h4>
+          <div className="ledger-settings-add"><input maxLength={16} value={newAccountName} placeholder="新渠道名称" onChange={(event) => setNewAccountName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void addAccount(); }} /><button className="btn-ghost" onClick={() => void addAccount()}>添加</button></div>
+          <div className="ledger-settings-list">{accounts.map((account) => <LedgerAccountSettingRow key={account.id} account={account} onChanged={load} onToggle={toggleAccount} setToast={setToast} />)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LedgerCategorySettingRow({ category, onChanged, onToggle, setToast }: { category: LedgerCategory; onChanged: () => Promise<void>; onToggle: (category: LedgerCategory) => Promise<void>; setToast: (message: string | null) => void }) {
+  const [name, setName] = useState(category.name);
+  useEffect(() => setName(category.name), [category.name]);
+  const saveName = async () => {
+    if (!name.trim() || name.trim() === category.name) return;
+    try {
+      await saveLedgerCategory({ id: category.id, name, icon: category.icon, color: category.color, kind: category.kind });
+      await onChanged();
+      setToast("分类名称已更新");
+      await emitDataChanged("ledger-settings");
+    } catch (error) { setName(category.name); setToast(`分类更新失败：${String(error)}`); }
+  };
+  return <div className="ledger-settings-item"><span>{category.kind === "expense" ? "支" : "收"}</span><input maxLength={12} value={name} onChange={(event) => setName(event.target.value)} onBlur={() => void saveName()} onKeyDown={(event) => { if (event.key === "Enter") void saveName(); }} /><button className="btn-ghost" onClick={() => void onToggle(category)}>{category.is_enabled ? "停用" : "启用"}</button></div>;
+}
+
+function LedgerAccountSettingRow({ account, onChanged, onToggle, setToast }: { account: LedgerAccount; onChanged: () => Promise<void>; onToggle: (account: LedgerAccount) => Promise<void>; setToast: (message: string | null) => void }) {
+  const [name, setName] = useState(account.name);
+  useEffect(() => setName(account.name), [account.name]);
+  const saveName = async () => {
+    if (!name.trim() || name.trim() === account.name) return;
+    try {
+      await saveLedgerAccount({ id: account.id, name, kind: account.kind, color: account.color });
+      await onChanged();
+      setToast("支付渠道已更新");
+      await emitDataChanged("ledger-settings");
+    } catch (error) { setName(account.name); setToast(`支付渠道更新失败：${String(error)}`); }
+  };
+  return <div className="ledger-settings-item"><span>账</span><input maxLength={16} value={name} onChange={(event) => setName(event.target.value)} onBlur={() => void saveName()} onKeyDown={(event) => { if (event.key === "Enter") void saveName(); }} /><button className="btn-ghost" onClick={() => void onToggle(account)}>{account.is_enabled ? "停用" : "启用"}</button></div>;
 }
 
 function ReminderSyncStatusCard() {

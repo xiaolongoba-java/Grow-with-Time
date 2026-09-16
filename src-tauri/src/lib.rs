@@ -18,6 +18,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::menu::{Menu, MenuItem};
 use tauri_plugin_notification::NotificationExt;
 use serde::{Deserialize, Serialize};
+use sqlx::{Connection, SqliteConnection};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -28,6 +29,63 @@ use std::{
 const DB_URL: &str = "sqlite:app.db";
 const DATABASE_BACKUP_DIR: &str = "database-backups";
 const PENDING_RESTORE_FILE: &str = "pending-database-restore";
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DatabaseBatchStatement {
+    sql: String,
+    params: Vec<serde_json::Value>,
+}
+
+#[tauri::command]
+async fn execute_database_batch(
+    app: AppHandle,
+    statements: Vec<DatabaseBatchStatement>,
+) -> Result<(), String> {
+    let database = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("app.db");
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(database)
+        .create_if_missing(false)
+        .foreign_keys(true)
+        .busy_timeout(Duration::from_secs(10));
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(|error| error.to_string())?;
+    let mut transaction = connection.begin().await.map_err(|error| error.to_string())?;
+    for statement in statements {
+        let mut query = sqlx::query(&statement.sql);
+        for value in statement.params {
+            query = match value {
+                serde_json::Value::Null => query.bind(Option::<String>::None),
+                serde_json::Value::Bool(value) => query.bind(if value { 1_i64 } else { 0_i64 }),
+                serde_json::Value::Number(value) => {
+                    if let Some(integer) = value.as_i64() {
+                        query.bind(integer)
+                    } else if let Some(unsigned) = value.as_u64() {
+                        let integer = i64::try_from(unsigned)
+                            .map_err(|_| "数据库参数超出整数范围".to_string())?;
+                        query.bind(integer)
+                    } else if let Some(float) = value.as_f64() {
+                        query.bind(float)
+                    } else {
+                        return Err("数据库数值参数无效".into());
+                    }
+                }
+                serde_json::Value::String(value) => query.bind(value),
+                _ => return Err("数据库批处理不接受对象或数组参数".into()),
+            };
+        }
+        query
+            .execute(&mut *transaction)
+            .await
+            .map_err(|error| error.to_string())?;
+    }
+    transaction.commit().await.map_err(|error| error.to_string())
+}
 
 fn copy_database_files(source_dir: &Path, target_dir: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(target_dir)?;
@@ -40,38 +98,99 @@ fn copy_database_files(source_dir: &Path, target_dir: &Path) -> std::io::Result<
     Ok(())
 }
 
-fn create_startup_database_backup(app_data_dir: &Path) -> std::io::Result<()> {
-    if !app_data_dir.join("app.db").exists() {
-        return Ok(());
-    }
-    let root = app_data_dir.join(DATABASE_BACKUP_DIR);
-    std::fs::create_dir_all(&root)?;
+fn snapshot_id(prefix: &str) -> String {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs();
-    copy_database_files(app_data_dir, &root.join(format!("startup-{stamp}")))?;
+        .as_millis();
+    format!("{prefix}-{stamp}-{}", std::process::id())
+}
+
+fn create_database_snapshot(app_data_dir: &Path, prefix: &str) -> std::io::Result<String> {
+    if !app_data_dir.join("app.db").exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "database file does not exist",
+        ));
+    }
+    let root = app_data_dir.join(DATABASE_BACKUP_DIR);
+    std::fs::create_dir_all(&root)?;
+    let id = snapshot_id(prefix);
+    let partial = root.join(format!(".{id}.partial"));
+    let target = root.join(&id);
+    if partial.exists() {
+        std::fs::remove_dir_all(&partial)?;
+    }
+    copy_database_files(app_data_dir, &partial)?;
+    std::fs::rename(&partial, &target)?;
+    Ok(id)
+}
+
+fn prune_startup_database_backups(app_data_dir: &Path, keep: usize) -> std::io::Result<()> {
+    let root = app_data_dir.join(DATABASE_BACKUP_DIR);
+    if !root.exists() {
+        return Ok(());
+    }
     let mut snapshots = std::fs::read_dir(&root)?
         .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
+        .filter(|entry| {
+            entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false)
+                && entry.file_name().to_string_lossy().starts_with("startup-")
+        })
         .collect::<Vec<_>>();
-    snapshots.sort_by_key(|entry| std::cmp::Reverse(entry.file_name()));
-    for old in snapshots.into_iter().skip(10) {
+    snapshots.sort_by_key(|entry| {
+        std::cmp::Reverse(
+            entry.metadata().and_then(|item| item.modified()).unwrap_or(SystemTime::UNIX_EPOCH),
+        )
+    });
+    for old in snapshots.into_iter().skip(keep) {
         let _ = std::fs::remove_dir_all(old.path());
     }
     Ok(())
 }
 
+fn create_startup_database_backup(app_data_dir: &Path) -> std::io::Result<()> {
+    if !app_data_dir.join("app.db").exists() {
+        return Ok(());
+    }
+    create_database_snapshot(app_data_dir, "startup")?;
+    prune_startup_database_backups(app_data_dir, 10)
+}
+
 #[tauri::command]
-fn create_database_backup(app: AppHandle) -> Result<String, String> {
+async fn create_database_backup(app: AppHandle) -> Result<String, String> {
     let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
     if !dir.join("app.db").exists() {
         return Err("数据库文件不存在".into());
     }
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis();
-    let id = format!("startup-{stamp}");
-    copy_database_files(&dir, &dir.join(DATABASE_BACKUP_DIR).join(&id))
+    let root = dir.join(DATABASE_BACKUP_DIR);
+    std::fs::create_dir_all(&root).map_err(|error| error.to_string())?;
+    let id = snapshot_id("manual");
+    let partial = root.join(format!(".{id}.partial"));
+    let target = root.join(&id);
+    if partial.exists() {
+        std::fs::remove_dir_all(&partial).map_err(|error| error.to_string())?;
+    }
+    std::fs::create_dir_all(&partial).map_err(|error| error.to_string())?;
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(dir.join("app.db"))
+        .create_if_missing(false)
+        .foreign_keys(true)
+        .busy_timeout(Duration::from_secs(10));
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
         .map_err(|error| error.to_string())?;
+    let snapshot = partial.join("app.db");
+    sqlx::query("VACUUM INTO ?")
+        .bind(snapshot.to_string_lossy().to_string())
+        .execute(&mut connection)
+        .await
+        .map_err(|error| {
+            let _ = std::fs::remove_dir_all(&partial);
+            error.to_string()
+        })?;
+    drop(connection);
+    std::fs::rename(&partial, &target).map_err(|error| error.to_string())?;
     Ok(id)
 }
 
@@ -89,17 +208,23 @@ fn apply_pending_database_restore(app_data_dir: &Path) -> std::io::Result<()> {
             "invalid database restore source",
         ));
     }
-    create_startup_database_backup(app_data_dir)?;
+    let staging = app_data_dir.join(format!(".restore-staging-{}", std::process::id()));
+    if staging.exists() {
+        std::fs::remove_dir_all(&staging)?;
+    }
+    copy_database_files(&source, &staging)?;
+    create_database_snapshot(app_data_dir, "recovery")?;
     for name in ["app.db", "app.db-wal", "app.db-shm"] {
         let target = app_data_dir.join(name);
         if target.exists() {
             std::fs::remove_file(&target)?;
         }
-        let backup_file = source.join(name);
+        let backup_file = staging.join(name);
         if backup_file.exists() {
             std::fs::copy(backup_file, target)?;
         }
     }
+    std::fs::remove_dir_all(staging)?;
     std::fs::remove_file(marker)?;
     Ok(())
 }
@@ -145,7 +270,7 @@ fn list_database_backups(app: AppHandle) -> Result<Vec<DatabaseBackupInfo>, Stri
             let id = entry.file_name().to_string_lossy().to_string();
             let database = entry.path().join("app.db");
             let size = database.metadata().ok()?.len();
-            let raw_stamp: u64 = id.rsplit('-').next()?.parse().ok()?;
+            let raw_stamp: u64 = id.split('-').nth(1)?.parse().ok()?;
             let created_at = if raw_stamp > 10_000_000_000 { raw_stamp / 1000 } else { raw_stamp };
             Some(DatabaseBackupInfo { id, size, created_at })
         })
@@ -156,9 +281,8 @@ fn list_database_backups(app: AppHandle) -> Result<Vec<DatabaseBackupInfo>, Stri
 
 #[tauri::command]
 fn schedule_database_restore(app: AppHandle, backup_id: String) -> Result<(), String> {
-    if !backup_id.starts_with("startup-")
-        || backup_id.contains('/')
-        || backup_id.contains('\\')
+    if !backup_id.chars().all(|value| value.is_ascii_alphanumeric() || value == '-')
+        || !["startup-", "manual-", "recovery-"].iter().any(|prefix| backup_id.starts_with(prefix))
     {
         return Err("无效的备份编号".into());
     }
@@ -210,8 +334,11 @@ fn show_startup_error(message: &str) {
     eprintln!("{message}");
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
         let script = "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($env:GWT_STARTUP_ERROR, 'Grow with Time 启动失败', 'OK', 'Error') | Out-Null";
-        let _ = std::process::Command::new("powershell")
+        let mut command = std::process::Command::new("powershell");
+        command.creation_flags(0x0800_0000);
+        let _ = command
             .args(["-NoProfile", "-NonInteractive", "-Command", script])
             .env("GWT_STARTUP_ERROR", message)
             .spawn();
@@ -1875,6 +2002,7 @@ pub fn run() {
             cancel_native_notification,
             sync_native_notifications,
             database_health,
+            execute_database_batch,
             list_database_backups,
             create_database_backup,
             schedule_database_restore,
@@ -1902,8 +2030,6 @@ pub fn run() {
             setup_tray(app.handle())?;
             if let Some(main) = app.get_webview_window("main") {
                 let _ = main.set_title("日进·拾光 · Grow with Time");
-                let _ = main.show();
-                let _ = main.set_focus();
                 let app_handle = app.handle().clone();
                 main.on_window_event(move |event| {
                     if let WindowEvent::CloseRequested { api, .. } = event {

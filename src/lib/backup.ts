@@ -11,6 +11,36 @@ const LEGACY_KARMA_SETTING_KEYS = [
   "last_complete_date",
 ] as const;
 
+const PORTABLE_SETTING_KEYS = new Set([
+  "theme",
+  "notify_ahead",
+  "autostart",
+  "privacy_mode",
+  "auto_backup",
+  "desktop_widget_mode",
+  "desktop_widget_layer",
+  "onboarding_complete",
+  "ledger_default_budget_cents",
+  "ledger_default_expense_category_id",
+  "ledger_default_income_category_id",
+  "ledger_default_account_id",
+  "ledger_hide_amount",
+  "hotkey.quick_add.enabled",
+  "hotkey.quick_add.accelerator",
+  "hotkey.inspiration.enabled",
+  "hotkey.inspiration.accelerator",
+  "hotkey.ledger.quick_add.enabled",
+  "hotkey.ledger.quick_add.accelerator",
+]);
+
+export function sanitizePortableSettings(
+  settings: Record<string, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(settings).filter(([key]) => PORTABLE_SETTING_KEYS.has(key)),
+  );
+}
+
 export function backupHasLegacyKarma(payload: BackupPayload): boolean {
   if (Object.prototype.hasOwnProperty.call(payload, "karmaLedger")) return true;
   return LEGACY_KARMA_SETTING_KEYS.some((key) => key in payload.settings);
@@ -53,8 +83,20 @@ export function validateBackupPayload(payload: unknown): BackupPayload {
   ) {
     throw new Error(`不支持的备份版本：${String(data.version)}`);
   }
-  if (!Array.isArray(data.tasks) || !Array.isArray(data.tags)) {
-    throw new Error("备份缺少任务或标签数据");
+  const requiredCollections = [
+    ["tasks", data.tasks],
+    ["tags", data.tags],
+    ["taskTags", data.taskTags],
+    ["attachments", data.attachments],
+    ["smartLists", data.smartLists],
+    ["habits", data.habits],
+    ["habitChecks", data.habitChecks],
+  ] as const;
+  const missingCollections = requiredCollections
+    .filter(([, value]) => !Array.isArray(value))
+    .map(([key]) => key);
+  if (missingCollections.length) {
+    throw new Error(`备份缺少必要数据集合：${missingCollections.join("、")}`);
   }
   if (!data.settings || typeof data.settings !== "object") {
     throw new Error("备份缺少设置数据");
@@ -187,6 +229,7 @@ export function sanitizeBackupPayload(payload: BackupPayload): BackupPayload {
 
   return {
     ...payload,
+    settings: sanitizePortableSettings(payload.settings),
     tasks: payload.tasks.map((task) => ({
       ...task,
       parent_id: task.parent_id && taskIds.has(task.parent_id) ? task.parent_id : null,

@@ -5,7 +5,7 @@ import type {
   GoalMilestone,
 } from "@/types";
 import { createId, nowIso, todayDateString } from "@/lib/dates";
-import { goalAcceptsSource, localDateKey, localWeekStartKey } from "@/lib/growth";
+import { goalAcceptsSource, localDateKey, localWeekStartKey, normalizeGoalContribution } from "@/lib/growth";
 import { getDb } from "./client";
 
 /* Growth goals, contributions, milestones and achievements */
@@ -215,6 +215,14 @@ export async function refreshGoalProgress(goalId: string): Promise<void> {
   }
 }
 
+export async function refreshAllGoalProgress(): Promise<void> {
+  const db = await getDb();
+  const goals = await db.select<{ id: string }[]>(
+    "SELECT id FROM goals WHERE status != 'archived'",
+  );
+  for (const goal of goals) await refreshGoalProgress(goal.id);
+}
+
 export async function addGoalEntry(
   input: Pick<GoalEntry, "goal_id" | "entry_date" | "value" | "source_type"> &
     Partial<Pick<GoalEntry, "source_id" | "note">>,
@@ -223,12 +231,13 @@ export async function addGoalEntry(
   const goals = await db.select<Goal[]>("SELECT * FROM goals WHERE id=$1 LIMIT 1", [input.goal_id]);
   const goal = goals[0];
   if (!goal || !goalAcceptsSource(goal, input.source_type)) return false;
+  const contribution = normalizeGoalContribution(goal, Number(input.value));
   const result = await db.execute(
     `INSERT OR IGNORE INTO goal_entries
      (id,goal_id,entry_date,value,source_type,source_id,note,created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
     [
-      createId(), input.goal_id, input.entry_date, Number(input.value),
+      createId(), input.goal_id, input.entry_date, contribution,
       input.source_type, input.source_id ?? null, input.note?.trim() ?? "", nowIso(),
     ],
   );

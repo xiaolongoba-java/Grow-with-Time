@@ -3,8 +3,21 @@ import { describe, expect, it } from "vitest";
 
 const rust = readFileSync("src-tauri/src/lib.rs", "utf8");
 const mainApp = readFileSync("src/app/MainApp.tsx", "utf8");
+const entrypoint = readFileSync("src/main.tsx", "utf8");
 
 describe("desktop widget reliability contract", () => {
+  it("keeps the main window hidden until the first usable frame is ready", () => {
+    expect(rust).not.toContain("let _ = main.show();");
+    expect(mainApp).toContain("if (!ready) return;");
+    expect(mainApp).toContain("window.requestAnimationFrame");
+    expect(mainApp).toMatch(
+      /const appWindow = getCurrentWindow\(\);[\s\S]*?\.show\(\)/,
+    );
+    expect(entrypoint).toMatch(
+      /function BootError[\s\S]*?getCurrentWebviewWindow\(\)[\s\S]*?\.show\(\)/,
+    );
+  });
+
   it("does not demote visible widgets when the main window closes", () => {
     expect(rust).not.toContain("refresh_visible_desktop_widgets");
   });

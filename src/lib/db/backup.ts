@@ -8,10 +8,10 @@ import type {
   TaskEvent,
 } from "@/types";
 import { nowIso } from "@/lib/dates";
-import { backupPayloadHas, sanitizeBackupPayload, validateBackupPayload } from "@/lib/backup";
+import { invoke } from "@tauri-apps/api/core";
+import { backupPayloadHas, sanitizeBackupPayload, sanitizePortableSettings, validateBackupPayload } from "@/lib/backup";
 import { sanitizeImportedMemoContent } from "@/lib/richText";
 import { getDb, withTransaction } from "./client";
-import { saveTaskPlanningMetadata } from "./client";
 import { fetchTasks } from "./tasks";
 import {
   fetchAllAttachments,
@@ -37,7 +37,7 @@ import {
   fetchInspirations,
 } from "./moments";
 import { fetchTaskTemplates } from "./projects";
-import { getAllSettings, setSetting } from "./settings";
+import { getAllSettings } from "./settings";
 
 const RETIRED_SETTING_KEYS = new Set([
   "karma",
@@ -87,11 +87,7 @@ export async function exportBackup(): Promise<BackupPayload> {
   const ledgerAccounts = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_accounts");
   const ledgerTransactions = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_transactions");
   const ledgerBudgets = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_budgets");
-  const settings = await getAllSettings();
-  // API keys are credentials, not user content. Never copy them into a
-  // portable JSON backup where they can be shared or synced accidentally.
-  delete settings.ai_api_key;
-  for (const key of RETIRED_SETTING_KEYS) delete settings[key];
+  const settings = sanitizePortableSettings(await getAllSettings());
 
   return {
     version: 8,
@@ -129,12 +125,18 @@ export async function exportBackup(): Promise<BackupPayload> {
 }
 
 export async function importBackup(raw: BackupPayload): Promise<void> {
-  const db = await getDb();
   validateBackupPayload(raw);
   const payload = sanitizeBackupPayload(raw);
   const has = (key: keyof BackupPayload) => backupPayloadHas(raw, key);
 
   await withTransaction(async () => {
+    const statements: { sql: string; params: unknown[] }[] = [];
+    const db = {
+      execute: async (sql: string, params: unknown[] = []) => {
+        statements.push({ sql, params });
+        return { rowsAffected: 0, lastInsertId: 0 };
+      },
+    };
     const restoreLedger = has("ledgerTransactions") && has("ledgerBudgets") && has("ledgerCategories") && has("ledgerAccounts");
     if (restoreLedger) {
       await db.execute("DELETE FROM ledger_transactions");
@@ -236,7 +238,15 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
     );
     // Backup tasks already carry the normalized multi-reminder array. Persist
     // it directly instead of re-parsing a database-only JSON column.
-    await saveTaskPlanningMetadata(task);
+    await db.execute(
+      `INSERT INTO task_planning_metadata
+       (task_id, reminder_minutes_json, estimated_minutes)
+       VALUES ($1,$2,$3)
+       ON CONFLICT(task_id) DO UPDATE SET
+         reminder_minutes_json=excluded.reminder_minutes_json,
+         estimated_minutes=excluded.estimated_minutes`,
+      [task.id, JSON.stringify(task.reminder_minutes ?? []), task.estimated_minutes ?? null],
+    );
   }
 
   for (const tag of payload.tags) {
@@ -505,11 +515,17 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
   }
   for (const [key, value] of Object.entries(payload.settings)) {
     if (RETIRED_SETTING_KEYS.has(key)) continue;
-    await setSetting(key, value);
+    await db.execute(
+      "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      [key, value],
+    );
   }
   for (const key of RETIRED_SETTING_KEYS) {
     await db.execute("DELETE FROM settings WHERE key = $1", [key]);
   }
+    await invoke("execute_database_batch", { statements });
+  });
+
   if (!has("goalEntries")) {
     for (const task of payload.tasks) {
       if (task.status !== "completed" || !task.goal_id) continue;
@@ -522,7 +538,7 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
       await addGoalEntry({ goal_id: habit.goal_id, entry_date: check.check_date, value: habit.goal_contribution || 1, source_type: "habit", source_id: `${habit.id}:${check.check_date}`, note: habit.title });
     }
   }
+  const db = await getDb();
   const retainedGoals = await db.select<{ id: string }[]>("SELECT id FROM goals");
   for (const goal of retainedGoals) await refreshGoalProgress(goal.id);
-  });
 }

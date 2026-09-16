@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatLedgerMoney, monthRange, parseAmountToCents } from "@/lib/db/ledger";
+import { formatLedgerMoney, isValidLedgerDate, monthRange, parseAmountToCents } from "@/lib/db/ledger";
 import { readFileSync } from "node:fs";
 
 describe("ledger amount", () => {
@@ -25,6 +25,12 @@ describe("ledger month range", () => {
   it("crosses year boundaries", () => {
     expect(monthRange("2026-12")).toEqual(["2026-12-01", "2027-01-01"]);
   });
+  it("rejects impossible dates and months", () => {
+    expect(isValidLedgerDate("2024-02-29")).toBe(true);
+    expect(isValidLedgerDate("2026-02-29")).toBe(false);
+    expect(isValidLedgerDate("2026-02-31")).toBe(false);
+    expect(() => monthRange("2026-13")).toThrow(/月份/);
+  });
   it("hides the sidebar collapse control while the entry overlay is open", () => {
     const css = readFileSync("src/styles/parts/global-11-ledger.css", "utf8");
     expect(css).toContain("body:has(.ledger-overlay) .nav-edge-collapse");
@@ -39,7 +45,7 @@ describe("ledger month range", () => {
 
   it("validates future dates and category kind on both write paths", () => {
     const source = readFileSync("src/lib/db/ledger.ts", "utf8");
-    expect(source.match(/记账日期不能晚于今天/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(source.match(/记账日期无效或晚于今天/g)?.length).toBeGreaterThanOrEqual(2);
     expect(source.match(/category\[0\]\.kind !== draft\.kind/g)?.length).toBeGreaterThanOrEqual(2);
   });
 });

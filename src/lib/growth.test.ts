@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Goal, GoalEntry } from "@/types";
 import {
   activityLevel,
+  activityCountLevel,
+  buildGrowthActivityDays,
   calculateGoalProgress,
   currentDateStreak,
   goalAcceptsSource,
   localWeekStartKey,
   longestDateStreak,
+  normalizeGoalContribution,
 } from "./growth";
 
 const goal = (start: number, current: number, target: number) =>
@@ -26,6 +29,9 @@ describe("growth metrics", () => {
     expect(activityLevel([entry(3)])).toBe(2);
     expect(activityLevel([entry(7)])).toBe(3);
     expect(activityLevel([entry(15)])).toBe(4);
+    expect(activityCountLevel(0)).toBe(0);
+    expect(activityCountLevel(3)).toBe(2);
+    expect(activityCountLevel(8)).toBe(4);
   });
 
   it("finds the longest streak without double-counting dates", () => {
@@ -54,5 +60,27 @@ describe("growth metrics", () => {
 
   it("calculates the local Monday without UTC conversion", () => {
     expect(localWeekStartKey(new Date("2026-08-05T00:30:00+08:00"))).toBe("2026-08-03");
+  });
+
+  it("moves descending quantity goals toward their target", () => {
+    const descending = {
+      goal_type: "quantity",
+      start_value: 170,
+      target_value: 130,
+    } as Goal;
+    expect(normalizeGoalContribution(descending, 1)).toBe(-1);
+    expect(normalizeGoalContribution(descending, -2)).toBe(-2);
+  });
+
+  it("counts completed work and deduplicates linked goal entries", () => {
+    const days = buildGrowthActivityDays(
+      [{ id: "task-1", status: "completed", completed_at: "2026-08-08T02:00:00.000Z", parent_id: null, deleted_at: null } as never],
+      [{ habit_id: "habit-1", check_date: "2026-08-08" } as never],
+      [
+        { id: "entry-1", entry_date: "2026-08-08", source_type: "task", source_id: "task-1" } as GoalEntry,
+        { id: "entry-2", entry_date: "2026-08-08", source_type: "manual", source_id: null } as GoalEntry,
+      ],
+    );
+    expect(days.get("2026-08-08")).toBe(3);
   });
 });

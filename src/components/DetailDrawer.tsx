@@ -287,7 +287,14 @@ export function DetailDrawer() {
   };
 
   return (
-    <aside className="detail-panel">
+    <>
+      <button
+        type="button"
+        className="detail-panel-backdrop"
+        aria-label="关闭任务详情"
+        onClick={closeDetail}
+      />
+      <aside className="detail-panel">
       <div className="panel-head">
         <h3>{mode === "view" ? "任务详情" : "编辑任务"}</h3>
         <div className="detail-head-actions">
@@ -1022,6 +1029,7 @@ export function DetailDrawer() {
           删除任务
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

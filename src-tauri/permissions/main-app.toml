@@ -13,6 +13,7 @@ commands.allow = [
   "cancel_native_notification",
   "sync_native_notifications",
   "database_health",
+  "execute_database_batch",
   "list_database_backups",
   "create_database_backup",
   "schedule_database_restore",

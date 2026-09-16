@@ -125,29 +125,27 @@ export async function getDb(): Promise<Database> {
         /* ignore */
       }
       return db;
+    }).catch((error) => {
+      dbPromise = null;
+      throw error;
     });
   }
   return dbPromise;
 }
 
 let txQueue: Promise<unknown> = Promise.resolve();
-let txDepth = 0;
 
 /**
  * Serialize writes on the JS side.
  * Do not issue BEGIN/COMMIT through tauri-plugin-sql: it uses a sqlx pool, so
  * those statements can land on different connections and fail with
  * "cannot start a transaction within a transaction".
- * Nested calls run immediately on the same queue turn (no deadlock).
+ * This is serialization, not a database transaction. Callers that require
+ * rollback must use a single-connection native command.
  */
 export function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
-  if (txDepth > 0) return fn();
   const run = txQueue.then(async () => {
-    const execute = async () => {
-      txDepth += 1;
-      try { return await fn(); }
-      finally { txDepth -= 1; }
-    };
+    const execute = () => fn();
     // Web Locks are shared by every WebView of this app origin. They close the
     // gap left by each window having its own module-level queue.
     if (typeof navigator !== "undefined" && navigator.locks) {

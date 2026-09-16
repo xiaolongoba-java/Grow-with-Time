@@ -332,6 +332,34 @@ export function listUpcomingAnniversaries(
     .slice(0, limit);
 }
 
+/**
+ * Compact desktop widgets should never look empty while anniversary data
+ * exists. Upcoming occurrences stay first; past one-off records remain as a
+ * fallback instead of disappearing merely because they have no next date.
+ */
+export function listAnniversariesForWidget(
+  items: Anniversary[],
+  today = todayDateString(),
+  limit = 4,
+): Array<{
+  item: Anniversary;
+  daysLeft: number | null;
+  label: string;
+  nextDate: string | null;
+}> {
+  return sortAnniversaries(items, today)
+    .slice(0, limit)
+    .map((item) => {
+      const head = anniversaryHeadline(item, today);
+      return {
+        item,
+        daysLeft: head.daysLeft,
+        label: head.label,
+        nextDate: head.nextDate,
+      };
+    });
+}
+
 /** Solar YYYY-MM-DD keys for anniversary occurrences falling in a month. */
 export function anniversaryDatesInMonth(
   items: Anniversary[],

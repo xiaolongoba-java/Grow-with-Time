@@ -118,8 +118,10 @@ describe("weeklyChecklist", () => {
       tags,
     );
     const work = categories.find((item) => item.category.id === "work")!;
+    const other = categories.find((item) => item.category.id === "other")!;
     expect(work.total).toBe(2);
     expect(work.done).toBe(1);
+    expect(other.total).toBe(1);
     expect(stats.total).toBe(3);
     expect(stats.done).toBe(1);
   });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { listen } from "@tauri-apps/api/event";
 import {
   fetchNotifications,
   setNotificationStatus,
@@ -25,22 +25,26 @@ export function DesktopNotificationCards() {
   const selectTask = useAppStore((state) => state.selectTask);
   const [items, setItems] = useState<AppNotification[]>([]);
   const knownIds = useRef<Set<string> | null>(null);
+  const outsideIds = useRef(new Set<string>());
 
   const refresh = async (showOutside = false) => {
     const notifications = await fetchNotifications();
     const delivered = visibleNotifications(notifications);
     if (showOutside && knownIds.current) {
       const fresh = delivered.find((item) => !knownIds.current?.has(item.id));
-      // The main window already renders the notification card. Only use the
-      // separate desktop popup while the main window is hidden, otherwise the
-      // same reminder appears twice.
-      const mainVisible = await getCurrentWebviewWindow().isVisible().catch(() => true);
-      if (fresh && !mainVisible) {
-        void invoke("show_notification_popup", { notification: fresh });
+      // Always prefer the independent always-on-top window. It remains visible
+      // when the main app is covered, minimized, or on another desktop layer.
+      if (fresh) {
+        try {
+          await invoke("show_notification_popup", { notification: fresh });
+          outsideIds.current.add(fresh.id);
+        } catch {
+          // Browser/dev fallback: keep rendering the in-app card below.
+        }
       }
     }
     knownIds.current = new Set(delivered.map((item) => item.id));
-    setItems(delivered.slice(0, 3));
+    setItems(delivered.filter((item) => !outsideIds.current.has(item.id)).slice(0, 3));
   };
 
   const acknowledge = async (item: AppNotification) => {
@@ -57,7 +61,12 @@ export function DesktopNotificationCards() {
     void refresh();
     const onChanged = () => void refresh(true);
     window.addEventListener("notifications:changed", onChanged);
-    return () => window.removeEventListener("notifications:changed", onChanged);
+    let unlisten: (() => void) | undefined;
+    void listen("notification:state-changed", () => void refresh()).then((fn) => { unlisten = fn; });
+    return () => {
+      window.removeEventListener("notifications:changed", onChanged);
+      unlisten?.();
+    };
   }, []);
 
   if (!items.length) return null;

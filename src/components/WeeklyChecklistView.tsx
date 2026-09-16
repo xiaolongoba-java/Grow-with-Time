@@ -93,7 +93,7 @@ export function WeeklyChecklistView() {
 
       {uncategorizedHint ? (
         <p className="weekly-checklist-hint">
-          提示：给任务打上「工作 / 生活 / 健康 / 学习」标签后，本周目标分栏会自动汇总。
+          尚未打标签的任务已收进「未分类」；添加「工作 / 生活 / 健康 / 学习」标签后会自动归档。
         </p>
       ) : null}
 

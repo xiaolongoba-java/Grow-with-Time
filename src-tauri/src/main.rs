@@ -1,5 +1,5 @@
-// Hide the extra console window on Windows release builds.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// This is a desktop GUI app; never create a console host window on Windows.
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 fn main() {
     minimal_todo_lib::run()

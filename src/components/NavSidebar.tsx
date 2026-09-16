@@ -3,7 +3,7 @@ import { useAppStore } from "@/store/app";
 import { todayDateString } from "@/lib/dates";
 import { parseNaturalInput } from "@/lib/nlp";
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
-import { isActiveTask } from "@/lib/tasks";
+import { isActiveTask, isInboxTask } from "@/lib/tasks";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { toggleDesktopWidgets } from "@/lib/desktopWidgets";
 
@@ -35,7 +35,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const [tagName, setTagName] = useState("");
   const [hints, setHints] = useState<string[]>([]);
   const [momentsOpen, setMomentsOpen] = useState(["daily-reflection", "inspirations", "future-letters", "anniversaries"].includes(nav));
-  const [moreOpen, setMoreOpen] = useState(["completed", "all", "habits", "reminders", "review", "memos", "projects", "toolbox"].includes(nav));
+  const [moreOpen, setMoreOpen] = useState(["all", "habits", "reminders", "review", "memos", "projects", "toolbox"].includes(nav));
   const draftRef = useRef<HTMLInputElement>(null);
 
   const counts = useMemo(() => {
@@ -46,10 +46,8 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         (t) =>
           isActiveTask(t) && ((t.due_date !== null && t.due_date <= today) || t.my_day_date === today),
       ).length,
-      inbox: roots.filter((t) => isActiveTask(t) && t.due_date === null)
-        .length,
-      completed: roots.filter((t) => t.status === "completed").length,
-      all: roots.length,
+      inbox: roots.filter((t) => isInboxTask(t, today)).length,
+      all: roots.filter((t) => isActiveTask(t) || t.status === "completed").length,
     };
   }, [tasks]);
 
@@ -190,16 +188,9 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
       <button type="button" className="nav-more-trigger" aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)}><span>更多</span><span>{moreOpen ? "收起" : "展开"}</span></button>
       {moreOpen ? <div className="nav-more-content">
       <NotificationCenter />
-      {(
-        [
-          ["completed", "已完成", counts.completed, "check"],
-          ["all", "全部任务", counts.all, "layers"],
-        ] as const
-      ).map(([id, label, count, icon]) => (
-        <button key={id} type="button" className={`nav-item ${nav === id ? "active" : ""}`} onClick={() => setNav(id)}>
-          <span className="nav-item-label"><AppIcon name={icon} size={17} />{label}</span><span className="nav-count">{count}</span>
-        </button>
-      ))}
+      <button type="button" className={`nav-item ${nav === "all" ? "active" : ""}`} onClick={() => setNav("all")}>
+        <span className="nav-item-label"><AppIcon name="layers" size={17} />全部任务</span><span className="nav-count">{counts.all}</span>
+      </button>
       {(
         [
           ["habits", "习惯", "heart"],

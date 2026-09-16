@@ -12,7 +12,7 @@ import { fetchAnniversaries } from "@/lib/db/moments";
 import {
   anniversaryDatesInMonth,
   formatAnniversaryAnchor,
-  listUpcomingAnniversaries,
+  listAnniversariesForWidget,
 } from "@/lib/anniversaries";
 import { isOverdue, todayDateString } from "@/lib/dates";
 import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
@@ -179,8 +179,8 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
     [tasks, today],
   );
 
-  const upcomingAnniversaries = useMemo(
-    () => listUpcomingAnniversaries(anniversaries, today, 30, 4),
+  const widgetAnniversaries = useMemo(
+    () => listAnniversariesForWidget(anniversaries, today, 4),
     [anniversaries, today],
   );
 
@@ -430,9 +430,9 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
               );
             })}
           </div>
-          {upcomingAnniversaries.length ? (
+          {widgetAnniversaries.length ? (
             <ul className="widget-anni-list">
-              {upcomingAnniversaries.map(({ item, daysLeft }) => (
+              {widgetAnniversaries.map(({ item, daysLeft }) => (
                 <li
                   key={item.id}
                   className={`is-clickable ${daysLeft === 0 ? "is-today" : ""}`}
@@ -447,7 +447,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                   }}
                 >
                   <span>{item.title}</span>
-                  <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
+                  <strong>{daysLeft === null ? "已记录" : daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
                   <em>{formatAnniversaryAnchor(item)}</em>
                 </li>
               ))}
@@ -468,9 +468,9 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
 
       {kind === "today" ? (
         <section className="widget-today">
-          {upcomingAnniversaries.length ? (
+          {widgetAnniversaries.length ? (
             <ul className="widget-anni-list">
-              {upcomingAnniversaries.map(({ item, daysLeft }) => (
+              {widgetAnniversaries.map(({ item, daysLeft }) => (
                 <li
                   key={item.id}
                   className={`is-clickable ${daysLeft === 0 ? "is-today" : ""}`}
@@ -485,7 +485,7 @@ export function DesktopWidgetApp({ kind }: { kind: WidgetKind }) {
                   }}
                 >
                   <span>{item.title}</span>
-                  <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
+                  <strong>{daysLeft === null ? "已记录" : daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
                   <em>{formatAnniversaryAnchor(item)}</em>
                 </li>
               ))}

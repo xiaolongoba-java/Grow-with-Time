@@ -5,10 +5,21 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use std::process::Command;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use tauri::{AppHandle, Manager};
 
 const ROOT_FOLDER: &str = "日进收纳";
 const UNDO_FILE: &str = "desktop-organize-undo.json";
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+#[cfg(windows)]
+fn hidden_windows_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
+}
 
 const SKIP_NAMES: &[&str] = &[
     "desktop.ini",
@@ -267,8 +278,8 @@ fn write_undo(app: &AppHandle, moves: Vec<PlannedMove>) -> Result<(), String> {
 fn open_os_path(path: &Path) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("cmd")
-            .args(["/C", "start", "", &path.to_string_lossy()])
+        hidden_windows_command("explorer.exe")
+            .arg(path)
             .spawn()
             .map_err(|error| error.to_string())?;
     }
@@ -324,7 +335,7 @@ pub fn list_desktop_shortcuts(app: AppHandle) -> Result<Vec<DesktopItem>, String
 }
 
 #[tauri::command]
-pub fn desktop_shortcut_icon(path: String) -> Result<Option<String>, String> {
+pub fn desktop_shortcut_icon(app: AppHandle, path: String) -> Result<Option<String>, String> {
     let shortcut = PathBuf::from(&path);
     if !shortcut.exists() {
         return Ok(None);
@@ -333,12 +344,17 @@ pub fn desktop_shortcut_icon(path: String) -> Result<Option<String>, String> {
     if extension != "lnk" && extension != "url" && extension != "desktop" {
         return Ok(None);
     }
+    let shortcut = shortcut.canonicalize().map_err(|error| error.to_string())?;
+    let desktop = desktop_dir(&app)?.canonicalize().map_err(|error| error.to_string())?;
+    if !shortcut.starts_with(&desktop) || !shortcut.is_file() {
+        return Err("快捷方式不在桌面收纳范围内".into());
+    }
     #[cfg(windows)]
     {
-        let script = r#"param([string]$shortcut); $ErrorActionPreference='Stop'; $target=$shortcut; if ([IO.Path]::GetExtension($shortcut) -ieq '.lnk') { $shell=New-Object -ComObject WScript.Shell; $resolved=$shell.CreateShortcut($shortcut).TargetPath; if ($resolved) { $target=$resolved } }; Add-Type -AssemblyName System.Drawing; $icon=[System.Drawing.Icon]::ExtractAssociatedIcon($target); if ($null -eq $icon) { exit 2 }; $stream=New-Object IO.MemoryStream; $bitmap=$icon.ToBitmap(); $bitmap.Save($stream,[System.Drawing.Imaging.ImageFormat]::Png); [Convert]::ToBase64String($stream.ToArray()); $bitmap.Dispose(); $icon.Dispose(); $stream.Dispose()"#;
-        let output = Command::new("powershell.exe")
-            .args(["-NoProfile", "-NonInteractive", "-Command", script, "-shortcut"])
-            .arg(&shortcut)
+        let script = r#"$shortcut=$env:GWT_SHORTCUT_PATH; $ErrorActionPreference='Stop'; $target=$shortcut; if ([IO.Path]::GetExtension($shortcut) -ieq '.lnk') { $shell=New-Object -ComObject WScript.Shell; $resolved=$shell.CreateShortcut($shortcut).TargetPath; if ($resolved) { $target=$resolved } }; Add-Type -AssemblyName System.Drawing; $icon=[System.Drawing.Icon]::ExtractAssociatedIcon($target); if ($null -eq $icon) { exit 2 }; $stream=New-Object IO.MemoryStream; $bitmap=$icon.ToBitmap(); $bitmap.Save($stream,[System.Drawing.Imaging.ImageFormat]::Png); [Convert]::ToBase64String($stream.ToArray()); $bitmap.Dispose(); $icon.Dispose(); $stream.Dispose()"#;
+        let output = hidden_windows_command("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-Command", script])
+            .env("GWT_SHORTCUT_PATH", &shortcut)
             .output()
             .map_err(|error| error.to_string())?;
         if !output.status.success() { return Ok(None); }

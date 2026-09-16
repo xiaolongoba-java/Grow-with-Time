@@ -51,6 +51,18 @@ fn is_supported(path: &Path) -> bool {
     matches!(path.extension().and_then(|v| v.to_str()).unwrap_or("").to_ascii_lowercase().as_str(), "jpg" | "jpeg" | "png" | "bmp")
 }
 
+fn safe_wallpaper_id(id: &str) -> Option<&str> {
+    let path = Path::new(id);
+    if id.is_empty()
+        || path.components().count() != 1
+        || path.file_name().and_then(|value| value.to_str()) != Some(id)
+        || !is_supported(path)
+    {
+        return None;
+    }
+    Some(id)
+}
+
 fn list_items(app: &AppHandle) -> Result<Vec<WallpaperItem>, String> {
     let dir = library_dir(app)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -160,13 +172,38 @@ pub fn apply_wallpaper(app: AppHandle, id: String) -> Result<WallpaperLibrary, S
 
 #[tauri::command]
 pub fn remove_wallpaper(app: AppHandle, id: String) -> Result<WallpaperLibrary, String> {
-    let target = library_dir(&app)?.join(&id);
-    if !target.starts_with(library_dir(&app)?) { return Err("无效的壁纸路径".into()); }
-    if target.exists() { fs::remove_file(target).map_err(|e| e.to_string())?; }
+    let id = safe_wallpaper_id(&id).ok_or_else(|| "无效的壁纸路径".to_string())?;
+    let library = library_dir(&app)?;
+    let target = library.join(id);
+    if target.exists() {
+        let metadata = fs::symlink_metadata(&target).map_err(|e| e.to_string())?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err("壁纸路径不是普通文件".into());
+        }
+        let library = library.canonicalize().map_err(|e| e.to_string())?;
+        let target = target.canonicalize().map_err(|e| e.to_string())?;
+        if !target.starts_with(&library) {
+            return Err("无效的壁纸路径".into());
+        }
+        fs::remove_file(target).map_err(|e| e.to_string())?;
+    }
     let mut settings = read_settings(&app);
-    if settings.current_id.as_deref() == Some(&id) { settings.current_id = None; }
+    if settings.current_id.as_deref() == Some(id) { settings.current_id = None; }
     write_settings(&app, &settings)?;
     snapshot(&app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_wallpaper_id;
+
+    #[test]
+    fn wallpaper_id_is_one_supported_file_name() {
+        assert_eq!(safe_wallpaper_id("sunrise.png"), Some("sunrise.png"));
+        for value in ["", "../app.db", "folder/image.jpg", "folder\\image.jpg", "app.db"] {
+            assert_eq!(safe_wallpaper_id(value), None);
+        }
+    }
 }
 
 #[tauri::command]

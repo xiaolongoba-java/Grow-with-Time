@@ -102,12 +102,11 @@ export async function rolloverOverdueTasks(): Promise<number> {
   if (ids.length === 0) return 0;
 
   const timestamp = nowIso();
-  for (const id of ids) {
-    await db.execute(
-      "UPDATE tasks SET my_day_date = $1, updated_at = $2 WHERE id = $3",
-      [today, timestamp, id],
-    );
-  }
+  const placeholders = ids.map((_, index) => `$${index + 3}`).join(",");
+  await db.execute(
+    `UPDATE tasks SET my_day_date = $1, updated_at = $2 WHERE id IN (${placeholders})`,
+    [today, timestamp, ...ids],
+  );
 
   await setSetting("last_rollover_date", today);
   return ids.length;

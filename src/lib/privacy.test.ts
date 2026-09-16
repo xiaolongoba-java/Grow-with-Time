@@ -39,4 +39,16 @@ describe("privacy UI masking", () => {
     const privacyBlock = css.slice(css.indexOf('.app-root[data-privacy="on"]'));
     expect(privacyBlock).not.toMatch(/ledger-stat-grid|ledger-budget-hero|ledger-row/);
   });
+
+  it("uses an explicit task-title placeholder instead of leaving titles blurred", () => {
+    const css = readFileSync("src/styles/parts/global-11-ledger.css", "utf8");
+    expect(css).toContain('.app-root[data-privacy="off"] .task-title');
+    expect(css).toContain('content: "任务标题已隐藏"');
+    const generalMaskStart = css.indexOf('.app-root[data-privacy="on"] :is(');
+    const generalMask = css.slice(
+      generalMaskStart,
+      css.indexOf(") {", generalMaskStart),
+    );
+    expect(generalMask).not.toContain(".task-title");
+  });
 });

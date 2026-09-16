@@ -31,7 +31,7 @@ import { formatLongDate, todayDateString } from "@/lib/dates";
 import {
   anniversaryDatesInMonth,
   formatAnniversaryAnchor,
-  listUpcomingAnniversaries,
+  listAnniversariesForWidget,
 } from "@/lib/anniversaries";
 import { emitDataChanged, bindVisibleDataRefresh } from "@/lib/widgetRefresh";
 import { restoreWidgetPosition } from "@/lib/widgetWindow";
@@ -114,6 +114,9 @@ export function DashboardStripApp() {
   const [ledgerAccounts, setLedgerAccounts] = useState<LedgerAccount[]>([]);
   const [ledgerBudget, setLedgerBudget] = useState(0);
   const [ledgerAmountsHidden, setLedgerAmountsHidden] = useState(false);
+  const [ledgerDefaultExpenseCategoryId, setLedgerDefaultExpenseCategoryId] = useState(0);
+  const [ledgerDefaultIncomeCategoryId, setLedgerDefaultIncomeCategoryId] = useState(0);
+  const [ledgerDefaultAccountId, setLedgerDefaultAccountId] = useState(0);
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [ledgerKind, setLedgerKind] = useState<LedgerKind>("expense");
   const [ledgerAmount, setLedgerAmount] = useState("");
@@ -180,6 +183,9 @@ export function DashboardStripApp() {
       nextLedgerAccounts,
       nextLedgerBudget,
       hideLedgerAmounts,
+      defaultExpenseCategoryId,
+      defaultIncomeCategoryId,
+      defaultAccountId,
     ] = await Promise.all([
       fetchTasks(),
       fetchMemos(),
@@ -195,6 +201,9 @@ export function DashboardStripApp() {
       fetchLedgerAccounts(),
       getLedgerBudget(ledgerMonth),
       getSetting("ledger_hide_amount"),
+      getSetting("ledger_default_expense_category_id"),
+      getSetting("ledger_default_income_category_id"),
+      getSetting("ledger_default_account_id"),
     ]);
     setTasks(nextTasks);
     setMemos(nextMemos);
@@ -208,6 +217,9 @@ export function DashboardStripApp() {
     setLedgerAccounts(nextLedgerAccounts);
     setLedgerBudget(nextLedgerBudget);
     setLedgerAmountsHidden(hideLedgerAmounts === "true");
+    setLedgerDefaultExpenseCategoryId(Number(defaultExpenseCategoryId) || 0);
+    setLedgerDefaultIncomeCategoryId(Number(defaultIncomeCategoryId) || 0);
+    setLedgerDefaultAccountId(Number(defaultAccountId) || 0);
 
     const today = todayDateString();
     const highlight = reflections.find((item) => item.reflection_date === today)?.highlight?.trim();
@@ -279,8 +291,8 @@ export function DashboardStripApp() {
     [tasks, today],
   );
 
-  const upcomingAnniversaries = useMemo(
-    () => listUpcomingAnniversaries(anniversaries, today, 30, 4),
+  const widgetAnniversaries = useMemo(
+    () => listAnniversariesForWidget(anniversaries, today, 4),
     [anniversaries, today],
   );
 
@@ -375,20 +387,29 @@ export function DashboardStripApp() {
     [ledgerCategories, ledgerKind],
   );
 
+  const defaultLedgerCategoryId = (kind: LedgerKind) => {
+    const configuredId = kind === "expense"
+      ? ledgerDefaultExpenseCategoryId
+      : ledgerDefaultIncomeCategoryId;
+    return ledgerCategories.find(
+      (item) => item.id === configuredId && item.kind === kind && item.is_enabled,
+    )?.id ?? ledgerCategories.find((item) => item.kind === kind && item.is_enabled)?.id ?? 0;
+  };
+
+  const defaultLedgerAccount = () =>
+    ledgerAccounts.find((item) => item.id === ledgerDefaultAccountId && item.is_enabled)
+    ?? ledgerAccounts.find((item) => item.is_enabled);
+
   const chooseLedgerKind = (kind: LedgerKind) => {
     setLedgerKind(kind);
-    setLedgerCategoryId(
-      ledgerCategories.find((item) => item.kind === kind && item.is_enabled)?.id ?? 0,
-    );
+    setLedgerCategoryId(defaultLedgerCategoryId(kind));
     setLedgerError("");
   };
 
   const openLedgerEntry = () => {
     const defaultKind: LedgerKind = "expense";
     setLedgerKind(defaultKind);
-    setLedgerCategoryId(
-      ledgerCategories.find((item) => item.kind === defaultKind && item.is_enabled)?.id ?? 0,
-    );
+    setLedgerCategoryId(defaultLedgerCategoryId(defaultKind));
     setLedgerAmount("");
     setLedgerNote("");
     setLedgerError("");
@@ -405,7 +426,7 @@ export function DashboardStripApp() {
       return;
     }
     const category = activeLedgerCategories.find((item) => item.id === ledgerCategoryId);
-    const account = ledgerAccounts.find((item) => item.is_enabled);
+    const account = defaultLedgerAccount();
     if (!category || !account) {
       setLedgerError(!category ? "请先选择可用分类" : "请先在主账本中启用一个账户");
       return;
@@ -421,7 +442,11 @@ export function DashboardStripApp() {
         note: ledgerNote,
       });
       setLedgerOpen(false);
-      setLedgerNotice(`已记入账本 · ${category.name} ${formatLedgerMoney(amountCents)}`);
+      setLedgerNotice(
+        ledgerMasked
+          ? `已记入账本 · ${category.name}`
+          : `已记入账本 · ${category.name} ${formatLedgerMoney(amountCents)}`,
+      );
       await refresh();
       void emitDataChanged("ledger");
     } catch (cause) {
@@ -598,12 +623,14 @@ export function DashboardStripApp() {
             {formatLongDate(today)} · 周{weekdayLabel(new Date())}
           </p>
           <p className="dash-meta">今日待办 {pendingToday} 项</p>
-          {upcomingAnniversaries[0] ? (
+          {widgetAnniversaries[0] ? (
             <p className="dash-meta dash-anni">
-              {`${upcomingAnniversaries[0].item.title} · ${
-                upcomingAnniversaries[0].daysLeft === 0
+              {`${widgetAnniversaries[0].item.title} · ${
+                widgetAnniversaries[0].daysLeft === null
+                  ? "已记录"
+                  : widgetAnniversaries[0].daysLeft === 0
                   ? "就是今天"
-                  : `还有 ${upcomingAnniversaries[0].daysLeft} 天`
+                  : `还有 ${widgetAnniversaries[0].daysLeft} 天`
               }`}
             </p>
           ) : null}
@@ -718,11 +745,11 @@ export function DashboardStripApp() {
           >
             纪念日
           </div>
-          {upcomingAnniversaries.length === 0 ? (
-            <p className="dash-empty">近 30 天暂无</p>
+          {widgetAnniversaries.length === 0 ? (
+            <p className="dash-empty">还没有纪念日</p>
           ) : (
             <ul>
-              {upcomingAnniversaries.map(({ item, daysLeft }) => (
+              {widgetAnniversaries.map(({ item, daysLeft }) => (
                 <li
                   key={item.id}
                   className={`is-clickable ${daysLeft === 0 ? "is-today" : ""}`}
@@ -737,7 +764,7 @@ export function DashboardStripApp() {
                   }}
                 >
                   <span>{item.title}</span>
-                  <strong>{daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
+                  <strong>{daysLeft === null ? "已记录" : daysLeft === 0 ? "今天" : `${daysLeft}天`}</strong>
                   <em>{formatAnniversaryAnchor(item)}</em>
                 </li>
               ))}
@@ -883,7 +910,7 @@ export function DashboardStripApp() {
           <div className="dash-ledger-budget">
             <span>预算</span>
             <div><i style={{ width: `${ledgerBudget ? Math.min(100, ledgerExpense / ledgerBudget * 100) : 0}%` }} /></div>
-            <b>{ledgerBudget ? `${Math.round(ledgerExpense / ledgerBudget * 100)}%` : "未设"}</b>
+            <b>{ledgerBudget ? (ledgerMasked ? "••••" : `${Math.round(ledgerExpense / ledgerBudget * 100)}%`) : "未设"}</b>
           </div>
           <div className="dash-ledger-latest">
             {ledgerTransactions.length ? ledgerTransactions.slice(0, 2).map((item) => (
@@ -971,7 +998,7 @@ export function DashboardStripApp() {
                 aria-label="备注"
                 placeholder="备注（可选）"
               />
-              <span className="dash-ledger-account"><i aria-hidden="true" />{ledgerAccounts.find((item) => item.is_enabled)?.name ?? "未设置账户"}</span>
+              <span className="dash-ledger-account"><i aria-hidden="true" />{defaultLedgerAccount()?.name ?? "未设置账户"}</span>
               <button type="submit" disabled={busy}>{busy ? "保存中…" : "记入账本"}</button>
             </div>
             {ledgerError ? <p className="dash-ledger-error" role="alert">{ledgerError}</p> : null}
