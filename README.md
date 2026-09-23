@@ -19,7 +19,7 @@
   <a href="https://github.com/xiaolongoba-java/Grow-with-Time/issues">问题反馈</a>
 </p>
 
-> 当前源码版本：**v1.6.4**。核心数据保存在本机 SQLite 中，无需注册账号，也不依赖持续联网。
+> 当前源码版本：**v1.6.5**。核心数据保存在本机 SQLite 中，无需注册账号，也不依赖持续联网。
 
 ## 这是什么
 
@@ -169,7 +169,7 @@ JSON 备份格式当前为 **v8**，覆盖任务、标签、附件、习惯、�
 
 ## 下载与安装
 
-当前发布版本为 **v1.6.4**：
+当前发布版本为 **v1.6.5**：
 
 - [GitHub Releases（最新版）](https://github.com/xiaolongoba-java/Grow-with-Time/releases/latest)
 - [Gitee Releases（国内镜像）](https://gitee.com/xiaolong-oba/grow-with-time/releases)
