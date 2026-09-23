@@ -486,5 +486,7 @@ export interface BackupPayload {
   ledgerAccounts?: Record<string, unknown>[];
   ledgerTransactions?: Record<string, unknown>[];
   ledgerBudgets?: Record<string, unknown>[];
+  ledgerTags?: Record<string, unknown>[];
+  ledgerTransactionTags?: Record<string, unknown>[];
   settings: Record<string, string>;
 }

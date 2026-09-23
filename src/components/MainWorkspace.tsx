@@ -23,6 +23,9 @@ import {
 import { formatDueDate, formatTimeRange, priorityLabel, todayDateString, addDays, formatLongDate, weekDates, parseDate, startOfWeek, parseTimeToMinutes } from "@/lib/dates";
 import type { Task, TaskStatusFilter } from "@/types";
 import { ExpandableTaskItem } from "@/components/ExpandableTaskItem";
+import { PageCloseButton } from "@/components/PageCloseButton";
+import { TagFilterBar } from "@/components/TagFilterBar";
+import { TaskExportMenu } from "@/components/TaskExportMenu";
 import {
   buildTaskDeferredUpdate,
   findTimeConflictIds,
@@ -1568,6 +1571,7 @@ export function MainWorkspace() {
       <main className="main-workspace">
         <div className="workspace-top">
           <h2>{getViewTitle("reminders")}</h2>
+          <PageCloseButton />
         </div>
         <Suspense fallback={<div className="empty-state">正在打开提醒…</div>}>
           <RemindersView />
@@ -1629,6 +1633,7 @@ export function MainWorkspace() {
       <main className="main-workspace">
         <div className="workspace-top">
           <h2>{getViewTitle("trash")}</h2>
+          <PageCloseButton />
         </div>
         <TrashView />
       </main>
@@ -1669,8 +1674,11 @@ export function MainWorkspace() {
               ))}
             </div>
           ) : null}
+          <TaskExportMenu />
+          <PageCloseButton />
         </div>
       </div>
+      <TagFilterBar />
 
       {isInboxView || (isDateBoard && dateScope === "day") ? <DayBoard /> : null}
       {isDateBoard && dateScope === "week" ? <WeekBoard /> : null}

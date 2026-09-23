@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  createLedgerTag,
   createLedgerTransaction,
   fetchLedgerAccounts,
   fetchLedgerCategories,
   fetchLedgerCategorySummary,
+  fetchLedgerTags,
   fetchLedgerTransactions,
   fetchLedgerTrend,
   formatLedgerMoney,
@@ -20,8 +22,10 @@ import {
   type LedgerCategorySummary,
   type LedgerKind,
   type LedgerMonthSummary,
+  type LedgerTag,
   type LedgerTransaction,
 } from "@/lib/db";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import { useAppStore } from "@/store/app";
 import { bindVisibleDataRefresh, emitDataChanged } from "@/lib/widgetRefresh";
 import { subscribeLedgerEntryOpen } from "@/lib/ledgerQuickAdd";
@@ -57,7 +61,7 @@ function accountGlyph(kind: string) {
   return ({ cash: "现", card: "卡", credit: "信", alipay: "支", wechat: "微" } as Record<string, string>)[kind] ?? "账";
 }
 
-type DraftState = { kind: LedgerKind; amount: string; categoryId: number; accountId: number; date: string; note: string };
+type DraftState = { kind: LedgerKind; amount: string; categoryId: number; accountId: number; date: string; note: string; tagIds: number[] };
 
 export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) {
   const [month, setMonth] = useState(currentMonth);
@@ -72,7 +76,10 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
   const [editing, setEditing] = useState<LedgerTransaction | null>(null);
-  const [draft, setDraft] = useState<DraftState>({ kind: "expense", amount: "", categoryId: 1, accountId: 2, date: today(), note: "" });
+  const [draft, setDraft] = useState<DraftState>({ kind: "expense", amount: "", categoryId: 1, accountId: 2, date: today(), note: "", tagIds: [] });
+  const [ledgerTags, setLedgerTags] = useState<LedgerTag[]>([]);
+  const [tagFilter, setTagFilter] = useState<number | null>(null);
+  const [newTagName, setNewTagName] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{ text: string; undoId?: number; undoVersion?: number } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -88,14 +95,15 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
     const generation = ++loadGeneration.current;
     setLoading(true);
     try {
-      const [tx, cats, accts, parts, months, limit, hide, expenseCategory, incomeCategory, account] = await Promise.all([
+      const [tx, cats, accts, parts, months, limit, hide, expenseCategory, incomeCategory, account, tags] = await Promise.all([
         fetchLedgerTransactions(month), fetchLedgerCategories(undefined, true), fetchLedgerAccounts(true),
         fetchLedgerCategorySummary(month), fetchLedgerTrend(month), getLedgerBudget(month), getSetting("ledger_hide_amount"),
         getSetting("ledger_default_expense_category_id"), getSetting("ledger_default_income_category_id"),
-        getSetting("ledger_default_account_id"),
+        getSetting("ledger_default_account_id"), fetchLedgerTags(),
       ]);
       if (generation !== loadGeneration.current) return;
       setTransactions(tx); setCategories(cats); setAccounts(accts); setSummary(parts); setTrend(months); setBudget(limit); setHidden(hide === "true");
+      setLedgerTags(tags);
       setDefaultExpenseCategoryId(Number(expenseCategory) || 1);
       setDefaultIncomeCategoryId(Number(incomeCategory) || 11);
       setDefaultAccountId(Number(account) || 2);
@@ -145,10 +153,26 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
       ?? defaultAccountId;
     setDraft(item ? {
       kind, amount: (item.amount_cents / 100).toFixed(2), categoryId: item.category_id,
-      accountId: item.account_id, date: item.date, note: item.note,
-    } : { kind, amount: "", categoryId: firstCategory, accountId: preferredAccount, date: today(), note: "" });
+      accountId: item.account_id, date: item.date, note: item.note, tagIds: item.tags.map((tag) => tag.id),
+    } : { kind, amount: "", categoryId: firstCategory, accountId: preferredAccount, date: today(), note: "", tagIds: [] });
     setDrawer(true);
     window.setTimeout(() => amountRef.current?.focus(), 50);
+  }
+
+  async function addCustomTag() {
+    const name = newTagName.trim();
+    if (!name) return;
+    try {
+      const tag = await createLedgerTag(name);
+      setLedgerTags((current) => current.some((item) => item.id === tag.id) ? current : [...current, tag]);
+      setDraft((current) => ({
+        ...current,
+        tagIds: current.tagIds.includes(tag.id) ? current.tagIds : [...current.tagIds, tag.id],
+      }));
+      setNewTagName("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "添加标签失败");
+    }
   }
 
   function setKind(kind: LedgerKind) {
@@ -166,7 +190,7 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
     try {
       savingRef.current = true;
       setSaving(true);
-      const payload = { kind: draft.kind, amountCents: cents, categoryId: draft.categoryId, accountId: draft.accountId, occurredOn: draft.date, note: draft.note };
+      const payload = { kind: draft.kind, amountCents: cents, categoryId: draft.categoryId, accountId: draft.accountId, occurredOn: draft.date, note: draft.note, tagIds: draft.tagIds };
       if (editing) await updateLedgerTransaction(editing.id, editing.version, payload);
       else await createLedgerTransaction(payload);
       await setSetting("ledger_default_account_id", String(draft.accountId));
@@ -210,8 +234,11 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
 
   const maskAmounts = hidden || privacyMode;
   const budgetHeadline = budget ? (maskAmounts ? "••••" : `${Math.round(budgetRatio * 100)}%`) : "未设置";
+  const visibleTransactions = tagFilter == null
+    ? transactions
+    : transactions.filter((item) => item.tags.some((tag) => tag.id === tagFilter));
 
-  const grouped = transactions.reduce<Record<string, LedgerTransaction[]>>((map, item) => {
+  const grouped = visibleTransactions.reduce<Record<string, LedgerTransaction[]>>((map, item) => {
     (map[item.date] ??= []).push(item); return map;
   }, {});
 
@@ -223,6 +250,7 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
           <div className="ledger-month-switcher" aria-label="选择月份"><button onClick={() => setMonth(moveMonth(month, -1))} aria-label="上个月">‹</button><strong>{monthLabel(month)}</strong><button onClick={() => setMonth(moveMonth(month, 1))} aria-label="下个月">›</button></div>
           <button className="btn-ghost" onClick={() => void toggleHidden()}>{maskAmounts ? "显示金额" : "隐藏金额"}</button>
           <button className="btn-primary" onClick={() => openDrawer()}>＋ 记一笔</button>
+          <PageCloseButton />
         </div>
       </header>
 
@@ -242,8 +270,9 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
             <article className="ledger-card"><div className="ledger-card-title"><div><h3>六个月流向</h3><p>收入与支出的变化</p></div><div className="ledger-chart-key"><span>收入</span><span>支出</span></div></div><div className="ledger-bars">{trend.map((item) => <div className="ledger-bar-group" key={item.month}><div><i className="income" style={{ height: `${Math.max(3, item.income_cents / chartMax * 100)}%` }} /><i className="expense" style={{ height: `${Math.max(3, item.expense_cents / chartMax * 100)}%` }} /></div><small>{Number(item.month.slice(5))}月</small></div>)}{!trend.length && <p>还没有趋势数据。</p>}</div></article>
           </section>
 
-          <section className="ledger-card ledger-list-card"><div className="ledger-card-title"><div><h3>明细</h3><p>{monthLabel(month)} · {transactions.length} 笔</p></div></div>
-            {loading ? <div className="empty-state">正在汇总账目…</div> : !transactions.length ? <div className="ledger-empty"><span>水面还很安静</span><p>记下第一笔，慢慢看清生活的流向。</p><button className="btn-primary" onClick={() => openDrawer()}>记第一笔</button></div> : Object.entries(grouped).map(([date, items]) => <div className="ledger-day" key={date}><h4>{date}</h4>{items.map((item) => <div className="ledger-row" key={item.id}><span className="ledger-row-icon" style={{ background: `${item.category_color}20`, color: item.category_color }}>{ICONS[item.category_icon] ?? "·"}</span><div className="ledger-row-main"><strong>{item.category_name}</strong><small>{item.note || item.account_name}</small></div><span className="ledger-account">{item.account_name}</span><strong className={item.type}>{item.type === "expense" ? "−" : "+"}{formatLedgerMoney(item.amount_cents, maskAmounts)}</strong><div className="ledger-row-actions"><button onClick={() => openDrawer(item)}>编辑</button><button onClick={() => void remove(item)}>删除</button></div></div>)}</div>)}</section>
+          <section className="ledger-card ledger-list-card"><div className="ledger-card-title"><div><h3>明细</h3><p>{monthLabel(month)} · {visibleTransactions.length} 笔</p></div></div>
+            {ledgerTags.length || transactions.length ? <div className="tag-filter-bar" role="group" aria-label="按标签筛选账单"><span>标签</span><button type="button" className={tagFilter == null ? "is-active" : ""} onClick={() => setTagFilter(null)}>全部</button>{ledgerTags.map((tag) => <button key={tag.id} type="button" className={tagFilter === tag.id ? "is-active" : ""} style={{ ["--tag-color" as string]: tag.color }} onClick={() => setTagFilter(tag.id)}>{tag.name}</button>)}</div> : null}
+            {loading ? <div className="empty-state">正在汇总账目…</div> : !transactions.length ? <div className="ledger-empty"><span>水面还很安静</span><p>记下第一笔，慢慢看清生活的流向。</p><button className="btn-primary" onClick={() => openDrawer()}>记第一笔</button></div> : !visibleTransactions.length ? <div className="ledger-empty"><span>这个标签下还没有账单</span><p>换一个标签，或给记录加上自定义标签。</p></div> : Object.entries(grouped).map(([date, items]) => <div className="ledger-day" key={date}><h4>{date}</h4>{items.map((item) => <div className="ledger-row" key={item.id}><span className="ledger-row-icon" style={{ background: `${item.category_color}20`, color: item.category_color }}>{ICONS[item.category_icon] ?? "·"}</span><div className="ledger-row-main"><strong>{item.category_name}</strong><small>{item.note || item.account_name}{item.tags.length ? ` · ${item.tags.map((tag) => tag.name).join(" / ")}` : ""}</small></div><span className="ledger-account">{item.account_name}</span><strong className={item.type}>{item.type === "expense" ? "−" : "+"}{formatLedgerMoney(item.amount_cents, maskAmounts)}</strong><div className="ledger-row-actions"><button onClick={() => openDrawer(item)}>编辑</button><button onClick={() => void remove(item)}>删除</button></div></div>)}</div>)}</section>
         </>
       )}
 
@@ -324,6 +353,41 @@ export function LedgerView({ mode = "ledger" }: { mode?: "ledger" | "budget" }) 
                     {item.name}
                   </button>
                 ))}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>标签</legend>
+              <div className="ledger-choice-grid">
+                {ledgerTags.map((tag) => (
+                  <button
+                    type="button"
+                    key={tag.id}
+                    className={draft.tagIds.includes(tag.id) ? "active" : ""}
+                    onClick={() => setDraft((value) => ({
+                      ...value,
+                      tagIds: value.tagIds.includes(tag.id)
+                        ? value.tagIds.filter((id) => id !== tag.id)
+                        : [...value.tagIds, tag.id],
+                    }))}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+              <div className="ledger-new-tag">
+                <input
+                  value={newTagName}
+                  maxLength={16}
+                  placeholder="自定义标签"
+                  onChange={(event) => setNewTagName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void addCustomTag();
+                    }
+                  }}
+                />
+                <button type="button" className="btn-ghost" onClick={() => void addCustomTag()}>添加</button>
               </div>
             </fieldset>
             <div className="ledger-form-row">

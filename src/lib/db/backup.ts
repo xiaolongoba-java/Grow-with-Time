@@ -87,6 +87,10 @@ export async function exportBackup(): Promise<BackupPayload> {
   const ledgerAccounts = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_accounts");
   const ledgerTransactions = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_transactions");
   const ledgerBudgets = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_budgets");
+  const ledgerTags = await db.select<Record<string, unknown>[]>("SELECT * FROM ledger_tags");
+  const ledgerTransactionTags = await db.select<Record<string, unknown>[]>(
+    "SELECT * FROM ledger_transaction_tags",
+  );
   const settings = sanitizePortableSettings(await getAllSettings());
 
   return {
@@ -120,6 +124,8 @@ export async function exportBackup(): Promise<BackupPayload> {
     ledgerAccounts,
     ledgerTransactions,
     ledgerBudgets,
+    ledgerTags,
+    ledgerTransactionTags,
     settings,
   };
 }
@@ -139,6 +145,8 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
     };
     const restoreLedger = has("ledgerTransactions") && has("ledgerBudgets") && has("ledgerCategories") && has("ledgerAccounts");
     if (restoreLedger) {
+      await db.execute("DELETE FROM ledger_transaction_tags");
+      await db.execute("DELETE FROM ledger_tags");
       await db.execute("DELETE FROM ledger_transactions");
       await db.execute("DELETE FROM ledger_budgets");
       await db.execute("DELETE FROM ledger_categories");
@@ -193,6 +201,18 @@ export async function importBackup(raw: BackupPayload): Promise<void> {
   }
   for (const transaction of payload.ledgerTransactions ?? []) {
     await db.execute(`INSERT INTO ledger_transactions(id,type,amount_cents,date,category_id,account_id,note,is_deleted,version,created_at,updated_at,deleted_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [transaction.id,transaction.type,transaction.amount_cents,transaction.date,transaction.category_id,transaction.account_id,transaction.note,transaction.is_deleted,transaction.version,transaction.created_at,transaction.updated_at,transaction.deleted_at]);
+  }
+  for (const tag of payload.ledgerTags ?? []) {
+    await db.execute(
+      "INSERT INTO ledger_tags(id,name,color,created_at) VALUES($1,$2,$3,$4)",
+      [tag.id, tag.name, tag.color, tag.created_at],
+    );
+  }
+  for (const link of payload.ledgerTransactionTags ?? []) {
+    await db.execute(
+      "INSERT OR IGNORE INTO ledger_transaction_tags(transaction_id,tag_id) VALUES($1,$2)",
+      [link.transaction_id, link.tag_id],
+    );
   }
 
   for (const task of payload.tasks) {

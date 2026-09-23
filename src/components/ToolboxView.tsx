@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import { useAppStore } from "@/store/app";
 import {
   applyDesktopOrganize,
@@ -45,6 +46,7 @@ export function ToolboxView() {
             日进和拾光之外的桌面便利工具。整理文件、收纳桌面，不混进任务主线。
           </p>
         </div>
+        <PageCloseButton />
       </div>
       <div className="toolbox-stage">
         <div className="toolbox-stage-copy">
@@ -130,6 +132,7 @@ function WallpaperManager({ onBack }: { onBack: () => void }) {
         <button type="button" className="btn-primary" disabled={busy} onClick={() => void importImages()}>
           ＋ 添加壁纸
         </button>
+        <PageCloseButton />
       </div>
 
       {error ? <p className="toolbox-error">{error}</p> : null}
@@ -254,6 +257,7 @@ function DesktopOrganizer({ onBack }: { onBack: () => void }) {
             桌面共 {total} 项。整理只移动桌面顶层，放入「{scan?.rootFolder ?? "日进收纳"}」，不递归、不覆盖、可撤销。
           </p>
         </div>
+        <PageCloseButton />
         <div className="toolbox-toolbar">
           <button type="button" className="btn-ghost" disabled={busy} onClick={() => void refresh()}>
             刷新

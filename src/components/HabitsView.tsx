@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import { useAppStore } from "@/store/app";
 import { todayDateString } from "@/lib/dates";
 import { fetchGoals, updateHabitGoal } from "@/lib/db";
@@ -32,7 +33,10 @@ export function HabitsView() {
 
   return (
     <main className="main-workspace" style={{ padding: 22, overflow: "auto" }}>
-      <h2 style={{ fontFamily: "var(--font-display)" }}>习惯追踪</h2>
+      <div className="workspace-top" style={{ padding: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ fontFamily: "var(--font-display)", margin: 0 }}>习惯追踪</h2>
+        <PageCloseButton />
+      </div>
       <div style={{ display: "flex", gap: 8, margin: "12px 0" }}>
         <input
           className="field"

@@ -11,7 +11,7 @@ describe("database migration declarations", () => {
       Number(match[1]),
     );
     expect(new Set(versions).size).toBe(versions.length);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]);
     expect(source).toContain("schema_contract");
     expect(source).toContain("memo_archived");
     expect(source).toContain("ledger_transactions");
@@ -23,6 +23,8 @@ describe("database migration declarations", () => {
     expect(source).toContain("uq_app_notification_delivery");
     expect(source).toContain("karma_ledger");
     expect(source).toContain("anniversaries");
+    expect(source).toContain("ledger_tags");
+    expect(source).toContain("ledger_transaction_tags");
     const firstMigration = source.slice(
       source.indexOf('description: "create_tasks_and_settings"'),
       source.indexOf('description: "full_prd_schema"'),

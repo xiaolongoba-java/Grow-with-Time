@@ -171,3 +171,75 @@
   border-radius: 12px;
   background: var(--bg-root);
 }
+
+.page-close-btn {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: var(--surface, color-mix(in srgb, var(--bg-panel) 88%, var(--border)));
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.page-close-btn:hover { color: var(--text-primary); background: color-mix(in srgb, var(--accent) 12%, var(--bg-panel)); }
+
+.tag-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 28px 12px;
+}
+.ledger-view .tag-filter-bar { margin: 0 0 14px; }
+.tag-filter-bar > span { color: var(--text-muted); font-size: 12px; font-weight: 700; }
+.tag-filter-bar button {
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 11px;
+  color: var(--text-secondary);
+  background: var(--bg-panel);
+  cursor: pointer;
+}
+.tag-filter-bar button.is-active {
+  border-color: color-mix(in srgb, var(--tag-color, var(--accent)) 45%, var(--border));
+  color: var(--tag-color, var(--accent));
+  background: color-mix(in srgb, var(--tag-color, var(--accent)) 12%, var(--bg-panel));
+}
+.tag-filter-bar button.is-clear { color: var(--text-muted); }
+
+.task-export-menu { position: relative; }
+.task-export-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 8;
+  min-width: 196px;
+  display: grid;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: 0 12px 30px rgba(20, 32, 56, .12);
+}
+.task-export-pop button {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 10px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.task-export-pop button:hover { background: var(--bg-soft, var(--surface)); }
+.task-export-pop small { color: var(--text-muted); font-size: 11px; }
+
+.quick-add-shell { position: relative; }
+.quick-add-shell > .page-close-btn { position: absolute; top: 10px; right: 10px; }
+.inspiration-head-actions { display: flex; align-items: center; gap: 8px; }
+.command-search .page-close-btn { margin-left: 6px; }

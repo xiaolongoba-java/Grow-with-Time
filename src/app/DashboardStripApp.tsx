@@ -36,7 +36,7 @@ import {
 import { emitDataChanged, bindVisibleDataRefresh } from "@/lib/widgetRefresh";
 import { restoreWidgetPosition } from "@/lib/widgetWindow";
 import { formatCountdown, liveRemaining } from "@/lib/timers";
-import type { Anniversary, Habit, HabitCheck, Memo, Task, Timer } from "@/types";
+import type { Anniversary, Habit, HabitCheck, Inspiration, Memo, Task, Timer } from "@/types";
 
 const FALLBACK_QUOTES = [
   "日进一步，拾光成河。",
@@ -127,6 +127,8 @@ export function DashboardStripApp() {
   const [quote, setQuote] = useState(FALLBACK_QUOTES[0]);
   const [memoText, setMemoText] = useState("");
   const [momentText, setMomentText] = useState("");
+  const [moments, setMoments] = useState<Inspiration[]>([]);
+  const [momentOpen, setMomentOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedAnniversary, setSelectedAnniversary] = useState<Anniversary | null>(null);
   const [selectedTimer, setSelectedTimer] = useState<Timer | null>(null);
@@ -211,6 +213,7 @@ export function DashboardStripApp() {
     setChecks(nextChecks);
     setTimers(nextTimers);
     setAnniversaries(nextAnniversaries);
+    setMoments(inspirations.filter((item) => item.status !== "archived"));
     setPrivacyMode(isPrivacyModeEnabled(privacySetting));
     setLedgerTransactions(nextLedgerTransactions);
     setLedgerCategories(nextLedgerCategories);
@@ -268,13 +271,16 @@ export function DashboardStripApp() {
   }, [ledgerNotice]);
 
   useEffect(() => {
-    if (!ledgerOpen) return;
+    if (!ledgerOpen && !momentOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setLedgerOpen(false);
+      if (event.key === "Escape") {
+        setLedgerOpen(false);
+        setMomentOpen(false);
+      }
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [ledgerOpen]);
+  }, [ledgerOpen, momentOpen]);
 
   const today = todayDateString();
   const greeting = greetingForHour(new Date(nowMs).getHours());
@@ -924,11 +930,48 @@ export function DashboardStripApp() {
       </div>
 
       <footer className="dashboard-strip-quote">
-        <form onSubmit={(event) => { event.preventDefault(); void saveMoment(); }}><span>时光便签</span><input value={momentText} onChange={(event) => setMomentText(event.target.value)} placeholder="留住刚刚闪过的一念…" /><button type="submit" disabled={busy || !momentText.trim()}>收好</button></form>
+        <button type="button" className="dash-moment-trigger" onClick={() => setMomentOpen(true)}>
+          时光便签
+          <span>{moments[0]?.content.slice(0, 18) || "记下刚刚闪过的一念"}</span>
+        </button>
         <p data-tauri-drag-region>{quote}</p>
       </footer>
 
-      {ledgerOpen ? <button type="button" className="dash-ledger-scrim" aria-label="关闭快捷记账" onClick={() => setLedgerOpen(false)} /> : null}
+      {ledgerOpen || momentOpen ? <button type="button" className="dash-ledger-scrim" aria-label="关闭面板" onClick={() => { setLedgerOpen(false); setMomentOpen(false); }} /> : null}
+
+      {momentOpen ? (
+        <section className="dash-moment-drawer" role="dialog" aria-modal="true" aria-labelledby="dash-moment-title">
+          <header>
+            <div>
+              <strong id="dash-moment-title">时光便签</strong>
+              <small>从桌面随手收起一念</small>
+            </div>
+            <button type="button" onClick={() => setMomentOpen(false)} aria-label="关闭时光便签">×</button>
+          </header>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveMoment();
+            }}
+          >
+            <input
+              value={momentText}
+              onChange={(event) => setMomentText(event.target.value)}
+              placeholder="留住刚刚闪过的一念…"
+              autoFocus
+            />
+            <button type="submit" disabled={busy || !momentText.trim()}>收好</button>
+          </form>
+          <div className="dash-moment-list">
+            {moments.length ? moments.slice(0, 8).map((item) => (
+              <article key={item.id}>
+                <p>{item.content}</p>
+                <time>{new Date(item.created_at).toLocaleString()}</time>
+              </article>
+            )) : <p className="dash-empty">还没有便签，写下第一句。</p>}
+          </div>
+        </section>
+      ) : null}
 
       {ledgerOpen ? (
         <section

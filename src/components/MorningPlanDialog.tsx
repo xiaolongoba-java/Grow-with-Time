@@ -102,6 +102,7 @@ export function MorningPlanDialog() {
             <span>今日计划</span>
             <h3 id="morning-plan-title">把要做的事加入今日计划</h3>
           </div>
+          <button type="button" className="page-close-btn" aria-label="关闭" disabled={busy} onClick={() => run(true)}>×</button>
         </div>
         <p className="create-task-hint">
           可从已有任务、项目和周期任务里勾选，也可以自己写一项。加入今日不会改变原截止日期。

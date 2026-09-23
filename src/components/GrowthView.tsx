@@ -15,6 +15,7 @@ import {
   toggleAchievementPinned,
   updateGoal,
 } from "@/lib/db";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import { useAppStore } from "@/store/app";
 import { todayDateString } from "@/lib/dates";
 import {
@@ -260,6 +261,7 @@ export function GrowthView() {
         <button className="btn-primary" type="button" onClick={openCreateGoal}>
           + 创建目标
         </button>
+        <PageCloseButton />
       </header>
 
       <nav className="growth-tabs">

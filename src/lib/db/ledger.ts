@@ -23,6 +23,12 @@ export interface LedgerAccount {
   is_enabled: number;
 }
 
+export interface LedgerTag {
+  id: number;
+  name: string;
+  color: string;
+}
+
 export interface LedgerTransaction {
   id: number;
   type: LedgerKind;
@@ -40,6 +46,7 @@ export interface LedgerTransaction {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  tags: LedgerTag[];
 }
 
 export interface LedgerDraft {
@@ -49,6 +56,7 @@ export interface LedgerDraft {
   accountId: number;
   occurredOn: string;
   note?: string;
+  tagIds?: number[];
 }
 
 export interface LedgerMonthSummary {
@@ -122,10 +130,60 @@ export async function fetchLedgerAccounts(includeDisabled = false) {
   );
 }
 
+async function attachLedgerTags(rows: Omit<LedgerTransaction, "tags">[]): Promise<LedgerTransaction[]> {
+  if (!rows.length) return [];
+  const db = await getDb();
+  const links = await db.select<{ transaction_id: number; id: number; name: string; color: string }[]>(
+    `SELECT l.transaction_id, t.id, t.name, t.color
+     FROM ledger_transaction_tags l
+     JOIN ledger_tags t ON t.id = l.tag_id`,
+  );
+  const map = new Map<number, LedgerTag[]>();
+  for (const link of links) {
+    const list = map.get(link.transaction_id) ?? [];
+    list.push({ id: link.id, name: link.name, color: link.color });
+    map.set(link.transaction_id, list);
+  }
+  return rows.map((row) => ({ ...row, tags: map.get(row.id) ?? [] }));
+}
+
+export async function fetchLedgerTags() {
+  const db = await getDb();
+  return db.select<LedgerTag[]>("SELECT id, name, color FROM ledger_tags ORDER BY name, id");
+}
+
+export async function createLedgerTag(name: string, color = "#5B8FF9"): Promise<LedgerTag> {
+  const value = name.trim();
+  if (!value || value.length > 16) throw new Error("标签名称需为 1–16 个字");
+  const db = await getDb();
+  await db.execute(
+    "INSERT OR IGNORE INTO ledger_tags(name,color) VALUES($1,$2)",
+    [value, color],
+  );
+  const rows = await db.select<LedgerTag[]>(
+    "SELECT id, name, color FROM ledger_tags WHERE name=$1 LIMIT 1",
+    [value],
+  );
+  if (!rows[0]) throw new Error("创建标签失败");
+  return rows[0];
+}
+
+export async function setLedgerTransactionTags(transactionId: number, tagIds: number[]) {
+  const unique = [...new Set(tagIds.filter((id) => Number.isSafeInteger(id)))];
+  const db = await getDb();
+  await db.execute("DELETE FROM ledger_transaction_tags WHERE transaction_id=$1", [transactionId]);
+  for (const tagId of unique) {
+    await db.execute(
+      "INSERT OR IGNORE INTO ledger_transaction_tags(transaction_id,tag_id) VALUES($1,$2)",
+      [transactionId, tagId],
+    );
+  }
+}
+
 export async function fetchLedgerTransactions(month: string) {
   const [start, end] = monthRange(month);
   const db = await getDb();
-  return db.select<LedgerTransaction[]>(
+  const rows = await db.select<Omit<LedgerTransaction, "tags">[]>(
     `SELECT t.*, c.name category_name, c.icon category_icon, c.color category_color,
       a.name account_name, a.color account_color
      FROM ledger_transactions t
@@ -135,6 +193,7 @@ export async function fetchLedgerTransactions(month: string) {
      ORDER BY t.date DESC, t.created_at DESC`,
     [start, end],
   );
+  return attachLedgerTags(rows);
 }
 
 export async function fetchLedgerTrend(endMonth: string) {
@@ -184,6 +243,8 @@ export async function createLedgerTransaction(draft: LedgerDraft) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$7)`,
       [draft.kind, draft.amountCents, draft.categoryId, draft.accountId, draft.occurredOn, draft.note?.trim() ?? "", now],
     );
+    const id = Number(result.lastInsertId);
+    if (id && draft.tagIds?.length) await setLedgerTransactionTags(id, draft.tagIds);
     return result.lastInsertId;
   });
 }
@@ -211,6 +272,7 @@ export async function updateLedgerTransaction(id: number, version: number, draft
       [draft.kind, draft.amountCents, draft.categoryId, draft.accountId, draft.occurredOn, draft.note?.trim() ?? "", new Date().toISOString(), id, version],
     );
     if (!result.rowsAffected) throw new Error("这笔记录已在别处修改，请刷新后重试");
+    if (draft.tagIds) await setLedgerTransactionTags(id, draft.tagIds);
   });
 }
 

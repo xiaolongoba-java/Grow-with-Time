@@ -124,7 +124,7 @@ export function CommandPalette() {
               close();
             }}
           />
-          <kbd>Esc</kbd>
+          <button type="button" className="page-close-btn" aria-label="关闭" onClick={close}>×</button>
         </div>
 
         {!query.trim() ? (

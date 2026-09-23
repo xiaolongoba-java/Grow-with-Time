@@ -391,9 +391,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
   openCreateTask: () => set({ createTaskOpen: true, selectedTaskId: null }),
   closeCreateTask: () => set({ createTaskOpen: false }),
   setActiveTag: (activeTagId) => {
+    const current = get().filter.tagIds;
+    const tagIds = !activeTagId
+      ? []
+      : current.includes(activeTagId)
+        ? current.filter((id) => id !== activeTagId)
+        : [...current, activeTagId];
+    const taskViews: NavId[] = [
+      "today",
+      "myday",
+      "inbox",
+      "completed",
+      "all",
+      "board",
+      "calendar",
+      "week",
+      "tags",
+    ];
+    const nextNav = taskViews.includes(get().nav) ? get().nav : "all";
     const guard = get().navigationGuard;
-    if (get().nav !== "tags" && guard && !guard()) return;
-    set({ activeTagId, nav: "tags" });
+    if (nextNav !== get().nav && guard && !guard()) return;
+    set({
+      activeTagId: tagIds[tagIds.length - 1] ?? null,
+      filter: { ...get().filter, tagIds },
+      nav: nextNav,
+    });
   },
   setFilter: (patch) => set({ filter: { ...get().filter, ...patch } }),
   setToast: (toast) =>

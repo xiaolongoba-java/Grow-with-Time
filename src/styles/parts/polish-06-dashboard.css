@@ -872,11 +872,72 @@ html[data-platform="windows"] .dashboard-strip {
   padding: 2px 16px 10px;
   color: rgba(232, 240, 252, 0.78);
 }
-.dashboard-strip-quote form { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.dashboard-strip-quote form > span { flex: 0 0 auto; color: rgba(255,214,170,.92); font-size: 10px; font-weight: 750; letter-spacing: .06em; }
-.dashboard-strip-quote input { min-width: 0; flex: 1; height: 27px; padding: 0 9px; border: 1px solid rgba(255,255,255,.11); border-radius: 8px; outline: 0; color: #fff; background: rgba(0,0,0,.16); font-size: 11px; }
-.dashboard-strip-quote input::placeholder { color: rgba(232,240,252,.42); }
-.dashboard-strip-quote form button { height: 27px; padding: 0 10px; border: 0; border-radius: 8px; color: #fff; background: rgba(255,255,255,.14); font-size: 10px; cursor: pointer; }
+.dash-moment-trigger {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: rgba(255,214,170,.92);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+.dash-moment-trigger span {
+  overflow: hidden;
+  color: rgba(232,240,252,.78);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-moment-drawer {
+  position: absolute;
+  z-index: 30;
+  right: 12px;
+  bottom: 12px;
+  width: min(360px, calc(100vw - 24px));
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 18px 18px 8px 18px;
+  color: #f7f9fc;
+  background: linear-gradient(160deg, rgba(var(--widget-rgb),.96), rgba(16,22,32,.96));
+  box-shadow: 0 18px 48px rgba(0,0,0,.32);
+}
+.dash-moment-drawer header { display: flex; justify-content: space-between; align-items: flex-start; }
+.dash-moment-drawer header strong { display: block; }
+.dash-moment-drawer header small { color: rgba(232,240,252,.62); }
+.dash-moment-drawer header button,
+.dash-moment-drawer form button {
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: rgba(255,255,255,.14);
+  cursor: pointer;
+}
+.dash-moment-drawer header button { width: 28px; height: 28px; }
+.dash-moment-drawer form { display: flex; gap: 8px; }
+.dash-moment-drawer input {
+  flex: 1;
+  height: 32px;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,.18);
+  border-radius: 0;
+  outline: 0;
+  color: #fff;
+  background: transparent;
+}
+.dash-moment-drawer form button { height: 32px; padding: 0 12px; }
+.dash-moment-list { display: grid; gap: 10px; max-height: 220px; overflow: auto; }
+.dash-moment-list article { padding: 0 0 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.dash-moment-list p { margin: 0 0 4px; font-size: 12px; line-height: 1.55; }
+.dash-moment-list time { color: rgba(232,240,252,.5); font-size: 10px; }
 .dashboard-strip-quote > p { margin: 0; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 
 .dash-detail-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(5,10,18,.52); backdrop-filter: blur(8px); }
@@ -1493,7 +1554,8 @@ html[data-platform="windows"] .dashboard-strip {
 .dashboard-strip.is-light .dash-anniversaries li strong,
 .dashboard-strip.is-light .dash-anniversaries li.is-today strong,
 .dashboard-strip.is-light .dash-cal-day.has-anni,
-.dashboard-strip.is-light .dashboard-strip-quote form > span {
+.dashboard-strip.is-light .dashboard-strip-quote form > span,
+.dashboard-strip.is-light .dash-moment-trigger {
   color: #98611e;
 }
 
@@ -1603,6 +1665,9 @@ html[data-platform="windows"] .dashboard-strip {
   color: rgba(31, 49, 72, 0.78);
 }
 
+.dashboard-strip.is-light .dash-moment-trigger span {
+  color: rgba(35, 53, 76, 0.72);
+}
 .dashboard-strip.is-light .dashboard-strip-quote {
   color: rgba(35, 53, 76, 0.72);
   border-top-color: rgba(54, 75, 100, 0.12);

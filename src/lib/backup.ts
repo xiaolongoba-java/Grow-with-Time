@@ -31,6 +31,20 @@ const PORTABLE_SETTING_KEYS = new Set([
   "hotkey.inspiration.accelerator",
   "hotkey.ledger.quick_add.enabled",
   "hotkey.ledger.quick_add.accelerator",
+  "hotkey.command_palette.enabled",
+  "hotkey.command_palette.accelerator",
+  "hotkey.countdown.enabled",
+  "hotkey.countdown.accelerator",
+  "hotkey.countdown_toggle.enabled",
+  "hotkey.countdown_toggle.accelerator",
+  "hotkey.new_task.enabled",
+  "hotkey.new_task.accelerator",
+  "hotkey.open_today.enabled",
+  "hotkey.open_today.accelerator",
+  "hotkey.open_ledger.enabled",
+  "hotkey.open_ledger.accelerator",
+  "hotkey.toggle_privacy.enabled",
+  "hotkey.toggle_privacy.accelerator",
 ]);
 
 export function sanitizePortableSettings(

@@ -15,6 +15,7 @@ import {
   solarToLunarParts,
   sortAnniversaries,
 } from "@/lib/anniversaries";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import { todayDateString } from "@/lib/dates";
 import { emitDataChanged } from "@/lib/widgetRefresh";
 import type { Anniversary } from "@/types";
@@ -124,6 +125,7 @@ export function AnniversariesView() {
       <header className="moments-hero anni-display-head">
         <div><span>ANNIVERSARIES</span><h2>纪念日</h2><p>重要的日子都在这里，离现在最近的会先被看见。</p></div>
         <button type="button" className="btn-primary" onClick={() => setComposerOpen(true)}>新增纪念日</button>
+        <PageCloseButton />
       </header>
 
       {composerOpen ? <div className="modal-backdrop" onMouseDown={() => !busy && setComposerOpen(false)}><section className="anni-composer anni-composer-dialog" role="dialog" aria-modal="true" aria-labelledby="anni-compose-title" onMouseDown={(event) => event.stopPropagation()}><header><div><span>收藏一个日子</span><h2 id="anni-compose-title">新增纪念日</h2></div><button type="button" aria-label="关闭" onClick={() => setComposerOpen(false)}>×</button></header>

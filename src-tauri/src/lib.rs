@@ -985,6 +985,38 @@ INSERT OR REPLACE INTO settings(key,value) VALUES('schema_contract','24');
 "#,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 25,
+            description: "ledger_tags_and_more_hotkeys",
+            sql: r#"
+CREATE TABLE IF NOT EXISTS ledger_tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE CHECK (length(name) BETWEEN 1 AND 16),
+  color TEXT NOT NULL DEFAULT '#5B8FF9',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE TABLE IF NOT EXISTS ledger_transaction_tags (
+  transaction_id INTEGER NOT NULL REFERENCES ledger_transactions(id) ON DELETE CASCADE,
+  tag_id INTEGER NOT NULL REFERENCES ledger_tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (transaction_id, tag_id)
+);
+INSERT OR IGNORE INTO settings(key,value) VALUES
+('hotkey.countdown.enabled','true'),
+('hotkey.countdown.accelerator','CommandOrControl+Shift+T'),
+('hotkey.countdown_toggle.enabled','true'),
+('hotkey.countdown_toggle.accelerator','CommandOrControl+Shift+P'),
+('hotkey.new_task.enabled','true'),
+('hotkey.new_task.accelerator','CommandOrControl+N'),
+('hotkey.open_today.enabled','true'),
+('hotkey.open_today.accelerator','CommandOrControl+1'),
+('hotkey.open_ledger.enabled','true'),
+('hotkey.open_ledger.accelerator','CommandOrControl+2'),
+('hotkey.toggle_privacy.enabled','true'),
+('hotkey.toggle_privacy.accelerator','CommandOrControl+Shift+H');
+INSERT OR REPLACE INTO settings(key,value) VALUES('schema_contract','25');
+"#,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

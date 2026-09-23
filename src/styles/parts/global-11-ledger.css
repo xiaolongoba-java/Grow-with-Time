@@ -409,6 +409,16 @@ body:has(.ledger-overlay) .nav-edge-expand {
   color: var(--text-primary);
 }
 .ledger-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ledger-new-tag { display: flex; gap: 8px; margin-top: 10px; }
+.ledger-new-tag input {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 10px;
+  color: inherit;
+  background: var(--bg-soft, var(--bg-root));
+}
 .ledger-error { color: var(--ledger-expense) !important; margin: -5px 0 12px !important; }
 .ledger-drawer footer {
   display: flex;

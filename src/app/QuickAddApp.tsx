@@ -39,21 +39,26 @@ export function QuickAddApp() {
     };
   }, []);
 
+  const hide = () => void getCurrentWebviewWindow().hide();
+
   return (
     <div className="quick-add-shell" style={{ height: "100%", display: "flex", alignItems: "center", padding: 16, background: "var(--bg-root)" }}>
+      <button type="button" className="page-close-btn" aria-label="关闭" onClick={hide}>
+        {"\u00d7"}
+      </button>
       <form
         className="quick-add-form"
         style={{ width: "100%", display: "flex", gap: 8 }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          const input = (e.target as HTMLFormElement).elements.namedItem(
+        onSubmit={(event) => {
+          event.preventDefault();
+          const input = (event.target as HTMLFormElement).elements.namedItem(
             "title",
           ) as HTMLInputElement;
           const parsed = parseNaturalInput(input.value);
           if (!parsed.title) return;
           void addTask({ title: parsed.title, ...parsed.draft }).then(() => {
             input.value = "";
-            void getCurrentWebviewWindow().hide();
+            hide();
           });
         }}
       >

@@ -26,17 +26,31 @@ describe("hotkey registry", () => {
     const defaults = HOTKEY_ACTIONS.map((action) => action.defaultAccelerator);
     expect(new Set(defaults).size).toBe(defaults.length);
     expect(HOTKEY_ACTIONS.map((action) => action.id).sort()).toEqual(
-      ["command_palette", "inspiration", "ledger_quick_add", "quick_add"].sort(),
+      [
+        "command_palette",
+        "countdown",
+        "countdown_toggle",
+        "inspiration",
+        "ledger_quick_add",
+        "new_task",
+        "open_ledger",
+        "open_today",
+        "quick_add",
+        "toggle_privacy",
+      ].sort(),
     );
   });
 
   it("detects conflicts only among enabled actions", () => {
-    const drafts = {
-      quick_add: { enabled: true, accelerator: "CommandOrControl+Shift+N" },
-      inspiration: { enabled: true, accelerator: "CommandOrControl+Shift+N" },
-      ledger_quick_add: { enabled: false, accelerator: "CommandOrControl+Shift+N" },
-      command_palette: { enabled: true, accelerator: "CommandOrControl+K" },
-    } satisfies Record<string, HotkeyDraft>;
+    const drafts = Object.fromEntries(
+      HOTKEY_ACTIONS.map((action) => [
+        action.id,
+        { enabled: action.id !== "ledger_quick_add", accelerator: action.defaultAccelerator },
+      ]),
+    ) as Record<string, HotkeyDraft>;
+    drafts.quick_add.accelerator = "CommandOrControl+Shift+N";
+    drafts.inspiration.accelerator = "CommandOrControl+Shift+N";
+    drafts.ledger_quick_add.accelerator = "CommandOrControl+Shift+N";
     expect(findHotkeyConflict("quick_add", drafts)?.id).toBe("inspiration");
     expect(findHotkeyConflict("ledger_quick_add", drafts)).toBeNull();
   });

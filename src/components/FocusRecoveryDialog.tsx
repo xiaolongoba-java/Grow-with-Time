@@ -60,6 +60,7 @@ export function FocusRecoveryDialog() {
             <span>未结束的专注</span>
             <h3 id="focus-recovery-title">上次专注在退出前没有结束</h3>
           </div>
+          <button type="button" className="page-close-btn" aria-label="关闭" disabled={busy} onClick={() => run("abandon")}>×</button>
         </div>
         <p className="create-task-hint">
           {pending.canContinue

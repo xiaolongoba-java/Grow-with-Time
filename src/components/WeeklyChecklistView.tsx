@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from "react";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import { useAppStore } from "@/store/app";
 import { todayDateString } from "@/lib/dates";
 import {
@@ -57,6 +58,7 @@ export function WeeklyChecklistView() {
           </p>
         </div>
         <div className="weekly-checklist-nav">
+          <PageCloseButton />
           <button
             type="button"
             className="btn-ghost"

@@ -275,6 +275,106 @@
   color: var(--text-secondary);
 }
 
+:root[data-theme="glass"] .main-workspace.moments-page.ideas-page {
+  --spark: #ffc48a;
+  --spark-line: rgba(255, 196, 138, 0.55);
+  --bg-main: #121826;
+  --text-primary: #f7f9fd;
+  --text-secondary: #e6ecf6;
+  --text-muted: #c8d2e2;
+  color: #f7f9fd;
+  background-color: #121826;
+  background-image: linear-gradient(180deg, rgba(255, 196, 138, 0.1), transparent 240px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-theme="glass"] .ideas-atlas-head h2,
+:root[data-theme="glass"] .ideas-empty strong,
+:root[data-theme="glass"] .ideas-slip-idle strong,
+:root[data-theme="glass"] .ideas-slip > p,
+:root[data-theme="glass"] .ideas-spark p {
+  color: #f7f9fd;
+  text-shadow: none;
+}
+
+:root[data-theme="glass"] .ideas-atlas-head > p,
+:root[data-theme="glass"] .ideas-atlas-counts small,
+:root[data-theme="glass"] .ideas-day h3,
+:root[data-theme="glass"] .ideas-spark time,
+:root[data-theme="glass"] .ideas-spark span,
+:root[data-theme="glass"] .ideas-tabs button,
+:root[data-theme="glass"] .ideas-tabs em,
+:root[data-theme="glass"] .ideas-capture-actions span,
+:root[data-theme="glass"] .ideas-slip header time,
+:root[data-theme="glass"] .ideas-slip footer span,
+:root[data-theme="glass"] .ideas-slip-idle,
+:root[data-theme="glass"] .ideas-slip-idle p,
+:root[data-theme="glass"] .ideas-empty p {
+  color: #dce4f0;
+  text-shadow: none;
+}
+
+:root[data-theme="glass"] .ideas-atlas-counts b,
+:root[data-theme="glass"] .ideas-atlas-head > div span,
+:root[data-theme="glass"] .ideas-slip header span,
+:root[data-theme="glass"] .ideas-slip-tags em {
+  color: #ffc48a;
+  text-shadow: none;
+}
+
+:root[data-theme="glass"] .ideas-tabs button.is-active {
+  color: #fff;
+}
+
+:root[data-theme="glass"] .ideas-spark:hover p,
+:root[data-theme="glass"] .ideas-spark.is-active p {
+  color: #ffe4c4;
+}
+
+:root[data-theme="glass"] .ideas-spark.is-processed p {
+  color: #d5deeb;
+}
+
+:root[data-theme="glass"] .ideas-spark time::before {
+  background: #1a2436;
+  box-shadow: 0 0 0 2px rgba(255, 196, 138, 0.55);
+}
+
+:root[data-theme="glass"] .ideas-spark.is-active time::before {
+  background: #ffc48a;
+  box-shadow: 0 0 0 4px rgba(255, 196, 138, 0.22);
+}
+
+:root[data-theme="glass"] .ideas-capture {
+  border-bottom-color: rgba(255, 255, 255, 0.16);
+}
+
+:root[data-theme="glass"] .ideas-capture-idle,
+:root[data-theme="glass"] .ideas-capture textarea {
+  color: #f7f9fd;
+  background: transparent;
+}
+
+:root[data-theme="glass"] .ideas-capture-idle,
+:root[data-theme="glass"] .ideas-capture textarea::placeholder {
+  color: #c5cfe0;
+}
+
+:root[data-theme="glass"] .ideas-tabs {
+  border-bottom-color: rgba(255, 255, 255, 0.16);
+}
+
+:root[data-theme="glass"] .ideas-slip {
+  border-left-color: rgba(255, 196, 138, 0.42);
+}
+
+:root[data-theme="glass"] .ideas-page .btn-ghost {
+  color: #e8eef8;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .theme-preview-glass .theme-preview-canvas {
   background:
     radial-gradient(circle at 70% 80%, rgba(126, 176, 255, 0.28), transparent 42%),

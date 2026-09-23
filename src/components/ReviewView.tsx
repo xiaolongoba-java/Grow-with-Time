@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import { useAppStore } from "@/store/app";
 import { fetchDailyReflections, fetchDaySnapshots, fetchGoalEntries, fetchGoals } from "@/lib/db";
 import type { DailyReflection, DaySnapshot, Goal, GoalEntry } from "@/types";
@@ -107,6 +108,7 @@ export function ReviewView() {
           <p>不只看完成了多少，也看看精力落在哪里、哪些片段值得留下。</p>
         </div>
         <div className="review-hero-total"><strong>{weekCompleted}</strong><span>件事情完成</span></div>
+        <PageCloseButton />
       </header>
 
       <section className="review-metrics" aria-label="本周摘要">

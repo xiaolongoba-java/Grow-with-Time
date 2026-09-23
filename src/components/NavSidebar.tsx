@@ -28,6 +28,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
   const removeTag = useAppStore((s) => s.removeTag);
   const setActiveTag = useAppStore((s) => s.setActiveTag);
   const activeTagId = useAppStore((s) => s.activeTagId);
+  const filterTagIds = useAppStore((s) => s.filter.tagIds);
   const saveSmartList = useAppStore((s) => s.saveSmartList);
   const applySmartList = useAppStore((s) => s.applySmartList);
   const removeSmartList = useAppStore((s) => s.removeSmartList);
@@ -239,7 +240,7 @@ export function NavSidebar({ onCollapse }: NavSidebarProps) {
         <button
           key={tag.id}
           type="button"
-          className={`nav-item ${activeTagId === tag.id ? "active" : ""}`}
+          className={`nav-item ${filterTagIds.includes(tag.id) || activeTagId === tag.id ? "active" : ""}`}
           onClick={() => setActiveTag(tag.id)}
           onContextMenu={(e) => {
             e.preventDefault();

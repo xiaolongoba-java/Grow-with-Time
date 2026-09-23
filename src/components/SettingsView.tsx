@@ -1,4 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import { useAppStore } from "@/store/app";
 import {
   exportBackup,
@@ -147,6 +148,19 @@ export function SettingsView() {
         useAppStore.getState().setNav("ledger");
         requestLedgerEntryOpen();
         void invoke("open_main_window", { nav: "ledger" });
+      }
+      if (id === "countdown") {
+        const store = useAppStore.getState();
+        store.setNav("reminders");
+        void invoke("open_main_window", { nav: "reminders" });
+        if (!store.timers.some((timer) => timer.running && timer.kind === "task")) {
+          void store.addTimer({
+            kind: "task",
+            title: "快捷倒计时",
+            interval_sec: 25 * 60,
+            start: true,
+          });
+        }
       }
     };
     let registeredNew = false;
@@ -330,9 +344,10 @@ export function SettingsView() {
 
   return (
     <main className="main-workspace" style={{ padding: 22, overflow: "auto" }}>
-      <h2 className="workspace-top" style={{ padding: 0 }}>
-        设置
-      </h2>
+      <div className="workspace-top" style={{ padding: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ margin: 0 }}>设置</h2>
+        <PageCloseButton />
+      </div>
 
       <section className="settings-card" style={{ marginTop: 16 }}>
         <div className="theme-section-heading">

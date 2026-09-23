@@ -42,7 +42,10 @@ import {
   HOTKEYS_CHANGED_EVENT,
   hotkeyRegistrationErrorKey,
   isHotkeyEnabled,
+  matchesAccelerator,
   resolveAccelerator,
+  type HotkeyActionId,
+  type HotkeyDraft,
 } from "@/lib/hotkeys";
 import { requestLedgerEntryOpen } from "@/lib/ledgerQuickAdd";
 import {
@@ -99,6 +102,14 @@ export function MainApp() {
   const refreshTimers = useAppStore((s) => s.refreshTimers);
   const focusRunning = useAppStore((s) => s.focusRunning);
   const tickFocus = useAppStore((s) => s.tickFocus);
+  const [appHotkeys, setAppHotkeys] = useState<Record<HotkeyActionId, HotkeyDraft>>(() =>
+    Object.fromEntries(
+      HOTKEY_ACTIONS.map((action) => [
+        action.id,
+        { enabled: true, accelerator: action.defaultAccelerator },
+      ]),
+    ) as Record<HotkeyActionId, HotkeyDraft>,
+  );
 
   const overdueSignature = useMemo(
     () =>
@@ -313,6 +324,20 @@ export function MainApp() {
 
   useEffect(() => {
     const registered = new Map<string, string>();
+    const startOrFocusCountdown = () => {
+      const store = useAppStore.getState();
+      store.setNav("reminders");
+      void invoke("open_main_window", { nav: "reminders" }).catch(() => undefined);
+      const running = store.timers.find((timer) => timer.running && timer.kind === "task");
+      if (!running) {
+        void store.addTimer({
+          kind: "task",
+          title: "快捷倒计时",
+          interval_sec: 25 * 60,
+          start: true,
+        });
+      }
+    };
     const handlers: Record<string, () => void> = {
       quick_add: () => {
         void invoke("show_quick_add");
@@ -325,6 +350,7 @@ export function MainApp() {
         requestLedgerEntryOpen();
         void invoke("open_main_window", { nav: "ledger" }).catch(() => undefined);
       },
+      countdown: startOrFocusCountdown,
     };
     const sync = async () => {
       for (const action of HOTKEY_ACTIONS.filter((item) => item.scope === "global")) {
@@ -360,6 +386,36 @@ export function MainApp() {
     window.addEventListener(HOTKEYS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(HOTKEYS_CHANGED_EVENT, onChanged);
   }, [setNav]);
+
+  useEffect(() => {
+    const loadAppHotkeys = async () => {
+      const entries = await Promise.all(
+        HOTKEY_ACTIONS.filter((item) => item.scope === "app").map(async (action) => {
+          const [enabled, accelerator] = await Promise.all([
+            getSetting(action.enabledKey),
+            getSetting(action.acceleratorKey),
+          ]);
+          return [
+            action.id,
+            {
+              enabled: isHotkeyEnabled(enabled),
+              accelerator: resolveAccelerator(action, accelerator),
+            },
+          ] as const;
+        }),
+      );
+      setAppHotkeys((current) => ({
+        ...current,
+        ...Object.fromEntries(entries),
+      }));
+    };
+    void loadAppHotkeys();
+    const onChanged = () => {
+      void loadAppHotkeys();
+    };
+    window.addEventListener(HOTKEYS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(HOTKEYS_CHANGED_EVENT, onChanged);
+  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -428,6 +484,33 @@ export function MainApp() {
         selectTask(null);
         return;
       }
+      if (!typing) {
+        const store = useAppStore.getState();
+        for (const action of HOTKEY_ACTIONS.filter((item) => item.scope === "app" && item.id !== "command_palette")) {
+          const draft = appHotkeys[action.id];
+          if (!draft?.enabled || !matchesAccelerator(e, draft.accelerator)) continue;
+          e.preventDefault();
+          if (action.id === "countdown_toggle") {
+            const running = store.timers.find((timer) => timer.running);
+            if (running) void store.pauseTimer(running.id);
+            else {
+              const paused = [...store.timers]
+                .filter((timer) => timer.kind === "task")
+                .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
+              if (paused) void store.startTimer(paused.id);
+              else store.setNav("reminders");
+            }
+          }
+          if (action.id === "new_task") store.openCreateTask();
+          if (action.id === "open_today") store.setNav("today");
+          if (action.id === "open_ledger") store.setNav("ledger");
+          if (action.id === "toggle_privacy") {
+            void store.updateSettings({ privacyMode: !store.settings.privacyMode });
+          }
+          return;
+        }
+      }
+
       if (typing) return;
 
       const visible = filterTasksByView(tasks, nav, tagMap, activeTagId, filter);
@@ -461,6 +544,7 @@ export function MainApp() {
     selectedTaskId,
     selectTask,
     deleteTask,
+    appHotkeys,
   ]);
 
   useEffect(() => {

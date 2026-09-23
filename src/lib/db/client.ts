@@ -66,6 +66,25 @@ export async function getDb(): Promise<Database> {
         /* already exists */
       }
       try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS ledger_tags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          color TEXT NOT NULL DEFAULT '#5B8FF9',
+          created_at TEXT NOT NULL DEFAULT ''
+        )`);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS ledger_transaction_tags (
+          transaction_id INTEGER NOT NULL,
+          tag_id INTEGER NOT NULL,
+          PRIMARY KEY (transaction_id, tag_id)
+        )`);
+      } catch {
+        /* ignore */
+      }
+      try {
         await db.execute(`CREATE TABLE IF NOT EXISTS timers (
           id TEXT PRIMARY KEY,
           kind TEXT NOT NULL,

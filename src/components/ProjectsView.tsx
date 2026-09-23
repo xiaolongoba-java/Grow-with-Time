@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/store/app";
 import { AppIcon } from "@/components/AppIcon";
+import { PageCloseButton } from "@/components/PageCloseButton";
 import type { Milestone, Project } from "@/types";
 import { projectTasks as selectProjectTasks } from "@/lib/tasks";
 import {
@@ -137,6 +138,7 @@ export function ProjectsView() {
           <h2>项目与模板</h2>
           <p className="workspace-subtitle">组织长期事项，复用常见任务结构</p>
         </div>
+        <PageCloseButton />
       </div>
 
       <div className="projects-scroll">

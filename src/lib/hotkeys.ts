@@ -4,7 +4,13 @@ export type HotkeyActionId =
   | "quick_add"
   | "inspiration"
   | "ledger_quick_add"
-  | "command_palette";
+  | "command_palette"
+  | "countdown"
+  | "countdown_toggle"
+  | "new_task"
+  | "open_today"
+  | "open_ledger"
+  | "toggle_privacy";
 
 export type HotkeyAction = {
   id: HotkeyActionId;
@@ -58,6 +64,60 @@ export const HOTKEY_ACTIONS: readonly HotkeyAction[] = [
     enabledKey: "hotkey.command_palette.enabled",
     acceleratorKey: "hotkey.command_palette.accelerator",
     defaultAccelerator: "CommandOrControl+K",
+  },
+  {
+    id: "countdown",
+    label: "开始倒计时",
+    hint: "打开提醒页并启动 25 分钟倒计时；已有运行中的倒计时则只聚焦",
+    scope: "global",
+    enabledKey: "hotkey.countdown.enabled",
+    acceleratorKey: "hotkey.countdown.accelerator",
+    defaultAccelerator: "CommandOrControl+Shift+T",
+  },
+  {
+    id: "countdown_toggle",
+    label: "暂停/继续倒计时",
+    hint: "暂停或继续当前倒计时",
+    scope: "app",
+    enabledKey: "hotkey.countdown_toggle.enabled",
+    acceleratorKey: "hotkey.countdown_toggle.accelerator",
+    defaultAccelerator: "CommandOrControl+Shift+P",
+  },
+  {
+    id: "new_task",
+    label: "新建任务",
+    hint: "打开主窗口新建任务对话框",
+    scope: "app",
+    enabledKey: "hotkey.new_task.enabled",
+    acceleratorKey: "hotkey.new_task.accelerator",
+    defaultAccelerator: "CommandOrControl+N",
+  },
+  {
+    id: "open_today",
+    label: "回到今日",
+    hint: "跳转到今日计划",
+    scope: "app",
+    enabledKey: "hotkey.open_today.enabled",
+    acceleratorKey: "hotkey.open_today.accelerator",
+    defaultAccelerator: "CommandOrControl+1",
+  },
+  {
+    id: "open_ledger",
+    label: "打开账本",
+    hint: "跳转到观流账本",
+    scope: "app",
+    enabledKey: "hotkey.open_ledger.enabled",
+    acceleratorKey: "hotkey.open_ledger.accelerator",
+    defaultAccelerator: "CommandOrControl+2",
+  },
+  {
+    id: "toggle_privacy",
+    label: "切换无痕模式",
+    hint: "立刻开启或关闭无痕模式",
+    scope: "app",
+    enabledKey: "hotkey.toggle_privacy.enabled",
+    acceleratorKey: "hotkey.toggle_privacy.accelerator",
+    defaultAccelerator: "CommandOrControl+Shift+H",
   },
 ];
 
